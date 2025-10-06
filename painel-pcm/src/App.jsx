@@ -32,7 +32,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   
-  // Estados para cada filtro
   const [filters, setFilters] = useState({
     data: '',
     gerencia: '',
@@ -42,11 +41,10 @@ function App() {
     tipo: ''
   });
 
-  // Efeito para buscar dados e configurar timers
   useEffect(() => {
     async function fetchData() {
       try {
-        const url = `/data.json?v=${new Date().getTime()}`;
+        const url = `data.json?v=${new Date().getTime()}`;
         const response = await fetch(url);
         const jsonData = await response.json();
         setRawData(jsonData);
@@ -57,15 +55,14 @@ function App() {
       }
     }
     fetchData();
-    const timerId = setInterval(() => setNow(new Date()), 1000); // Atualiza o timer a cada segundo
-    const dataFetchId = setInterval(fetchData, 60000); // Busca novos dados a cada minuto
+    const timerId = setInterval(() => setNow(new Date()), 1000);
+    const dataFetchId = setInterval(fetchData, 60000);
     return () => {
       clearInterval(timerId);
       clearInterval(dataFetchId);
     };
   }, []);
 
-  // Função para lidar com a mudança em qualquer filtro
   const handleFilterChange = (filterName, value) => {
     setFilters(prevFilters => ({
       ...prevFilters,
@@ -73,11 +70,10 @@ function App() {
     }));
   };
 
-  // Lógica de filtragem otimizada que só re-calcula quando os dados ou filtros mudam
   const filteredData = useMemo(() => {
     return rawData.filter(row => {
       if (filters.data && row['DATA']) {
-        const rowDate = new Date(row['DATA']).toISOString().split('T')[0];
+        const rowDate = new Date(row['DATA'] + 'T00:00:00').toISOString().split('T')[0];
         if (rowDate !== filters.data) return false;
       }
       if (filters.gerencia && !String(row['Gerência da Via'] || '').toLowerCase().includes(filters.gerencia.toLowerCase())) return false;
@@ -89,12 +85,11 @@ function App() {
     });
   }, [rawData, filters]);
 
-  // Renderização da Interface
   return (
     <>
       <header>
         <h1>PAINEL PCM</h1>
-        <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
+        <img src="rumo-logo.svg" alt="Rumo Logo" className="logo" />
       </header>
       <main>
         <section className="filters">
@@ -121,18 +116,45 @@ function App() {
                   <th className="col-detalhamento">Detalhamento</th>
                 </tr>
               </thead>
+              {/* --- INÍCIO DAS MUDANÇAS --- */}
               <tbody>
                 {filteredData.map((row, index) => (
                   <tr key={index}>
-                    <td dangerouslySetInnerHTML={{ __html: row.display_identificador || '' }}></td>
-                    <td dangerouslySetInnerHTML={{ __html: row.display_inicio || '' }}></td>
+                    {/* MUDANÇA 1: Identificador agora é lado a lado */}
                     <td>
-                        {row.display_tempo_prog || ''}<br/>
-                        {calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now)}
+                      <div className="cell-prog-real">
+                        <span><strong>{row.ATIVO || 'N/A'}</strong></span>
+                        <span>{row.Atividade || 'N/A'}</span>
+                      </div>
                     </td>
-                    <td dangerouslySetInnerHTML={{ __html: row.display_local || '' }}></td>
-                    <td dangerouslySetInnerHTML={{ __html: row.display_quantidade || '' }}></td>
-                    <td className="cell-detalhamento">{row.display_detalhamento || ''}</td>
+
+                    {/* MUDANÇA 2: Textos "Prog:" e "Real:" removidos */}
+                    <td>
+                      <div className="cell-prog-real">
+                        <span><strong>{row.inicio_prog || '--:--'}</strong></span>
+                        <span><strong>{row.inicio_real || '--:--'}</strong></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-prog-real">
+                        <span><strong>{row.tempo_prog || '--:--'}</strong></span>
+                        <span><strong>{calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--'}</strong></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-prog-real">
+                        <span><strong>{row.local_prog || 'N/A'}</strong></span>
+                        <span><strong>{row.local_real || 'N/A'}</strong></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-prog-real">
+                        <span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span>
+                        <span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span>
+                      </div>
+                    </td>
+                    
+                    <td className="cell-detalhamento">{row.detalhamento || ''}</td>
                   </tr>
                 ))}
                 {filteredData.length === 0 && !loading && (
@@ -141,6 +163,7 @@ function App() {
                     </tr>
                 )}
               </tbody>
+              {/* --- FIM DAS MUDANÇAS --- */}
             </table>
           )}
         </section>

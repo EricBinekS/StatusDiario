@@ -3,18 +3,43 @@ import glob
 import json
 import os
 import re
+import datetime # Importa o módulo datetime
 
-def excel_serial_to_datetime(serial):
-    """Converte o número de série de data do Excel para um objeto datetime."""
-    if pd.isna(serial) or not isinstance(serial, (int, float)) or serial <= 0:
+def flexible_time_to_datetime(value):
+    """
+    Função flexível que converte múltiplos formatos de hora (serial do Excel,
+    objeto time, ou string 'HH:MM:SS') para um objeto datetime completo.
+    """
+    if pd.isna(value):
         return None
-    try:
-        return pd.to_datetime('1899-12-30') + pd.to_timedelta(serial, 'D')
-    except:
-        return None
+
+    # Caso 1: É um número (serial do Excel)
+    if isinstance(value, (int, float)):
+        if value <= 0 and value > -1: # Permite durações como 00:00 mas ignora negativos
+             try: # Trata 00:00:00 como um tempo válido
+                return pd.to_datetime('1899-12-30') + pd.to_timedelta(value, 'D')
+             except:
+                return None
+        if value <= 0: return None # Rejeita outros valores não positivos
+        try:
+            return pd.to_datetime('1899-12-30') + pd.to_timedelta(value, 'D')
+        except:
+            return None
+
+    # Caso 2: É um objeto datetime.time
+    if isinstance(value, datetime.time):
+        return pd.to_datetime(value.strftime('%H:%M:%S'))
+
+    # Caso 3: É uma string de hora
+    if isinstance(value, str):
+        try:
+            return pd.to_datetime(value)
+        except (ValueError, TypeError):
+            return None
+            
+    return None
 
 def clean_column_names(columns):
-    """Limpa e garante que os nomes de coluna sejam únicos."""
     new_columns = []
     counts = {}
     for col in columns:
@@ -34,7 +59,6 @@ def clean_column_names(columns):
     return new_columns
 
 def process_files():
-    """Lê arquivos Excel, processa os dados e gera um arquivo JSON."""
     print("Iniciando processamento dos arquivos Excel...")
     
     file_paths = glob.glob("raw_data/*.xlsx")
@@ -54,17 +78,16 @@ def process_files():
             
             if nome_da_aba:
                 print(f"Lendo arquivo '{nome_do_arquivo}' na aba '{nome_da_aba}'...")
-                temp_df = pd.read_excel(f_path, sheet_name=nome_da_aba, header=None)
+                temp_df = pd.read_excel(f_path, sheet_name=nome_da_aba, header=None, engine='openpyxl')
                 
                 header_row = temp_df.iloc[4]
-                df_data = temp_df[5:]
+                df_data = temp_df[5:].copy()
                 
                 df_data.columns = clean_column_names(header_row)
 
-                # >>> NOVA CORREÇÃO: REMOVE LINHAS VAZIAS <<<
-                # A coluna 'ATIVO' é usada como referência para remover linhas sem dados.
-                df_data.dropna(subset=['ATIVO'], inplace=True)
+                print(f"--- Colunas encontradas em '{nome_do_arquivo}': {list(df_data.columns)}")
                 
+                df_data.dropna(subset=['ATIVO'], inplace=True)
                 df_list.append(df_data)
             else:
                 print(f"AVISO: Mapeamento não encontrado para '{nome_do_arquivo}'.")
@@ -82,14 +105,13 @@ def process_files():
 
     df = df.where(pd.notnull(df), None)
     
+    # Mapeamento ajustado sem Fim_11
     rename_map = {
         'ATIVO': 'ATIVO', 'Atividade': 'Atividade', 'Inicia': 'Inicia', 
         'HR Turma Pronta': 'HR Turma Pronta', 'Duração': 'Duração', 'SB': 'SB', 
         'SB_4': 'SB_4', 'Quantidade': 'Quantidade', 'Quantidade_11': 'Quantidade_1', 
-        'Fim': 'Fim', 'Fim_8': 'Fim_8', 'Fim_10': 'Fim_10', 'Fim_11_1': 'Fim_11',
-        'Prévia 1': 'Prévia - 1',
-        'Prévia 2': 'Prévia - 2',
-        'DATA': 'DATA', 
+        'Fim': 'Fim', 'Fim_8': 'Fim_8', 'Fim_10': 'Fim_10',
+        'Prévia 1': 'Prévia - 1', 'Prévia 2': 'Prévia - 2', 'DATA': 'DATA', 
         'Gerência da Via': 'Gerência da Via', 'Trecho': 'Trecho', 
         'Programar para D+1': 'Programar para D+1'
     }
@@ -98,39 +120,53 @@ def process_files():
     required_cols = list(rename_map.values())
     for col in required_cols:
         if col not in df.columns:
-            print(f"AVISO: A coluna padrão '{col}' não foi encontrada e será criada vazia.")
+            # Não vamos mais avisar sobre Fim_11, pois foi removido
+            if col != 'Fim_11':
+                print(f"AVISO: A coluna padrão '{col}' não foi encontrada e será criada vazia.")
             df[col] = None
     
     if 'DATA' in df.columns:
         df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-    def safe_format_time(serial):
-        dt = excel_serial_to_datetime(serial)
-        return dt.strftime('%H:%M') if dt else ""
+    # Funções auxiliares agora usam a nova função flexível
+    def safe_format_time(value):
+        dt = flexible_time_to_datetime(value)
+        return dt.strftime('%H:%M') if dt else None
+    
+    def value_to_iso(value):
+        dt = flexible_time_to_datetime(value)
+        return dt.isoformat() if dt else None
 
-    df['display_identificador'] = df.apply(lambda r: f"<strong>{r.get('ATIVO') or ''}</strong><br/>{r.get('Atividade') or ''}", axis=1)
-    df['display_inicio'] = df.apply(lambda r: f"{safe_format_time(r.get('Inicia'))}<br/>{safe_format_time(r.get('HR Turma Pronta'))}", axis=1)
-    df['display_tempo_prog'] = df['Duração'].apply(safe_format_time)
-    df['display_local'] = df.apply(lambda r: f"{r.get('SB') or ''}<br/>{r.get('SB_4') or ''}", axis=1)
-    df['display_quantidade'] = df.apply(lambda r: f"{r.get('Quantidade') or 0}<br/>{r.get('Quantidade_1') or 0}", axis=1)
+    df['inicio_prog'] = df['Inicia'].apply(safe_format_time)
+    df['inicio_real'] = df['HR Turma Pronta'].apply(safe_format_time)
+    df['tempo_prog'] = df['Duração'].apply(safe_format_time)
+    
+    df['local_prog'] = df['SB']
+    df['local_real'] = df['SB_4']
+    df['quantidade_prog'] = df['Quantidade']
+    df['quantidade_real'] = df['Quantidade_1']
 
     def get_detalhamento(row):
-        has_end_time = any(row.get(col) and pd.to_numeric(row.get(col), errors='coerce') > 0 for col in ['Fim', 'Fim_8', 'Fim_10', 'Fim_11'])
+        # Lógica de Fim ajustada para remover Fim_11
+        has_end_time = any(row.get(col) for col in ['Fim', 'Fim_8', 'Fim_10'])
         return row.get('Prévia - 2') if has_end_time else row.get('Prévia - 1')
-    df['display_detalhamento'] = df.apply(get_detalhamento, axis=1)
+    df['detalhamento'] = df.apply(get_detalhamento, axis=1)
 
-    df['timer_start_timestamp'] = df['HR Turma Pronta'].apply(lambda s: excel_serial_to_datetime(s).isoformat() if s and pd.to_numeric(s, errors='coerce') > 0 else None)
+    df['timer_start_timestamp'] = df['HR Turma Pronta'].apply(value_to_iso)
     
     def get_end_timestamp(row):
-        end_time_serial = next((row[col] for col in ['Fim', 'Fim_8', 'Fim_10', 'Fim_11'] if row.get(col) and pd.to_numeric(row.get(col), errors='coerce') > 0), None)
-        return excel_serial_to_datetime(end_time_serial).isoformat() if end_time_serial else None
+        # Lógica de Fim ajustada para remover Fim_11
+        end_time_value = next((row[col] for col in ['Fim', 'Fim_8', 'Fim_10'] if row.get(col)), None)
+        return value_to_iso(end_time_value)
     df['timer_end_timestamp'] = df.apply(get_end_timestamp, axis=1)
     
     final_columns = [
         'Gerência da Via', 'Trecho', 'ATIVO', 'Atividade', 'Programar para D+1', 'DATA',
-        'display_identificador', 'display_inicio', 'display_tempo_prog', 'display_local', 'display_quantidade', 'display_detalhamento',
-        'timer_start_timestamp', 'timer_end_timestamp'
+        'inicio_prog', 'inicio_real', 'tempo_prog',
+        'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real',
+        'detalhamento', 'timer_start_timestamp', 'timer_end_timestamp'
     ]
+
     df_final = df[[col for col in final_columns if col in df.columns]].copy()
     df_final = df_final.where(pd.notnull(df_final), None)
     result_list = df_final.to_dict(orient='records')

@@ -76,3 +76,23 @@ th.col-detalhamento { background-color: var(--cor-header-detalhamento); }
 /* --- Animações e Destaques --- */
 .timer-running { font-weight: bold; color: var(--cor-timer); animation: pulse 1.5s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+/* ESTILO PARA CÉLULAS LADO A LADO */
+.cell-prog-real {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* REGRA ADICIONADA PARA A BARRA VERTICAL */
+.cell-prog-real span:first-of-type::after {
+  content: "|";
+  margin-left: 15px;
+  margin-right: 15px;
+  color: var(--cor-cinza-claro);
+  font-weight: normal;
+}
+
+.cell-prog-real span {
+  white-space: nowrap;
+}
