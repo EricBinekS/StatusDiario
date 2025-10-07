@@ -96,3 +96,21 @@ th.col-detalhamento { background-color: var(--cor-header-detalhamento); }
 .cell-prog-real span {
   white-space: nowrap;
 }
+
+/* Adicione este código no final de src/index.css */
+
+/* --- ANIMAÇÃO DE DESTAQUE DE ATUALIZAÇÃO --- */
+
+@keyframes highlight-fade {
+  from {
+    background-color: rgba(255, 215, 0, 0.5); /* Amarelo mais forte no início */
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* Aplica a animação nas células (<td>) da linha atualizada */
+.linha-atualizada td {
+  animation: highlight-fade 2s ease-out;
+}
