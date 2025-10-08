@@ -1,0 +1,18 @@
+# Frontend (Node.js)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Backend (Python)
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+
+# Arquivos de IDE e Sistema Operacional
+.vscode/
+.idea/
+*.DS_Store
