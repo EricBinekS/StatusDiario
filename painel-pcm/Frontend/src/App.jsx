@@ -62,7 +62,7 @@ function App() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const url = `http://localhost:5000/api/atividades`;
+        const url = `${import.meta.env.VITE_API_URL}/api/atividades`;
         const response = await fetch(url);
         if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
         const jsonData = await response.json();
