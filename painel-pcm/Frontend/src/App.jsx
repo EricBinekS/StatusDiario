@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
-// NOVO: Importa nosso cliente de socket que criamos
 import { socket, on } from './socket';
 
 function calculateRealTime(startISO, endISO, now) {
+    // DEBUG DO TIMER: Esta linha vai nos mostrar no console os dados que a função está recebendo
+    console.log('Timer Debug:', { startISO, endISO });
+
     if (endISO) {
       const start = new Date(startISO);
       const end = new Date(endISO);
@@ -57,7 +59,6 @@ function App() {
 
   const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
 
-  // --- useEffect PRINCIPAL ATUALIZADO PARA WEBSOCKETS ---
   useEffect(() => {
     async function fetchData() {
       try {
@@ -65,7 +66,6 @@ function App() {
         const response = await fetch(url);
         if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
         const jsonData = await response.json();
-        
         if (previousDataRef.current.length > 0) {
           const changes = findUpdatedRows(previousDataRef.current, jsonData);
           if (changes.size > 0) {
@@ -73,41 +73,26 @@ function App() {
             setTimeout(() => setUpdatedRows(new Set()), 2000);
           }
         }
-        
         setRawData(jsonData);
         previousDataRef.current = jsonData;
-        
       } catch (error) {
         console.error("Erro ao buscar os dados:", error);
       } finally {
         setLoading(false);
       }
     }
-    
-    // 1. Busca os dados iniciais ao carregar a página
     fetchData();
-
-    // 2. Conecta ao servidor WebSocket
     socket.connect();
-    console.log("Conectando ao servidor WebSocket...");
-
-    // 3. Define o "ouvinte" para o evento 'data_updated' do servidor
     on('data_updated', (data) => {
       console.log('Recebido evento de atualização do servidor!', data.message);
-      // Ao receber o aviso, busca os novos dados
       fetchData();
     });
-
-    // O timer para o relógio continua normalmente
     const timerId = setInterval(() => setNow(new Date()), 1000);
-
-    // 4. Função de limpeza: remove o ouvinte e desconecta o socket ao sair
     return () => {
       clearInterval(timerId);
-      console.log("Desconectando do servidor WebSocket.");
       socket.disconnect();
     };
-  }, []); // Roda apenas uma vez, na montagem do componente
+  }, []);
 
   const getUniqueOptions = (data, key) => {
     if (!Array.isArray(data)) return [];
@@ -163,7 +148,9 @@ function App() {
     if (!Array.isArray(rawData)) return [];
     let filterableData = [...rawData];
     filterableData = filterableData.filter(row => {
-      if (filters.data && row['DATA'] && new Date(row['DATA'] + 'T00:00:00').toISOString().split('T')[0] !== filters.data) return false;
+      // CORREÇÃO DO FILTRO DE DATA
+      if (filters.data && row['DATA'] !== filters.data) return false;
+      
       if (filters.gerencia && row['Gerência da Via'] !== filters.gerencia) return false;
       if (filters.trecho && row['Coordenação da Via'] !== filters.trecho) return false;
       if (filters.sub && String(row['SUB']) !== filters.sub) return false;
@@ -207,35 +194,11 @@ function App() {
       <main>
         <section className="filters">
             <div className="filter-item"><label htmlFor="data">Data:</label><input type="date" id="data" value={filters.data} onChange={(e) => handleFilterChange('data', e.target.value)} /></div>
-            <div className="filter-item">
-              <label htmlFor="gerencia">Gerência:</label>
-              <select id="gerencia" value={filters.gerencia} onChange={(e) => handleFilterChange('gerencia', e.target.value)}>
-                <option value="">Todas</option>
-                {gerenciaOptions.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
-            <div className="filter-item">
-              <label htmlFor="trecho">Trecho:</label>
-              <select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}>
-                <option value="">Todos</option>
-                {trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
-            <div className="filter-item">
-              <label htmlFor="sub">Sub:</label>
-              <select id="sub" value={filters.sub} onChange={(e) => handleFilterChange('sub', e.target.value)}>
-                <option value="">Todos</option>
-                {subOptions.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
+            <div className="filter-item"><label htmlFor="gerencia">Gerência:</label><select id="gerencia" value={filters.gerencia} onChange={(e) => handleFilterChange('gerencia', e.target.value)}><option value="">Todas</option>{gerenciaOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+            <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+            <div className="filter-item"><label htmlFor="sub">Sub:</label><select id="sub" value={filters.sub} onChange={(e) => handleFilterChange('sub', e.target.value)}><option value="">Todos</option>{subOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
             <div className="filter-item"><label htmlFor="ativo">Ativo:</label><input type="text" id="ativo" value={filters.ativo} onChange={(e) => handleFilterChange('ativo', e.target.value)} /></div>
-            <div className="filter-item">
-              <label htmlFor="atividade">Atividade:</label>
-              <select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}>
-                <option value="">Todas</option>
-                {atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
+            <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
             <div className="filter-item">
               <label htmlFor="tipo">Tipo:</label>
               <select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}>
@@ -244,6 +207,7 @@ function App() {
               </select>
             </div>
         </section>
+
         <section className="tabela-wrapper">
           {loading ? ( <p>Carregando dados...</p> ) : (
             <table className="grid-table">
