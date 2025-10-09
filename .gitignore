@@ -6,7 +6,6 @@ painel-pcm/Frontend/.env.*
 painel-pcm/Frontend/npm-debug.log*
 painel-pcm/Frontend/yarn-debug.log*
 painel-pcm/Frontend/yarn-error.log*
-painel-pcm/Frontend/package-lock.json
 
 # Backend (Python)
 painel-pcm/Backend/venv/
