@@ -11,6 +11,7 @@ painel-pcm/Frontend/yarn-error.log*
 painel-pcm/Backend/venv/
 painel-pcm/Backend/__pycache__/
 painel-pcm/Backend/*.pyc
+painel-pcm/Backend/.env
 
 # Arquivos de IDE e Sistema Operacional
 .vscode/

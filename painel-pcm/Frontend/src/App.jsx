@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
+// NOVO: Importa nosso cliente de socket que criamos
+import { socket, on } from './socket';
 
 function calculateRealTime(startISO, endISO, now) {
     if (endISO) {
@@ -55,37 +57,60 @@ function App() {
 
   const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
 
+  // --- useEffect PRINCIPAL ATUALIZADO PARA WEBSOCKETS ---
   useEffect(() => {
     async function fetchData() {
-        try {
-          const url = `data.json?v=${new Date().getTime()}`;
-          const response = await fetch(url);
-          const jsonData = await response.json();
-          if (previousDataRef.current.length > 0) {
-            const changes = findUpdatedRows(previousDataRef.current, jsonData);
-            if (changes.size > 0) {
-              setUpdatedRows(changes);
-              setTimeout(() => setUpdatedRows(new Set()), 2000);
-            }
+      try {
+        const url = `http://localhost:5000/api/atividades`;
+        const response = await fetch(url);
+        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+        const jsonData = await response.json();
+        
+        if (previousDataRef.current.length > 0) {
+          const changes = findUpdatedRows(previousDataRef.current, jsonData);
+          if (changes.size > 0) {
+            setUpdatedRows(changes);
+            setTimeout(() => setUpdatedRows(new Set()), 2000);
           }
-          setRawData(jsonData);
-          previousDataRef.current = jsonData;
-        } catch (error) {
-          console.error("Erro ao buscar os dados:", error);
-        } finally {
-          setLoading(false);
         }
+        
+        setRawData(jsonData);
+        previousDataRef.current = jsonData;
+        
+      } catch (error) {
+        console.error("Erro ao buscar os dados:", error);
+      } finally {
+        setLoading(false);
       }
+    }
+    
+    // 1. Busca os dados iniciais ao carregar a página
+    fetchData();
+
+    // 2. Conecta ao servidor WebSocket
+    socket.connect();
+    console.log("Conectando ao servidor WebSocket...");
+
+    // 3. Define o "ouvinte" para o evento 'data_updated' do servidor
+    on('data_updated', (data) => {
+      console.log('Recebido evento de atualização do servidor!', data.message);
+      // Ao receber o aviso, busca os novos dados
       fetchData();
-      const timerId = setInterval(() => setNow(new Date()), 1000);
-      const dataFetchId = setInterval(fetchData, 60000);
-      return () => {
-        clearInterval(timerId);
-        clearInterval(dataFetchId);
-      };
-  }, []);
+    });
+
+    // O timer para o relógio continua normalmente
+    const timerId = setInterval(() => setNow(new Date()), 1000);
+
+    // 4. Função de limpeza: remove o ouvinte e desconecta o socket ao sair
+    return () => {
+      clearInterval(timerId);
+      console.log("Desconectando do servidor WebSocket.");
+      socket.disconnect();
+    };
+  }, []); // Roda apenas uma vez, na montagem do componente
 
   const getUniqueOptions = (data, key) => {
+    if (!Array.isArray(data)) return [];
     const options = new Set();
     data.forEach(row => {
       const value = row[key];
@@ -97,59 +122,45 @@ function App() {
   };
 
   const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'Gerência da Via'), [rawData]);
-
   const trechoOptions = useMemo(() => {
     let filteredData = rawData;
-    if (filters.gerencia) {
-      filteredData = rawData.filter(row => row['Gerência da Via'] === filters.gerencia);
-    }
+    if (filters.gerencia) { filteredData = rawData.filter(row => row['Gerência da Via'] === filters.gerencia); }
     return getUniqueOptions(filteredData, 'Coordenação da Via');
   }, [rawData, filters.gerencia]);
-
   const subOptions = useMemo(() => {
     let filteredData = rawData;
-    if (filters.gerencia) {
-      filteredData = filteredData.filter(row => row['Gerência da Via'] === filters.gerencia);
-    }
-    if (filters.trecho) {
-      filteredData = filteredData.filter(row => row['Coordenação da Via'] === filters.trecho);
-    }
+    if (filters.gerencia) { filteredData = filteredData.filter(row => row['Gerência da Via'] === filters.gerencia); }
+    if (filters.trecho) { filteredData = filteredData.filter(row => row['Coordenação da Via'] === filters.trecho); }
     return getUniqueOptions(filteredData, 'SUB');
   }, [rawData, filters.gerencia, filters.trecho]);
-
   const atividadeOptions = useMemo(() => {
     let filteredData = rawData;
     if (filters.gerencia) filteredData = filteredData.filter(row => row['Gerência da Via'] === filters.gerencia);
     if (filters.trecho) filteredData = filteredData.filter(row => row['Coordenação da Via'] === filters.trecho);
-    if (filters.sub) filteredData = filteredData.filter(row => row['SUB'] === filters.sub);
+    if (filters.sub) filteredData = filteredData.filter(row => String(row['SUB']) === filters.sub);
     return getUniqueOptions(filteredData, 'Atividade');
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
-
   const tipoOptions = useMemo(() => {
     let filteredData = rawData;
     if (filters.gerencia) filteredData = filteredData.filter(row => row['Gerência da Via'] === filters.gerencia);
     if (filters.trecho) filteredData = filteredData.filter(row => row['Coordenação da Via'] === filters.trecho);
-    if (filters.sub) filteredData = filteredData.filter(row => row['SUB'] === filters.sub);
+    if (filters.sub) filteredData = filteredData.filter(row => String(row['SUB']) === filters.sub);
     return getUniqueOptions(filteredData, 'Programar para D+1');
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
   const handleFilterChange = (filterName, value) => {
     const newFilters = { ...filters, [filterName]: value };
     if (filterName === 'gerencia') {
-      newFilters.trecho = '';
-      newFilters.sub = '';
-      newFilters.atividade = '';
-      newFilters.tipo = '';
+      newFilters.trecho = ''; newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = '';
     }
     if (filterName === 'trecho') {
-      newFilters.sub = '';
-      newFilters.atividade = '';
-      newFilters.tipo = '';
+      newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = '';
     }
     setFilters(newFilters);
   };
   
   const sortedAndFilteredData = useMemo(() => {
+    if (!Array.isArray(rawData)) return [];
     let filterableData = [...rawData];
     filterableData = filterableData.filter(row => {
       if (filters.data && row['DATA'] && new Date(row['DATA'] + 'T00:00:00').toISOString().split('T')[0] !== filters.data) return false;
@@ -233,7 +244,6 @@ function App() {
               </select>
             </div>
         </section>
-
         <section className="tabela-wrapper">
           {loading ? ( <p>Carregando dados...</p> ) : (
             <table className="grid-table">
