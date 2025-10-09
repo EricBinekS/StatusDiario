@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - 'backend/raw_data/**.xlsx'
+      - 'Backend/raw_data/**.xlsx'
   # Permite que você rode este workflow manualmente pela interface do GitHub
   workflow_dispatch:
 
@@ -36,11 +36,11 @@ jobs:
 
       # 3. Instala as dependências do Python
       - name: Instalar dependências do Backend
-        run: pip install -r backend/requirements.txt
+        run: pip install -r Backend/requirements.txt
 
       # 4. Executa o script Python para gerar o data.json
       - name: Executar script de processamento
-        run: python backend/scripts/process_data.py
+        run: python Backend/scripts/process_data.py
 
       # 5. Configura o ambiente Node.js para o Frontend
       - name: Configurar Node.js 20
@@ -51,18 +51,18 @@ jobs:
       # 6. Instala as dependências do Frontend
       - name: Instalar dependências do Frontend
         run: npm ci
-        working-directory: ./frontend
+        working-directory: ./Frontend
 
       # 7. Constrói a versão de produção do React App
       - name: Construir o React App
         run: npm run build
-        working-directory: ./frontend
+        working-directory: ./Frontend
       
       # 8. Faz o upload dos arquivos construídos para o GitHub Pages
       - name: Fazer upload do artefato para o Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./frontend/dist
+          path: ./Frontend/dist
 
   deploy:
     name: Publicar no GitHub Pages
