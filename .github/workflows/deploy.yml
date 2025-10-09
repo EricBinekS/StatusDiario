@@ -1,79 +1,64 @@
-# Nome do Workflow
 name: Processar Dados e Publicar Painel
 
-# Gatilho: Roda sempre que houver um push na branch 'main', 
-# mas somente se os arquivos alterados estiverem na pasta backend/raw_data
 on:
   push:
     branches:
       - main
     paths:
-      - 'Backend/raw_data/**.xlsx'
-  # Permite que você rode este workflow manualmente pela interface do GitHub
+      - 'painel-pcm/Backend/raw_data/**.xlsx'
   workflow_dispatch:
 
-# Permissões necessárias para o workflow
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Tarefas a serem executadas
 jobs:
   build:
     name: Construir e Gerar Dados
     runs-on: ubuntu-latest
     steps:
-      # 1. Faz o checkout do código do repositório
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # 2. Configura o ambiente Python
       - name: Configurar Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. Instala as dependências do Python
       - name: Instalar dependências do Backend
-        run: pip install -r Backend/requirements.txt
+        run: pip install -r painel-pcm/Backend/requirements.txt
 
-      # 4. Executa o script Python para gerar o data.json
-      - name: Executar script de processamento
-        run: python Backend/scripts/process_data.py
 
-      # 5. Configura o ambiente Node.js para o Frontend
+      - name: Executar script de processamento de dados
+        run: python painel-pcm/Backend/scripts/process_data.py
+
       - name: Configurar Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 6. Instala as dependências do Frontend
       - name: Instalar dependências do Frontend
         run: npm ci
-        working-directory: ./Frontend
+        working-directory: ./painel-pcm/Frontend
 
-      # 7. Constrói a versão de produção do React App
       - name: Construir o React App
         run: npm run build
-        working-directory: ./Frontend
-      
-      # 8. Faz o upload dos arquivos construídos para o GitHub Pages
+        working-directory: ./painel-pcm/Frontend
+
       - name: Fazer upload do artefato para o Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./Frontend/dist
+          path: ./painel-pcm/Frontend/dist
 
   deploy:
     name: Publicar no GitHub Pages
-    # Requer que o job 'build' tenha terminado com sucesso
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # 1. Ação oficial para publicar no GitHub Pages
       - name: Publicar no GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
