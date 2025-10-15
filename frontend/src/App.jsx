@@ -24,7 +24,7 @@ function calculateRealTime(startISO, endISO, now) {
     }
     return "";
 }
-
+ 
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(
@@ -43,10 +43,12 @@ function findUpdatedRows(oldData, newData) {
 
 function calculateStatus(row, rules) {
     const rawDate = row.DATA;
-    const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'N/A';
+    // Adicionamos +1 ao mês porque getMonth() é 0-indexed (Janeiro=0)
+    const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }) : 'N/A';
+    
     return {
         date: formattedDate,
-        color: 'gray-400',
+        colorClass: 'status-gray', // Classe CSS para a cor
         tooltip: 'Regra de farol pendente de implementação.'
     };
 }
@@ -57,7 +59,7 @@ function App() {
     const [now, setNow] = useState(new Date());
     const [updatedRows, setUpdatedRows] = useState(new Set());
     const previousDataRef = useRef([]);
-    const [statusRules, setStatusRules] = useState([]);
+    const [statusRules, setStatusRules] = useState([]); 
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
     const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
 
@@ -86,13 +88,13 @@ function App() {
 
         fetchData();
         const timerNowId = setInterval(() => setNow(new Date()), 1000);
-        const timerFetchId = setInterval(fetchData, 300000);
+        const timerFetchId = setInterval(fetchData, 300000); 
 
         return () => {
             clearInterval(timerNowId);
             clearInterval(timerFetchId);
         };
-    }, []);
+    }, []); 
 
     const getUniqueOptions = (data, key) => {
         if (!Array.isArray(data)) return [];
@@ -135,15 +137,11 @@ function App() {
 
     const handleFilterChange = (filterName, value) => {
         const newFilters = { ...filters, [filterName]: value };
-        if (filterName === 'gerencia') {
-            newFilters.trecho = ''; newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = '';
-        }
-        if (filterName === 'trecho') {
-            newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = '';
-        }
+        if (filterName === 'gerencia') { newFilters.trecho = ''; newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = ''; }
+        if (filterName === 'trecho') { newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = ''; }
         setFilters(newFilters);
     };
-
+ 
     const sortedAndFilteredData = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
         let filterableData = [...rawData];
@@ -172,12 +170,10 @@ function App() {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; }
         setSortConfig({ key, direction });
     };
-
+ 
     const getSortDirectionClass = (key) => {
         if (sortConfig.key !== key) return '';
         return sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
@@ -221,11 +217,12 @@ function App() {
                                     return (
                                         <tr key={index} className={isUpdated ? 'linha-atualizada' : ''}>
                                             <td data-label="Data / Status">
-                                                <div className="flex flex-col items-center justify-center text-center">
-                                                    <span className="font-bold text-sm mb-1">{status.date}</span>
+                                                <div className="cell-status-container">
+                                                    <span className="status-date">{status.date}</span>
                                                     <div title={status.tooltip}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={`currentColor`} className={`w-5 h-5 text-${status.color}`}>
-                                                            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z" clipRule="evenodd" />
+                                                        {/* --- ÍCONE CORRIGIDO --- */}
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
+                                                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                                                         </svg>
                                                     </div>
                                                 </div>
@@ -235,7 +232,7 @@ function App() {
                                             <td data-label="Tempo"><div className="cell-prog-real"><span><strong>{row.tempo_prog || '--:--'}</strong></span><span><strong>{calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--'}</strong></span></div></td>
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
-                                            <td data-label="Detalhamento" className="cell-detalhamento" style={{ width: '30%' }}>{row.detalhamento || ''}</td>
+                                            <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
                                         </tr>
                                     );
                                 })}
