@@ -2,10 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 
 function calculateRealTime(startISO, endISO, now) {
-    // --- LINHA DE DEBUG RE-ADICIONADA ---
-    // Esta linha é crucial para encontrarmos o bug do fuso horário.
-    console.log('Timer Debug:', { startISO, endISO });
-
     if (endISO) {
         const start = new Date(startISO);
         const end = new Date(endISO);
@@ -65,6 +61,9 @@ function App() {
     const [statusRules, setStatusRules] = useState([]); 
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
     const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
+    
+    // --- NOVO ESTADO PARA O CHECKBOX ---
+    const [showDesl, setShowDesl] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -147,7 +146,16 @@ function App() {
  
     const sortedAndFilteredData = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
+        
+        // --- LÓGICA DE FILTRAGEM ATUALIZADA ---
         let filterableData = [...rawData];
+
+        // 1. Filtra as atividades 'DESL' se o checkbox não estiver marcado
+        if (!showDesl) {
+            filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
+        }
+
+        // 2. Aplica os outros filtros
         filterableData = filterableData.filter(row => {
             if (filters.data && row['DATA'] !== filters.data) return false;
             if (filters.gerencia && row['Gerência da Via'] !== filters.gerencia) return false;
@@ -158,6 +166,7 @@ function App() {
             if (filters.tipo && row['Programar para D+1'] !== filters.tipo) return false;
             return true;
         });
+
         if (sortConfig.key) {
             filterableData.sort((a, b) => {
                 const valA = a[sortConfig.key]; const valB = b[sortConfig.key];
@@ -169,7 +178,7 @@ function App() {
             });
         }
         return filterableData;
-    }, [rawData, filters, sortConfig]);
+    }, [rawData, filters, sortConfig, showDesl]); // Adicionado 'showDesl' às dependências
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -197,6 +206,20 @@ function App() {
                     <div className="filter-item"><label htmlFor="ativo">Ativo:</label><input type="text" id="ativo" value={filters.ativo} onChange={(e) => handleFilterChange('ativo', e.target.value)} /></div>
                     <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="tipo">Tipo:</label><select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}><option value="">Todos</option>{tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+                    
+                    {/* --- NOVO FILTRO CHECKBOX --- */}
+                    <div className="filter-item">
+                        <label>Especiais:</label>
+                        <div className="checkbox-container">
+                            <input
+                                type="checkbox"
+                                id="show-desl"
+                                checked={showDesl}
+                                onChange={(e) => setShowDesl(e.target.checked)}
+                            />
+                            <label htmlFor="show-desl">Mostrar DESL</label>
+                        </div>
+                    </div>
                 </section>
                 <section className="tabela-wrapper">
                     {loading ? (<p>Carregando dados...</p>) : (
@@ -223,7 +246,7 @@ function App() {
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{status.date}</span>
                                                     <div title={status.tooltip}>
-                                                        <svg xmlns="http://www.w.3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
                                                             <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                                                         </svg>
                                                     </div>
@@ -231,7 +254,7 @@ function App() {
                                             </td>
                                             <td data-label="Identificador"><div className="cell-prog-real"><span><strong>{row.ATIVO || 'N/A'}</strong></span><span>{row.Atividade || 'N/A'}</span></div></td>
                                             <td data-label="Início"><div className="cell-prog-real"><span><strong>{row.inicio_prog || '--:--'}</strong></span><span><strong>{row.inicio_real || '--:--'}</strong></span></div></td>
-                                            <td data-label="Tempo"><div className="cell-prog-real"><span><strong>{row.tempo_prog || '--:--'}</strong></span><span><strong>{calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--'}</strong></span></div></td>
+                                            <td data-label="Tempo"><div className="cell-prog-real"><span><strong>{row.tempo_prog || '--:--'}</strong></span><span><strong>{row.tempo_real_override ? row.tempo_real_override : (calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--')}</strong></span></div></td>
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
                                             <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
@@ -251,4 +274,3 @@ function App() {
 }
 
 export default App;
-
