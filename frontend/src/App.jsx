@@ -2,6 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 
 function calculateRealTime(startISO, endISO, now) {
+    // --- LINHA DE DEBUG RE-ADICIONADA ---
+    // Esta linha é crucial para encontrarmos o bug do fuso horário.
+    console.log('Timer Debug:', { startISO, endISO });
+
     if (endISO) {
         const start = new Date(startISO);
         const end = new Date(endISO);
@@ -43,12 +47,11 @@ function findUpdatedRows(oldData, newData) {
 
 function calculateStatus(row, rules) {
     const rawDate = row.DATA;
-    // Adicionamos +1 ao mês porque getMonth() é 0-indexed (Janeiro=0)
     const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }) : 'N/A';
     
     return {
         date: formattedDate,
-        colorClass: 'status-gray', // Classe CSS para a cor
+        colorClass: 'status-gray',
         tooltip: 'Regra de farol pendente de implementação.'
     };
 }
@@ -220,8 +223,7 @@ function App() {
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{status.date}</span>
                                                     <div title={status.tooltip}>
-                                                        {/* --- ÍCONE CORRIGIDO --- */}
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
+                                                        <svg xmlns="http://www.w.3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
                                                             <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                                                         </svg>
                                                     </div>
@@ -250,4 +252,3 @@ function App() {
 
 export default App;
 
-// Forçar deploy
