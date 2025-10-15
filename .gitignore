@@ -1,17 +1,17 @@
 # Frontend (Node.js)
-painel-pcm/Frontend/node_modules/
-painel-pcm/Frontend/dist/
-painel-pcm/Frontend/.env
-painel-pcm/Frontend/.env.*
-painel-pcm/Frontend/npm-debug.log*
-painel-pcm/Frontend/yarn-debug.log*
-painel-pcm/Frontend/yarn-error.log*
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.env
+Frontend/.env.*
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
 
 # Backend (Python)
-painel-pcm/Backend/venv/
-painel-pcm/Backend/__pycache__/
-painel-pcm/Backend/*.pyc
-painel-pcm/Backend/.env
+Backend/venv/
+Backend/__pycache__/
+Backend/*.pyc
+Backend/.env
 
 # Arquivos de IDE e Sistema Operacional
 .vscode/

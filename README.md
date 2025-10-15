@@ -1,11 +1,9 @@
-cd C:\Users\TR054976\Documents\GitHub\StatusDiario\painel-pcm
-cd Backend
+cd backend
 .\venv\Scripts\activate
 
 python migrate_to_db.py
 Separados
 python main.py
 
-cd C:\Users\TR054976\Documents\GitHub\StatusDiario\painel-pcm
-cd Frontend
+cd frontend
 npm run dev
