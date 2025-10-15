@@ -47,7 +47,10 @@ def _create_full_datetime(row, time_col_name, date_col_name='DATA'):
         base_date = pd.to_datetime(date_str).date()
         full_dt = datetime.datetime.combine(base_date, time_dt.time())
         return pd.to_datetime(full_dt).tz_localize('America/Sao_Paulo', ambiguous='infer')
-    except Exception:
+    except Exception as e:
+        # --- DEBUG ATIVADO ---
+        # Se a função falhar, esta linha nos dirá exatamente o porquê.
+        print(f"DEBUG: Falha em _create_full_datetime com [date_str: {date_str}, time_val: {time_val}]. Erro: {e}")
         return None
 
 def calculate_end_datetime(row):
@@ -145,10 +148,6 @@ def run_migration():
                 header_row = temp_df.iloc[4]
                 df_data = temp_df[5:].copy()
                 df_data.columns = clean_column_names(header_row)
-
-                # --- LINHA DE DEBUG ADICIONADA ---
-                print(f"DEBUG: Colunas encontradas em '{nome_do_arquivo}': {list(df_data.columns)}")
-
                 df_data.dropna(subset=['ATIVO'], inplace=True)
                 df_list.append(df_data)
             except Exception as e:
