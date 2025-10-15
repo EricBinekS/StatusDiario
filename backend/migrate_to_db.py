@@ -73,7 +73,6 @@ def calculate_end_datetime(row):
 
 def transform_df(df):
     df = df.where(pd.notnull(df), None)
-    # ATUALIZAÇÃO: Removido 'HR Turma Pronta' e adicionado 'Inicio' para garantir que a coluna seja encontrada.
     rename_map = {'ATIVO': 'ATIVO', 'Atividade': 'Atividade', 'Inicia': 'Inicia', 'Inicio': 'Inicio', 'Duração': 'Duração', 'SB': 'SB', 'SUB': 'SUB', 'SB_4': 'SB_4', 'Quantidade': 'Quantidade', 'Quantidade_11': 'Quantidade_1', 'Fim': 'Fim', 'Fim_8': 'Fim_8', 'Fim_10': 'Fim_10', 'DATA': 'DATA', 'Prévia 1': 'Prévia - 1', 'Prévia 2': 'Prévia - 2', 'Gerência da Via': 'Gerência da Via', 'Trecho': 'Trecho', 'Programar para D+1': 'Programar para D+1', 'Coordenação da Via': 'Coordenação da Via'}
     df.rename(columns=rename_map, inplace=True)
     for col in rename_map.values():
@@ -81,8 +80,6 @@ def transform_df(df):
         
     df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce').dt.strftime('%Y-%m-%d')
     df['start_prog_dt'] = df.apply(_create_full_datetime, args=('Inicia',), axis=1)
-    # --- ALTERAÇÃO PRINCIPAL APLICADA AQUI ---
-    # Agora usa a coluna 'Inicio' como fonte para o início real.
     df['start_real_dt'] = df.apply(_create_full_datetime, args=('Inicio',), axis=1)
     df['duration_dt'] = df.apply(lambda row: flexible_time_to_datetime(row['Duração']), axis=1)
     df['end_real_dt'] = df.apply(calculate_end_datetime, axis=1)
@@ -99,23 +96,26 @@ def transform_df(df):
     df['quantidade_real'] = df['Quantidade_1']
     df['detalhamento'] = df.apply(lambda row: row.get('Prévia - 2') if pd.notna(row.get('end_real_dt')) else row.get('Prévia - 1'), axis=1)
 
+    # --- LÓGICA DAS EXCEÇÕES (TEMPORARIAMENTE DESATIVADA PARA DEBUG) ---
+    # Garantimos que a coluna 'tempo_real_override' exista, mas a deixamos vazia.
     df['tempo_real_override'] = None
     
-    end_time_cols = ['Fim', 'Fim_8', 'Fim_10']
-    df['fim_val'] = df[end_time_cols].bfill(axis=1).iloc[:, 0]
-    df['fim_time_obj'] = df['fim_val'].apply(lambda x: flexible_time_to_datetime(x).time() if pd.notna(x) else None)
+    # As linhas abaixo foram comentadas para o teste.
+    # end_time_cols = ['Fim', 'Fim_8', 'Fim_10']
+    # df['fim_val'] = df[end_time_cols].bfill(axis=1).iloc[:, 0]
+    # df['fim_time_obj'] = df['fim_val'].apply(lambda x: flexible_time_to_datetime(x).time() if pd.notna(x) else None)
     
-    cond_desl = df['fim_time_obj'] == datetime.time(1, 0)
-    df.loc[cond_desl, 'tempo_real_override'] = 'DESL'
-    df.loc[cond_desl, 'timer_start_timestamp'] = None
-    df.loc[cond_desl, 'timer_end_timestamp'] = None
+    # cond_desl = df['fim_time_obj'] == datetime.time(1, 0)
+    # df.loc[cond_desl, 'tempo_real_override'] = 'DESL'
+    # df.loc[cond_desl, 'timer_start_timestamp'] = None
+    # df.loc[cond_desl, 'timer_end_timestamp'] = None
 
-    cond_bloco = df['fim_time_obj'] == datetime.time(0, 1)
-    df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO'
-    df.loc[cond_bloco, 'timer_start_timestamp'] = None
-    df.loc[cond_bloco, 'timer_end_timestamp'] = None
+    # cond_bloco = df['fim_time_obj'] == datetime.time(0, 1)
+    # df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO'
+    # df.loc[cond_bloco, 'timer_start_timestamp'] = None
+    # df.loc[cond_bloco, 'timer_end_timestamp'] = None
 
-    df = df.drop(columns=['fim_val', 'fim_time_obj'])
+    # df = df.drop(columns=['fim_val', 'fim_time_obj'])
     
     return df
 
