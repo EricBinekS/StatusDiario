@@ -96,29 +96,22 @@ def transform_df(df):
     df['quantidade_real'] = df['Quantidade_1']
     df['detalhamento'] = df.apply(lambda row: row.get('Prévia - 2') if pd.notna(row.get('end_real_dt')) else row.get('Prévia - 1'), axis=1)
 
-    # --- LÓGICA DAS EXCEÇÕES (DESL E BLOCO) ---
-    df['tempo_real_override'] = None # Nova coluna para a exceção "BLOCO"
+    df['tempo_real_override'] = None
     
-    # Encontra o primeiro valor de 'Fim' válido para cada linha
     end_time_cols = ['Fim', 'Fim_8', 'Fim_10']
     df['fim_val'] = df[end_time_cols].bfill(axis=1).iloc[:, 0]
-    
-    # Converte o valor de 'Fim' para um objeto de tempo para comparação
     df['fim_time_obj'] = df['fim_val'].apply(lambda x: flexible_time_to_datetime(x).time() if pd.notna(x) else None)
     
-    # Exceção 1: Se Fim é 01:00, muda Início Real para "DESL"
     cond_desl = df['fim_time_obj'] == datetime.time(1, 0)
-    df.loc[cond_desl, 'inicio_real'] = 'DESL'
+    df.loc[cond_desl, 'tempo_real_override'] = 'DESL'
     df.loc[cond_desl, 'timer_start_timestamp'] = None
     df.loc[cond_desl, 'timer_end_timestamp'] = None
 
-    # Exceção 2: Se Fim é 00:01, preenche o override do Tempo Real com "BLOCO"
     cond_bloco = df['fim_time_obj'] == datetime.time(0, 1)
     df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO'
     df.loc[cond_bloco, 'timer_start_timestamp'] = None
     df.loc[cond_bloco, 'timer_end_timestamp'] = None
 
-    # Limpa as colunas auxiliares
     df = df.drop(columns=['fim_val', 'fim_time_obj'])
     
     return df
@@ -152,6 +145,10 @@ def run_migration():
                 header_row = temp_df.iloc[4]
                 df_data = temp_df[5:].copy()
                 df_data.columns = clean_column_names(header_row)
+
+                # --- LINHA DE DEBUG ADICIONADA ---
+                print(f"DEBUG: Colunas encontradas em '{nome_do_arquivo}': {list(df_data.columns)}")
+
                 df_data.dropna(subset=['ATIVO'], inplace=True)
                 df_list.append(df_data)
             except Exception as e:
@@ -165,7 +162,6 @@ def run_migration():
     engine = create_engine(DATABASE_URL)
     print(f"Salvando {len(transformed_df)} registros na tabela 'atividades' do banco de dados Neon...")
     try:
-        # Adiciona a nova coluna 'tempo_real_override' à lista final
         final_columns = ['Gerência da Via', 'Coordenação da Via', 'Trecho', 'SUB', 'ATIVO', 'Atividade', 'Programar para D+1', 'DATA', 'inicio_prog', 'inicio_real', 'tempo_prog', 'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp', 'timer_end_timestamp', 'tempo_real_override']
         df_final = transformed_df[[col for col in final_columns if col in transformed_df.columns]].copy()
         df_final.to_sql('atividades', engine, if_exists='replace', index=False)
