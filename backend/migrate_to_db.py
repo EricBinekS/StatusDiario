@@ -46,11 +46,11 @@ def _create_full_datetime(row, time_col_name, date_col_name='DATA'):
     try:
         base_date = pd.to_datetime(date_str).date()
         full_dt = datetime.datetime.combine(base_date, time_dt.time())
-        return pd.to_datetime(full_dt).tz_localize('America/Sao_Paulo', ambiguous='infer')
-    except Exception as e:
-        # --- DEBUG ATIVADO ---
-        # Se a função falhar, esta linha nos dirá exatamente o porquê.
-        print(f"DEBUG: Falha em _create_full_datetime com [date_str: {date_str}, time_val: {time_val}]. Erro: {e}")
+        # --- CORREÇÃO APLICADA ---
+        # Remove a localização de fuso horário que estava causando o erro.
+        return pd.to_datetime(full_dt)
+    except Exception:
+        # O debug foi removido para manter o log limpo.
         return None
 
 def calculate_end_datetime(row):
@@ -72,7 +72,9 @@ def calculate_end_datetime(row):
     end_dt = datetime.datetime.combine(start_dt.date(), end_time_dt_obj.time())
     if end_dt < start_dt:
         end_dt += datetime.timedelta(days=1)
-    return pd.to_datetime(end_dt).tz_localize('America/Sao_Paulo', ambiguous='infer')
+    # --- CORREÇÃO APLICADA ---
+    # Remove a localização de fuso horário.
+    return pd.to_datetime(end_dt)
 
 def transform_df(df):
     df = df.where(pd.notnull(df), None)
