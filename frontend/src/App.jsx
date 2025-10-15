@@ -1,3 +1,5 @@
+//App.jsx
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 import { socket, on } from './socket';

@@ -1,0 +1,43 @@
+# .github/workflows/data-migration.yml
+name: Trigger Data Migration on Raw Data Push
+
+on:
+  push:
+    branches:
+      # Adapte esta linha se sua branch principal for 'master' ou outra
+      - main  
+    paths:
+      # O GATILHO CRUCIAL:
+      # Este job só roda quando há uma alteração (push) DENTRO desta pasta.
+      - 'backend/raw_data/**' 
+
+jobs:
+  run_migration:
+    # Nome do job para visualização no painel do GitHub Actions
+    name: Call Render API to Run Migration
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send API Trigger to Render
+        # Comando para executar a chamada HTTP (curl)
+        run: |
+          # 1. Defina a URL completa da sua API no Render
+          API_URL="https://painel-api-kl54.onrender.com/api/trigger-update" 
+          
+          echo "Chamando endpoint de migração: $API_URL"
+          
+          # 2. Chama o endpoint:
+          # -X POST: Define o método POST
+          # -H: Define os cabeçalhos
+          # --fail: Faz o curl falhar (e o Action parar) se o status HTTP não for 2xx
+          
+          curl -X POST $API_URL \
+            --fail \
+            -H "Content-Type: application/json" \
+            -H "X-Migration-Key: ${{ secrets.MIGRATION_SECRET_KEY }}"
+        
+        # 3. Variável de Ambiente para o Token
+        # 'secrets.MIGRATION_SECRET_KEY' puxa o valor que você configurou
+        # no painel de Segredos do GitHub (Settings > Secrets and variables > Actions)
+        env:
+          MIGRATION_SECRET_KEY: ${{ secrets.MIGRATION_SECRET_KEY }}
