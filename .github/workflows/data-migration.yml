@@ -1,0 +1,29 @@
+name: Scheduled Data Migration
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-migration:
+    name: Run Data Migration Script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run migration script
+        run: python backend/migrate_to_db.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
