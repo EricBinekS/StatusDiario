@@ -46,11 +46,8 @@ def _create_full_datetime(row, time_col_name, date_col_name='DATA'):
     try:
         base_date = pd.to_datetime(date_str).date()
         full_dt = datetime.datetime.combine(base_date, time_dt.time())
-        # --- CORREÇÃO APLICADA ---
-        # Remove a localização de fuso horário que estava causando o erro.
         return pd.to_datetime(full_dt)
     except Exception:
-        # O debug foi removido para manter o log limpo.
         return None
 
 def calculate_end_datetime(row):
@@ -72,20 +69,21 @@ def calculate_end_datetime(row):
     end_dt = datetime.datetime.combine(start_dt.date(), end_time_dt_obj.time())
     if end_dt < start_dt:
         end_dt += datetime.timedelta(days=1)
-    # --- CORREÇÃO APLICADA ---
-    # Remove a localização de fuso horário.
     return pd.to_datetime(end_dt)
 
 def transform_df(df):
     df = df.where(pd.notnull(df), None)
-    rename_map = {'ATIVO': 'ATIVO', 'Atividade': 'Atividade', 'Inicia': 'Inicia', 'HR Turma Pronta': 'HR Turma Pronta', 'Duração': 'Duração', 'SB': 'SB', 'SUB': 'SUB', 'SB_4': 'SB_4', 'Quantidade': 'Quantidade', 'Quantidade_11': 'Quantidade_1', 'Fim': 'Fim', 'Fim_8': 'Fim_8', 'Fim_10': 'Fim_10', 'DATA': 'DATA', 'Prévia 1': 'Prévia - 1', 'Prévia 2': 'Prévia - 2', 'Gerência da Via': 'Gerência da Via', 'Trecho': 'Trecho', 'Programar para D+1': 'Programar para D+1', 'Coordenação da Via': 'Coordenação da Via'}
+    # ATUALIZAÇÃO: Removido 'HR Turma Pronta' e adicionado 'Inicio' para garantir que a coluna seja encontrada.
+    rename_map = {'ATIVO': 'ATIVO', 'Atividade': 'Atividade', 'Inicia': 'Inicia', 'Inicio': 'Inicio', 'Duração': 'Duração', 'SB': 'SB', 'SUB': 'SUB', 'SB_4': 'SB_4', 'Quantidade': 'Quantidade', 'Quantidade_11': 'Quantidade_1', 'Fim': 'Fim', 'Fim_8': 'Fim_8', 'Fim_10': 'Fim_10', 'DATA': 'DATA', 'Prévia 1': 'Prévia - 1', 'Prévia 2': 'Prévia - 2', 'Gerência da Via': 'Gerência da Via', 'Trecho': 'Trecho', 'Programar para D+1': 'Programar para D+1', 'Coordenação da Via': 'Coordenação da Via'}
     df.rename(columns=rename_map, inplace=True)
     for col in rename_map.values():
         if col not in df.columns: df[col] = None
         
     df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce').dt.strftime('%Y-%m-%d')
     df['start_prog_dt'] = df.apply(_create_full_datetime, args=('Inicia',), axis=1)
-    df['start_real_dt'] = df.apply(_create_full_datetime, args=('HR Turma Pronta',), axis=1)
+    # --- ALTERAÇÃO PRINCIPAL APLICADA AQUI ---
+    # Agora usa a coluna 'Inicio' como fonte para o início real.
+    df['start_real_dt'] = df.apply(_create_full_datetime, args=('Inicio',), axis=1)
     df['duration_dt'] = df.apply(lambda row: flexible_time_to_datetime(row['Duração']), axis=1)
     df['end_real_dt'] = df.apply(calculate_end_datetime, axis=1)
     
