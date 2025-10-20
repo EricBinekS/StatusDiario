@@ -168,7 +168,7 @@ function App() {
         <>
             <header>
                 <h1>PAINEL PCM</h1>
-                <img src="rumo-logo.svg" alt="Rumo Logo" className="logo" />
+                <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
             </header>
             <main>
                 <section className="filters">
