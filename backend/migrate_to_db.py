@@ -13,8 +13,8 @@ load_dotenv()
 def determine_status(row):
     """Determina o status da atividade com base nas datas e overrides."""
     override_status = row.get('tempo_real_override')
-    if override_status == 'DESL':
-        return 'Cancelado (DESL)'
+    if override_status == 'ESP':
+        return 'Cancelado (ESP)'
     if override_status == 'BLOCO':
         return 'Cancelado (BLOCO)'
     
