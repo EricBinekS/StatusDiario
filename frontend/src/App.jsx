@@ -189,7 +189,6 @@ function App() {
                                 checked={showDesl}
                                 onChange={(e) => setShowDesl(e.target.checked)}
                             />
-                            <label htmlFor="show-desl">Mostrar DESL</label>
                         </div>
                     </div>
                 </section>

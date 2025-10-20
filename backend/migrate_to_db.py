@@ -204,7 +204,7 @@ def run_migration():
             'Atividade', 'Programar para D+1', 'DATA', 'inicio_prog', 'inicio_real', 
             'tempo_prog', 'tempo_real', 'local_prog', 'local_real', 'quantidade_prog', 
             'quantidade_real', 'detalhamento', 'timer_start_timestamp', 
-            'timer_end_timestamp', 'tempo_real_override'
+            'timer_end_timestamp', 'tempo_real_override','Status'
         ]
         # Alteração 4: Usar o 'df_filtrado' para criar o DataFrame final
         df_final = df_filtrado[[col for col in final_columns if col in df_filtrado.columns]].copy()
