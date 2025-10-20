@@ -11,12 +11,13 @@
   --cor-header-local-qtd: #A7FA97;
   --cor-header-detalhamento: #FC9254;
   --cor-timer: #d9534f;
-
---cor-status-verde: #28a745;
---cor-status-amarelo: #ffc107;
---cor-status-vermelho: #dc3545;
---cor-status-cinza: #6c757d;
+  /* Cores de status atualizadas conforme solicitado */
+  --cor-status-verde: #2ecc71;
+  --cor-status-amarelo: #f1c40f;
+  --cor-status-vermelho: #e74c3c;
+  --cor-status-cinza: #bdc3c7;
 }
+
 body {
   font-family: Arial, sans-serif;
   background-color: var(--cor-fundo-pagina);
@@ -107,12 +108,11 @@ main {
 
 .grid-table th {
   color: var(--cor-texto-principal);
-  white-space: pre;
+  white-space: pre-wrap;
   font-size: 13px;
   font-weight: bold;
   background-color: var(--cor-cinza-claro);
   border-bottom: 1px solid var(--cor-borda);
-  cursor: pointer;
   position: relative;
 }
 
@@ -144,6 +144,7 @@ th.col-detalhamento {
 
 th.col-status {
   background-color: var(--cor-header-status);
+  width: 70px;
 }
 
 th.col-identificador {
@@ -164,26 +165,6 @@ th.col-detalhamento {
   background-color: var(--cor-header-detalhamento);
 }
 
-.timer-running {
-  font-weight: bold;
-  color: var(--cor-timer);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
 .cell-prog-real {
   display: flex;
   justify-content: center;
@@ -202,71 +183,33 @@ th.col-detalhamento {
   white-space: nowrap;
 }
 
-@keyframes highlight-fade {
-  from {
-    background-color: rgba(255, 215, 0, 0.5);
-  }
-
-  to {
-    background-color: transparent;
-  }
-}
-
-.linha-atualizada td {
-  animation: highlight-fade 2s ease-out;
-}
-
-.grid-table th.sort-asc::after,
-.grid-table th.sort-desc::after {
-  content: '';
-  position: absolute;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 4px solid transparent;
-}
-
-.grid-table th.sort-asc::after {
-  border-bottom-color: var(--cor-texto-principal);
-  margin-top: -2px;
-}
-
-.grid-table th.sort-desc::after {
-  border-top-color: var(--cor-texto-principal);
-  margin-top: 2px;
-}
-.cell-status-container {
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-gap: 4px;
-}
-.status-date {
-font-weight: bold;
-font-size: 11px;
-}
+/* CSS do StatusIcon integrado e atualizado */
 .status-icon {
-width: 20px;
-height: 20px;
-}
-.status-gray {
-  color: var(--cor-status-cinza);
-}
-
-.status-green {
-  color: var(--cor-status-verde);
-}
-
-.status-yellow {
-  color: var(--cor-status-amarelo);
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); /* Sombra sutil */
 }
 
 .status-red {
-  color: var(--cor-status-vermelho);
+  background-color: var(--cor-status-vermelho);
 }
 
-/* --- CÓDIGO PARA RESPONSIVIDADE --- */
+.status-yellow {
+  background-color: var(--cor-status-amarelo);
+}
+
+.status-green {
+  background-color: var(--cor-status-verde);
+}
+
+.status-gray {
+  background-color: var(--cor-status-cinza);
+}
+
+
 @media (max-width: 900px) {
   .filters {
     flex-wrap: wrap;
@@ -277,9 +220,11 @@ height: 20px;
 
 @media (max-width: 768px) {
   .tabela-wrapper {
-    overflow-x: hidden;
+    overflow-x: auto;
   }
-
+  .grid-table {
+    table-layout: auto;
+  }
   .grid-table th,
   .grid-table td {
     font-size: 10px;

@@ -1,30 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import './index.css';
 
-function calculateRealTime(startISO, endISO, now) {
-    if (endISO) {
-        const start = new Date(startISO);
-        const end = new Date(endISO);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) return "00:00";
-        if (end < start) { end.setDate(end.getDate() + 1); }
-        const diffMs = end - start;
-        if (diffMs < 0) return "00:00";
-        const hours = Math.floor(diffMs / 3600000);
-        const minutes = Math.floor((diffMs % 3600000) / 60000);
-        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    }
-    if (startISO) {
-        const start = new Date(startISO);
-        if (isNaN(start.getTime())) return "";
-        const diffMs = now - start;
-        if (diffMs < 0) return "00:00";
-        const hours = Math.floor(diffMs / 3600000);
-        const minutes = Math.floor((diffMs % 3600000) / 60000);
-        return <span className="timer-running">{`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`}</span>;
-    }
-    return "";
-}
- 
+const getStatusColorClass = (status) => {
+  if (!status) return 'status-gray';
+  const statusText = status.toLowerCase();
+  if (statusText.includes('concluído')) return 'status-green';
+  if (statusText.includes('andamento') || statusText.includes('programado')) return 'status-yellow';
+  if (statusText.includes('cancelado')) return 'status-red';
+  return 'status-gray';
+};
+
+const StatusIcon = ({ status }) => {
+  const colorClass = getStatusColorClass(status);
+  return <div className={`status-icon ${colorClass}`} title={status}></div>;
+};
+
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(
@@ -41,28 +30,14 @@ function findUpdatedRows(oldData, newData) {
     return updated;
 }
 
-function calculateStatus(row, rules) {
-    const rawDate = row.DATA;
-    const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }) : 'N/A';
-    
-    return {
-        date: formattedDate,
-        colorClass: 'status-gray',
-        tooltip: 'Regra de farol pendente de implementação.'
-    };
-}
-
 function App() {
     const [rawData, setRawData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [now, setNow] = useState(new Date());
     const [updatedRows, setUpdatedRows] = useState(new Set());
     const previousDataRef = useRef([]);
-    const [statusRules, setStatusRules] = useState([]); 
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
     const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
-    
-    // --- NOVO ESTADO PARA O CHECKBOX ---
     const [showDesl, setShowDesl] = useState(false);
 
     useEffect(() => {
@@ -72,6 +47,7 @@ function App() {
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                 const jsonData = await response.json();
+
                 if (previousDataRef.current.length > 0) {
                     const changes = findUpdatedRows(previousDataRef.current, jsonData);
                     if (changes.size > 0) {
@@ -147,15 +123,12 @@ function App() {
     const sortedAndFilteredData = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
         
-        // --- LÓGICA DE FILTRAGEM ATUALIZADA ---
         let filterableData = [...rawData];
 
-        // 1. Filtra as atividades 'DESL' se o checkbox não estiver marcado
         if (!showDesl) {
             filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
         }
 
-        // 2. Aplica os outros filtros
         filterableData = filterableData.filter(row => {
             if (filters.data && row['DATA'] !== filters.data) return false;
             if (filters.gerencia && row['Gerência da Via'] !== filters.gerencia) return false;
@@ -178,7 +151,7 @@ function App() {
             });
         }
         return filterableData;
-    }, [rawData, filters, sortConfig, showDesl]); // Adicionado 'showDesl' às dependências
+    }, [rawData, filters, sortConfig, showDesl]);
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -207,7 +180,6 @@ function App() {
                     <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="tipo">Tipo:</label><select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}><option value="">Todos</option>{tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     
-                    {/* --- NOVO FILTRO CHECKBOX --- */}
                     <div className="filter-item">
                         <label>Especiais:</label>
                         <div className="checkbox-container">
@@ -226,7 +198,7 @@ function App() {
                         <table className="grid-table">
                             <thead>
                                 <tr>
-                                    <th className={`col-status ${getSortDirectionClass('DATA')}`} onClick={() => requestSort('DATA')}><strong>Data / Status</strong></th>
+                                    <th className={`col-status ${getSortDirectionClass('Status')}`} onClick={() => requestSort('Status')}><strong>Status</strong></th>
                                     <th className={`col-identificador ${getSortDirectionClass('ATIVO')}`} onClick={() => requestSort('ATIVO')}><strong>Identificador</strong><br /><span>Ativo &nbsp;&nbsp;&nbsp;&nbsp; Atividade</span></th>
                                     <th className={`col-inicio ${getSortDirectionClass('inicio_real')}`} onClick={() => requestSort('inicio_real')}><strong>Inicio</strong><br /><span>Prog &nbsp;&nbsp;&nbsp;&nbsp; Real</span></th>
                                     <th className={`col-tempo ${getSortDirectionClass('tempo_prog')}`} onClick={() => requestSort('tempo_prog')}><strong>Tempo</strong><br /><span>Prog &nbsp;&nbsp;&nbsp;&nbsp; Real</span></th>
@@ -239,22 +211,14 @@ function App() {
                                 {sortedAndFilteredData.map((row, index) => {
                                     const rowKey = `${row.ATIVO}-${row.Atividade}-${row.DATA}`;
                                     const isUpdated = updatedRows.has(rowKey);
-                                    const status = calculateStatus(row, statusRules);
                                     return (
                                         <tr key={index} className={isUpdated ? 'linha-atualizada' : ''}>
-                                            <td data-label="Data / Status">
-                                                <div className="cell-status-container">
-                                                    <span className="status-date">{status.date}</span>
-                                                    <div title={status.tooltip}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`status-icon ${status.colorClass}`}>
-                                                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-                                                        </svg>
-                                                    </div>
-                                                </div>
+                                            <td data-label="Status">
+                                               <StatusIcon status={row.Status} />
                                             </td>
                                             <td data-label="Identificador"><div className="cell-prog-real"><span><strong>{row.ATIVO || 'N/A'}</strong></span><span>{row.Atividade || 'N/A'}</span></div></td>
                                             <td data-label="Início"><div className="cell-prog-real"><span><strong>{row.inicio_prog || '--:--'}</strong></span><span><strong>{row.inicio_real || '--:--'}</strong></span></div></td>
-                                            <td data-label="Tempo"><div className="cell-prog-real"><span><strong>{row.tempo_prog || '--:--'}</strong></span><span><strong>{row.tempo_real_override ? row.tempo_real_override : (calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--')}</strong></span></div></td>
+                                            <td data-label="Tempo"><div className="cell-prog-real"><span><strong>{row.tempo_prog || '--:--'}</strong></span><span><strong>{row.tempo_real || '---'}</strong></span></div></td>
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
                                             <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
