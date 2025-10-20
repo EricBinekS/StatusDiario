@@ -101,7 +101,11 @@ def transform_df(df):
     df.rename(columns=rename_map, inplace=True)
     for col in rename_map.values():
         if col not in df.columns: df[col] = None
-    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce').dt.strftime('%Y-%m-%d')
+    
+    # Alteração 1: Manter a coluna DATA como objeto datetime para facilitar a filtragem
+    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
+    df.dropna(subset=['DATA'], inplace=True) # Remove linhas onde a data não pôde ser convertida
+    
     df['start_prog_dt'] = df.apply(_create_full_datetime, args=('Inicia',), axis=1)
     df['start_real_dt'] = df.apply(_create_full_datetime, args=('Inicio',), axis=1)
     df['duration_dt'] = df.apply(lambda row: flexible_time_to_datetime(row['Duração']), axis=1)
@@ -132,6 +136,9 @@ def transform_df(df):
     df.loc[cond_bloco, 'timer_end_timestamp'] = None
     df = df.drop(columns=['fim_val', 'fim_time_obj'])
     df['Status'] = df.apply(determine_status, axis=1)
+    
+    # Alteração 2: Formatar a coluna DATA para string no final, após qualquer uso como datetime
+    df['DATA'] = df['DATA'].dt.strftime('%Y-%m-%d')
     return df
 
 def run_migration():
@@ -173,10 +180,25 @@ def run_migration():
         return
     df = pd.concat(df_list, ignore_index=True)
     transformed_df = transform_df(df)
+    
+    # Alteração 3: Lógica para filtrar o DataFrame para os últimos 10 dias
+    hoje = datetime.date.today()
+    data_limite = hoje - datetime.timedelta(days=10)
+    
+    # Converte a coluna 'DATA' (que já está como string YYYY-MM-DD) para datetime temporariamente para a comparação
+    transformed_df['DATA_dt_temp'] = pd.to_datetime(transformed_df['DATA'])
+    
+    registros_antes = len(transformed_df)
+    df_filtrado = transformed_df[transformed_df['DATA_dt_temp'].dt.date >= data_limite].copy()
+    df_filtrado.drop(columns=['DATA_dt_temp'], inplace=True) # Remove a coluna temporária
+    registros_depois = len(df_filtrado)
+    
+    print(f"Filtrando registros para os últimos 10 dias ({data_limite.strftime('%Y-%m-%d')} a {hoje.strftime('%Y-%m-%d')}).")
+    print(f"Registros antes do filtro: {registros_antes}. Registros após o filtro: {registros_depois}.")
+    
     engine = create_engine(DATABASE_URL)
-    print(f"Salvando {len(transformed_df)} registros na tabela 'atividades' do banco de dados Neon...")
+    print(f"Salvando {len(df_filtrado)} registros na tabela 'atividades' do banco de dados Neon...")
     try:
-        # Adicionadas as novas colunas à lista final
         final_columns = [
             'Status', 'Gerência da Via', 'Coordenação da Via', 'Trecho', 'SUB', 'ATIVO', 
             'Atividade', 'Programar para D+1', 'DATA', 'inicio_prog', 'inicio_real', 
@@ -184,7 +206,8 @@ def run_migration():
             'quantidade_real', 'detalhamento', 'timer_start_timestamp', 
             'timer_end_timestamp', 'tempo_real_override'
         ]
-        df_final = transformed_df[[col for col in final_columns if col in transformed_df.columns]].copy()
+        # Alteração 4: Usar o 'df_filtrado' para criar o DataFrame final
+        df_final = df_filtrado[[col for col in final_columns if col in df_filtrado.columns]].copy()
         df_final.to_sql('atividades', engine, if_exists='replace', index=False)
         print("Migração para o banco de dados na nuvem concluída com sucesso!")
     except Exception as e:
