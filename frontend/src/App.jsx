@@ -50,26 +50,42 @@ function findUpdatedRows(oldData, newData) {
     return updated;
 }
 
-// Função de status (COM CORREÇÃO toLowerCase)
+// --- FUNÇÃO DE STATUS COM LÓGICA DE CORES NUMÉRICA ---
 function calculateStatusDisplay(row) {
-    const statusText = row.status || ''; // Garante que é string ou vazio
+    const statusValue = row.status; // Pega o valor da coluna 'status' (0, 1, 2, ou texto)
     const rawDate = row.data;
     const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }) : 'N/A';
 
-    let colorClass = 'status-gray';
-    // --- CORREÇÃO APLICADA ---
-    // Verifica se statusText é uma string antes de chamar toLowerCase
-    const lowerStatus = typeof statusText === 'string' ? statusText.toLowerCase() : '';
+    let colorClass = 'status-gray'; // Cor padrão
+    let tooltipText = 'Status não definido';
 
-    if (lowerStatus.includes('concluído') || lowerStatus.includes('concluido')) colorClass = 'status-green';
-    else if (lowerStatus.includes('andamento')) colorClass = 'status-yellow';
-    else if (lowerStatus.includes('programado')) colorClass = 'status-gray';
-    else if (lowerStatus.includes('cancelado')) colorClass = 'status-red';
+    // Tenta converter para número para a lógica 0, 1, 2
+    const statusNum = parseInt(statusValue, 10);
+
+    if (statusValue === 0 || statusValue === '0') {
+        colorClass = 'status-red';
+        tooltipText = 'Status 0 (Vermelho)'; // Ajuste o texto se necessário
+    } else if (statusValue === 1 || statusValue === '1') {
+        colorClass = 'status-yellow';
+        tooltipText = 'Status 1 (Amarelo)'; // Ajuste o texto se necessário
+    } else if (statusValue === 2 || statusValue === '2') {
+        colorClass = 'status-green';
+        tooltipText = 'Status 2 (Verde)'; // Ajuste o texto se necessário
+    } else if (typeof statusValue === 'string') {
+        // Fallback se 'status' for um texto inesperado (mantém a lógica anterior)
+        tooltipText = statusValue;
+        const lowerStatus = statusValue.toLowerCase();
+        if (lowerStatus.includes('concluído') || lowerStatus.includes('concluido')) colorClass = 'status-green';
+        else if (lowerStatus.includes('andamento')) colorClass = 'status-yellow';
+        else if (lowerStatus.includes('programado')) colorClass = 'status-gray';
+        else if (lowerStatus.includes('cancelado')) colorClass = 'status-red';
+    }
+
 
     return {
         date: formattedDate,
         colorClass: colorClass,
-        tooltip: statusText || 'Status não definido'
+        tooltip: tooltipText
     };
 }
 
@@ -122,12 +138,8 @@ function App() {
         const options = new Set();
         data.forEach(row => {
             const value = row[key];
-            // Adiciona verificação para ter certeza que é string antes de trim()
-            if (value && typeof value === 'string' && value !== '-' && value !== '0') {
-                options.add(value.trim());
-            } else if (value && typeof value !== 'string') {
-                 // Converte para string se não for null/undefined
-                 options.add(String(value));
+            if (value != null && value !== '' && value !== '-' && value !== '0') { // Verifica null/undefined/vazio
+                 options.add(String(value).trim());
             }
         });
         return Array.from(options).sort((a, b) => String(a).localeCompare(String(b)));
@@ -178,7 +190,6 @@ function App() {
             if (filters.gerencia && row.gerência_da_via !== filters.gerencia) return false;
             if (filters.trecho && row.coordenação_da_via !== filters.trecho) return false;
             if (filters.sub && String(row.sub) !== filters.sub) return false;
-            // Adiciona verificação para ativo antes de toLowerCase
             if (filters.ativo && (!row.ativo || typeof row.ativo !== 'string' || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
             if (filters.atividade && row.atividade !== filters.atividade) return false;
             if (filters.tipo && row.programar_para_d_1 !== filters.tipo) return false;
@@ -225,7 +236,6 @@ function App() {
             </header>
             <main>
                 <section className="filters">
-                    {/* Filtros mantidos */}
                     <div className="filter-item"><label htmlFor="data">Data:</label><input type="date" id="data" value={filters.data} onChange={(e) => handleFilterChange('data', e.target.value)} /></div>
                     <div className="filter-item"><label htmlFor="gerencia">Gerência:</label><select id="gerencia" value={filters.gerencia} onChange={(e) => handleFilterChange('gerencia', e.target.value)}><option value="">Todas</option>{gerenciaOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
@@ -265,6 +275,7 @@ function App() {
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{statusDisplay.date}</span>
                                                     <div title={statusDisplay.tooltip}>
+                                                        {/* Ícone usa a classe de cor correta */}
                                                         <div className={`status-icon ${statusDisplay.colorClass}`}></div>
                                                     </div>
                                                 </div>
@@ -274,6 +285,7 @@ function App() {
                                             <td data-label="Tempo">
                                                 <div className="cell-prog-real">
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
+                                                    {/* Lógica de Tempo Real/Override restaurada */}
                                                     <span><strong>
                                                         {row.tempo_real_override ? row.tempo_real_override
                                                           : (calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--')
@@ -300,4 +312,3 @@ function App() {
 }
 
 export default App;
-
