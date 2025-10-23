@@ -4,7 +4,8 @@ from sqlalchemy import create_engine
 import os
 from dotenv import load_dotenv
 import pandas as pd
-import datetime # Importa datetime
+import datetime
+import json
 
 load_dotenv()
 
@@ -31,10 +32,14 @@ def get_atividades():
     try:
         df = pd.read_sql('SELECT * FROM atividades', engine)
         df = df.where(pd.notna(df), None)
-        data_list = df.to_dict(orient="records")
+        
+        json_string = df.to_json(orient="records", date_format="iso")
+        data_list = json.loads(json_string)
+
         now_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         print(f"Consulta concluída. {len(data_list)} registros encontrados.")
+        
         return jsonify({
             "data": data_list,
             "last_updated": now_utc
