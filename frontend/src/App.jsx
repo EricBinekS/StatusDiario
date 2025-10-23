@@ -227,7 +227,7 @@ function App() {
         <>
             <header>
                  <div className="title-container">
-                     <h1>PAINEL PCM</h1>
+                     <h1>PAINEL INTERVALOS - PCM</h1>
                      {/* --- EXIBIÇÃO DO TIMESTAMP --- */}
                      <p className="last-updated">
                          Última atualização: {formatLastUpdated(lastUpdatedTimestamp)}
