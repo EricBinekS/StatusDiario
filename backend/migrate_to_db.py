@@ -10,6 +10,32 @@ import datetime
 
 load_dotenv()
 
+# Função auxiliar movida para cima para organização
+def determine_status(row):
+    """Determina o status da atividade com base nas datas e overrides."""
+    override_status = row.get('tempo_real_override')
+    # Corrigido: Usar 'ESP' como no código antigo, se preferir 'DESL', ajuste aqui.
+    if override_status == 'DESL':
+        return 'Cancelado (DESL)'
+    if override_status == 'BLOCO':
+        return 'Cancelado (BLOCO)'
+
+    if pd.notna(row.get('end_real_dt')) and pd.notna(row.get('start_real_dt')):
+        return 'Concluído'
+    elif pd.notna(row.get('start_real_dt')):
+        return 'Em Andamento'
+    else:
+        return 'Programado'
+
+def format_timedelta_to_hhmm(td):
+    """Formata um objeto Timedelta para uma string 'HH:MM'."""
+    if pd.isna(td):
+        return None
+    total_seconds = int(td.total_seconds()) # Convert to int before calculations
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    return f"{hours:02d}:{minutes:02d}"
+
 def flexible_time_to_datetime(value):
     if pd.isna(value): return None
     if isinstance(value, (int, float)):
@@ -38,15 +64,17 @@ def clean_column_names(columns):
     return new_columns
 
 def _create_full_datetime(row, time_col_name, date_col_name='DATA'):
-    date_str = row.get(date_col_name)
+    # Corrigido: Usa a coluna DATA que agora é datetime
+    date_obj = row.get(date_col_name)
     time_val = row.get(time_col_name)
-    if pd.isna(date_str) or pd.isna(time_val): return None
+    if pd.isna(date_obj) or pd.isna(time_val): return None
     time_dt = flexible_time_to_datetime(time_val)
     if not time_dt: return None
     try:
-        base_date = pd.to_datetime(date_str).date()
+        # Extrai apenas a parte da data do objeto datetime
+        base_date = date_obj.date()
         full_dt = datetime.datetime.combine(base_date, time_dt.time())
-        return pd.to_datetime(full_dt)
+        return pd.to_datetime(full_dt) # Retorna sem fuso horário
     except Exception:
         return None
 
@@ -69,7 +97,7 @@ def calculate_end_datetime(row):
     end_dt = datetime.datetime.combine(start_dt.date(), end_time_dt_obj.time())
     if end_dt < start_dt:
         end_dt += datetime.timedelta(days=1)
-    return pd.to_datetime(end_dt)
+    return pd.to_datetime(end_dt) # Retorna sem fuso horário
 
 def transform_df(df):
     df = df.where(pd.notnull(df), None)
@@ -77,43 +105,61 @@ def transform_df(df):
     df.rename(columns=rename_map, inplace=True)
     for col in rename_map.values():
         if col not in df.columns: df[col] = None
-        
-    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce').dt.strftime('%Y-%m-%d')
+
+    # Manter DATA como datetime para cálculos
+    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
+    df.dropna(subset=['DATA'], inplace=True)
+
     df['start_prog_dt'] = df.apply(_create_full_datetime, args=('Inicia',), axis=1)
     df['start_real_dt'] = df.apply(_create_full_datetime, args=('Inicio',), axis=1)
     df['duration_dt'] = df.apply(lambda row: flexible_time_to_datetime(row['Duração']), axis=1)
     df['end_real_dt'] = df.apply(calculate_end_datetime, axis=1)
-    
+
     df['inicio_prog'] = df['start_prog_dt'].apply(lambda dt: dt.strftime('%H:%M') if pd.notna(dt) else None)
     df['inicio_real'] = df['start_real_dt'].apply(lambda dt: dt.strftime('%H:%M') if pd.notna(dt) else None)
     df['tempo_prog'] = df['duration_dt'].apply(lambda dt: dt.strftime('%H:%M') if pd.notna(dt) else None)
+
+    # Calcula tempo_real apenas se start e end existirem
+    mask = df['start_real_dt'].notna() & df['end_real_dt'].notna()
+    df.loc[mask, 'tempo_real'] = (df.loc[mask, 'end_real_dt'] - df.loc[mask, 'start_real_dt']).apply(format_timedelta_to_hhmm)
+    df['tempo_real'] = df['tempo_real'].where(mask, None) # Garante None onde não foi calculado
+
+
     df['timer_start_timestamp'] = df['start_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
     df['timer_end_timestamp'] = df['end_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
-    
-    df['local_prog'] = df['SB']
-    df['local_real'] = df['SB_4']
+
+    clean_local = lambda x: re.split(r'[/\\]', str(x))[0].strip() if pd.notna(x) else None
+    df['local_prog'] = df['SB'].apply(clean_local)
+    df['local_real'] = df['SB_4'].apply(clean_local)
     df['quantidade_prog'] = df['Quantidade']
     df['quantidade_real'] = df['Quantidade_1']
     df['detalhamento'] = df.apply(lambda row: row.get('Prévia - 2') if pd.notna(row.get('end_real_dt')) else row.get('Prévia - 1'), axis=1)
 
+    # --- LÓGICA DAS EXCEÇÕES REINTRODUZIDA E CORRIGIDA ---
     df['tempo_real_override'] = None
-    
     end_time_cols = ['Fim', 'Fim_8', 'Fim_10']
     df['fim_val'] = df[end_time_cols].bfill(axis=1).iloc[:, 0]
-    df['fim_time_obj'] = df['fim_val'].apply(lambda x: flexible_time_to_datetime(x).time() if pd.notna(x) else None)
-    
+    df['fim_time_obj'] = df['fim_val'].apply(lambda x: flexible_time_to_datetime(x).time() if pd.notna(x) and flexible_time_to_datetime(x) is not None else None)
+
     cond_desl = df['fim_time_obj'] == datetime.time(1, 0)
-    df.loc[cond_desl, 'tempo_real_override'] = 'DESL'
+    df.loc[cond_desl, 'tempo_real_override'] = 'DESL' # Regra corrigida
     df.loc[cond_desl, 'timer_start_timestamp'] = None
     df.loc[cond_desl, 'timer_end_timestamp'] = None
+    # Também zeramos o tempo_real calculado para DESL
+    df.loc[cond_desl, 'tempo_real'] = None
 
     cond_bloco = df['fim_time_obj'] == datetime.time(0, 1)
-    df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO'
+    df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO' # Regra mantida
     df.loc[cond_bloco, 'timer_start_timestamp'] = None
     df.loc[cond_bloco, 'timer_end_timestamp'] = None
+    # Também zeramos o tempo_real calculado para BLOCO
+    df.loc[cond_bloco, 'tempo_real'] = None
 
     df = df.drop(columns=['fim_val', 'fim_time_obj'])
-    
+    df['Status'] = df.apply(determine_status, axis=1)
+
+    # Formatar DATA para string APENAS NO FINAL
+    df['DATA'] = df['DATA'].dt.strftime('%Y-%m-%d')
     return df
 
 def run_migration():
@@ -132,7 +178,7 @@ def run_migration():
         print(f"ERRO: Falha ao carregar mapeamento_abas.json: {e}")
         return
     file_paths = glob.glob(raw_data_path)
-    if not file_paths: 
+    if not file_paths:
         print("Nenhum arquivo Excel encontrado para migração.")
         return
     df_list = []
@@ -150,30 +196,43 @@ def run_migration():
             except Exception as e:
                 print(f"AVISO: Falha ao processar o arquivo '{nome_do_arquivo}'. Erro: {e}.")
                 continue
-    if not df_list: 
+    if not df_list:
         print("Nenhum dado válido para migrar.")
         return
     df = pd.concat(df_list, ignore_index=True)
     transformed_df = transform_df(df)
-    engine = create_engine(DATABASE_URL)
-    
-    # Filtro de data que você mencionou
-    end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=10)
-    transformed_df['DATA_dt'] = pd.to_datetime(transformed_df['DATA'])
-    print(f"Filtrando registros para os últimos 10 dias ({start_date} a {end_date}).")
-    print(f"Registros antes do filtro: {len(transformed_df)}.")
-    filtered_df = transformed_df[transformed_df['DATA_dt'].dt.date >= start_date]
-    print(f"Registros após o filtro: {len(filtered_df)}.")
-    
-    print(f"Salvando {len(filtered_df)} registros na tabela 'atividades' do banco de dados Neon...")
-    try:
-        final_columns = ['Gerência da Via', 'Coordenação da Via', 'Trecho', 'SUB', 'ATIVO', 'Atividade', 'Programar para D+1', 'DATA', 'inicio_prog', 'inicio_real', 'tempo_prog', 'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp', 'timer_end_timestamp', 'tempo_real_override']
-        df_final = filtered_df[[col for col in final_columns if col in filtered_df.columns]].copy()
 
-        # --- LINHA DE DEBUG ADICIONADA ---
-        print(f"DEBUG: Colunas finais sendo enviadas para o DB: {list(df_final.columns)}")
-        
+    hoje = datetime.date.today()
+    data_limite = hoje - datetime.timedelta(days=10)
+
+    # Usar a coluna DATA (que foi mantida como datetime até o final de transform_df)
+    transformed_df['DATA_dt_temp'] = pd.to_datetime(transformed_df['DATA'])
+    registros_antes = len(transformed_df)
+    df_filtrado = transformed_df[transformed_df['DATA_dt_temp'].dt.date >= data_limite].copy()
+    df_filtrado.drop(columns=['DATA_dt_temp'], inplace=True)
+    registros_depois = len(df_filtrado)
+
+    print(f"Filtrando registros para os últimos 10 dias ({data_limite.strftime('%Y-%m-%d')} a {hoje.strftime('%Y-%m-%d')}).")
+    print(f"Registros antes do filtro: {registros_antes}. Registros após o filtro: {registros_depois}.")
+
+    engine = create_engine(DATABASE_URL)
+    print(f"Salvando {len(df_filtrado)} registros na tabela 'atividades' do banco de dados Neon...")
+    try:
+        # --- CORREÇÃO NA LISTA final_columns ---
+        final_columns = [
+            'Status', 'Gerência da Via', 'Coordenação da Via', 'Trecho', 'SUB', 'ATIVO',
+            'Atividade', 'Programar para D+1', 'DATA', 'inicio_prog', 'inicio_real',
+            'tempo_prog', 'tempo_real', # Incluído tempo_real calculado
+            'local_prog', 'local_real', 'quantidade_prog',
+            'quantidade_real', 'detalhamento', 'timer_start_timestamp',
+            'timer_end_timestamp', 'tempo_real_override'
+            # A coluna 'Status' duplicada foi removida.
+        ]
+        df_final = df_filtrado[[col for col in final_columns if col in df_filtrado.columns]].copy()
+
+        # Debug final (opcional, pode remover depois)
+        # print(f"DEBUG: Colunas finais sendo enviadas para o DB: {list(df_final.columns)}")
+
         df_final.to_sql('atividades', engine, if_exists='replace', index=False)
         print("Migração para o banco de dados na nuvem concluída com sucesso!")
     except Exception as e:
