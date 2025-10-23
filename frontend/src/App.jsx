@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 
+// Função para calcular tempo real (inalterada)
 function calculateRealTime(startISO, endISO, now) {
     if (endISO) {
         const start = new Date(startISO);
@@ -11,8 +12,8 @@ function calculateRealTime(startISO, endISO, now) {
             effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
         }
         const diffMs = effectiveEnd - start;
-        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { 
-             return "--:--"; 
+        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) {
+             return "--:--";
         }
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
@@ -32,13 +33,14 @@ function calculateRealTime(startISO, endISO, now) {
     return "--:--";
 }
 
+// Função para identificar linhas atualizadas (USA NOMES CORRIGIDOS)
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(
-        oldData.map(row => [`${row.ativo}-${row.atividade}-${row.data}`, JSON.stringify(row)])
+        oldData.map(row => [`${row.ativo}-${row.atividade}-${row.data}`, JSON.stringify(row)]) // Usa snake_case
     );
     newData.forEach(newRow => {
-        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}`;
+        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}`; // Usa snake_case
         const newSignature = JSON.stringify(newRow);
         const oldSignature = oldDataMap.get(key);
         if (!oldSignature || oldSignature !== newSignature) {
@@ -48,9 +50,10 @@ function findUpdatedRows(oldData, newData) {
     return updated;
 }
 
+// Função de status (USA NOMES CORRIGIDOS)
 function calculateStatusDisplay(row) {
-    const statusText = row.status || ''; 
-    const rawDate = row.data;
+    const statusText = row.status || ''; // Usa snake_case
+    const rawDate = row.data; // Usa snake_case
     const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }) : 'N/A';
 
     let colorClass = 'status-gray';
@@ -58,7 +61,7 @@ function calculateStatusDisplay(row) {
 
     if (lowerStatus.includes('concluído') || lowerStatus.includes('concluido')) colorClass = 'status-green';
     else if (lowerStatus.includes('andamento')) colorClass = 'status-yellow';
-    else if (lowerStatus.includes('programado')) colorClass = 'status-gray'; 
+    else if (lowerStatus.includes('programado')) colorClass = 'status-gray';
     else if (lowerStatus.includes('cancelado')) colorClass = 'status-red';
 
     return {
@@ -76,6 +79,7 @@ function App() {
     const [updatedRows, setUpdatedRows] = useState(new Set());
     const previousDataRef = useRef([]);
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
+    // Define a chave de ordenação inicial com o nome snake_case correto
     const [sortConfig, setSortConfig] = useState({ key: 'inicio_real', direction: 'ascending' });
     const [showDesl, setShowDesl] = useState(false);
 
@@ -86,6 +90,7 @@ function App() {
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                 const jsonData = await response.json();
+                // console.log("Dados recebidos da API:", jsonData[0]); // Linha de debug (opcional)
                 if (previousDataRef.current.length > 0) {
                     const changes = findUpdatedRows(previousDataRef.current, jsonData);
                     if (changes.size > 0) {
@@ -103,8 +108,9 @@ function App() {
         }
 
         fetchData();
-        const timerNowId = setInterval(() => setNow(new Date()), 1000); 
-        const timerFetchId = setInterval(fetchData, 300000); 
+        const timerNowId = setInterval(() => setNow(new Date()), 1000);
+        const timerFetchId = setInterval(fetchData, 300000);
+
         return () => {
             clearInterval(timerNowId);
             clearInterval(timerFetchId);
@@ -123,6 +129,7 @@ function App() {
         return Array.from(options).sort((a, b) => String(a).localeCompare(String(b)));
     };
 
+    // Usa nomes snake_case para buscar opções
     const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'gerência_da_via'), [rawData]);
     const trechoOptions = useMemo(() => {
         let filteredData = rawData;
@@ -147,7 +154,6 @@ function App() {
         if (filters.gerencia) filteredData = filteredData.filter(row => row.gerência_da_via === filters.gerencia);
         if (filters.trecho) filteredData = filteredData.filter(row => row.coordenação_da_via === filters.trecho);
         if (filters.sub) filteredData = filteredData.filter(row => String(row.sub) === filters.sub);
-        // Nome da coluna limpo pode ser 'programar_para_d_1'
         return getUniqueOptions(filteredData, 'programar_para_d_1');
     }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
@@ -165,6 +171,7 @@ function App() {
             filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
         }
         filterableData = filterableData.filter(row => {
+            // Usa nomes snake_case
             if (filters.data && row.data !== filters.data) return false;
             if (filters.gerencia && row.gerência_da_via !== filters.gerencia) return false;
             if (filters.trecho && row.coordenação_da_via !== filters.trecho) return false;
@@ -175,16 +182,14 @@ function App() {
             return true;
         });
         if (sortConfig.key) {
-            const sortKey = sortConfig.key;
+            const sortKey = sortConfig.key; // Chave já está correta (snake_case)
             filterableData.sort((a, b) => {
-                const valA = a[sortKey];
-                const valB = b[sortKey];
+                const valA = a[sortKey]; const valB = b[sortKey];
                 if (valA == null && valB == null) return 0;
                 if (valA == null) return sortConfig.direction === 'ascending' ? 1 : -1;
                 if (valB == null) return sortConfig.direction === 'ascending' ? -1 : 1;
-
-                const numA = parseFloat(valA);
-                const numB = parseFloat(valB);
+                // Comparação numérica ou string
+                const numA = parseFloat(valA); const numB = parseFloat(valB);
                 if (!isNaN(numA) && !isNaN(numB)) {
                      if (numA < numB) return sortConfig.direction === 'ascending' ? -1 : 1;
                      if (numA > numB) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -197,6 +202,7 @@ function App() {
         return filterableData;
     }, [rawData, filters, sortConfig, showDesl]);
 
+    // Função requestSort usa a chave como string (já deve ser snake_case)
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -218,6 +224,7 @@ function App() {
             </header>
             <main>
                 <section className="filters">
+                    {/* Filtros mantidos */}
                     <div className="filter-item"><label htmlFor="data">Data:</label><input type="date" id="data" value={filters.data} onChange={(e) => handleFilterChange('data', e.target.value)} /></div>
                     <div className="filter-item"><label htmlFor="gerencia">Gerência:</label><select id="gerencia" value={filters.gerencia} onChange={(e) => handleFilterChange('gerencia', e.target.value)}><option value="">Todas</option>{gerenciaOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
@@ -237,7 +244,8 @@ function App() {
                         <table className="grid-table">
                             <thead>
                                 <tr>
-                                    <th className={`col-status ${getSortDirectionClass('status')}`} onClick={() => requestSort('status')}><strong>Data / Status</strong></th>
+                                     {/* Cabeçalhos CORRIGIDOS para usar snake_case na ordenação */}
+                                    <th className={`col-status ${getSortDirectionClass('data')}`} onClick={() => requestSort('data')}><strong>Data / Status</strong></th>
                                     <th className={`col-identificador ${getSortDirectionClass('ativo')}`} onClick={() => requestSort('ativo')}><strong>Identificador</strong><br /><span>Ativo &nbsp;&nbsp;&nbsp;&nbsp; Atividade</span></th>
                                     <th className={`col-inicio ${getSortDirectionClass('inicio_real')}`} onClick={() => requestSort('inicio_real')}><strong>Inicio</strong><br /><span>Prog &nbsp;&nbsp;&nbsp;&nbsp; Real</span></th>
                                     <th className={`col-tempo ${getSortDirectionClass('tempo_prog')}`} onClick={() => requestSort('tempo_prog')}><strong>Tempo</strong><br /><span>Prog &nbsp;&nbsp;&nbsp;&nbsp; Real</span></th>
@@ -248,34 +256,36 @@ function App() {
                             </thead>
                             <tbody>
                                 {sortedAndFilteredData.map((row, index) => {
-                                    const rowKey = `${row.ativo}-${row.atividade}-${row.data}`; 
+                                    const rowKey = `${row.ativo}-${row.atividade}-${row.data}`;
                                     const isUpdated = updatedRows.has(rowKey);
                                     const statusDisplay = calculateStatusDisplay(row);
                                     return (
                                         <tr key={index} className={isUpdated ? 'linha-atualizada' : ''}>
+                                            {/* --- CÉLULA DATA/STATUS CORRIGIDA --- */}
                                             <td data-label="Data / Status">
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{statusDisplay.date}</span>
                                                     <div title={statusDisplay.tooltip}>
+                                                        {/* Ícone usa a classe de cor */}
                                                         <div className={`status-icon ${statusDisplay.colorClass}`}></div>
                                                     </div>
                                                 </div>
                                             </td>
+                                            {/* --- DEMAIS CÉLULAS (usam snake_case) --- */}
                                             <td data-label="Identificador"><div className="cell-prog-real"><span><strong>{row.ativo || 'N/A'}</strong></span><span>{row.atividade || 'N/A'}</span></div></td>
                                             <td data-label="Início"><div className="cell-prog-real"><span><strong>{row.inicio_prog || '--:--'}</strong></span><span><strong>{row.inicio_real || '--:--'}</strong></span></div></td>
+                                            {/* --- CÉLULA TEMPO REAL CORRIGIDA --- */}
                                             <td data-label="Tempo">
                                                 <div className="cell-prog-real">
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
                                                     <span><strong>
                                                         {row.tempo_real_override ? row.tempo_real_override
-                                                          /* Se não houver override, tenta calcular o tempo */
                                                           : (calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--')
                                                         }
                                                     </strong></span>
                                                 </div>
                                             </td>
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
-                                            {/* Ajusta para nomes limpos: quantidade_prog, quantidade_real */}
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
                                             <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
                                         </tr>
