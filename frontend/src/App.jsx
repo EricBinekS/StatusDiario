@@ -47,11 +47,12 @@ function calculateRealTime(row, now) {
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(oldData.map(row => {
-        const key = ${ row.ativo }-${ row.atividade } -${ row.data } -${ row.timer_start_timestamp } -${ row.timer_end_timestamp };
-        return [key, JSON.stringify(row)];
+        const key = `${row.ativo}-${row.atividade}-${row.data}-${row.timer_start_timestamp}-${row.timer_end_timestamp}`;
+
     }));
     newData.forEach(newRow => {
-        const key = ${ newRow.ativo }-${ newRow.atividade } -${ newRow.data } -${ newRow.timer_start_timestamp } -${ newRow.timer_end_timestamp };
+        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}-${newRow.timer_start_timestamp}-${newRow.timer_end_timestamp}`;
+
         const newSignature = JSON.stringify(newRow);
         const oldSignature = oldDataMap.get(key);
         if (!oldSignature || oldSignature !== newSignature) updated.add(key);
