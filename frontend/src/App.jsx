@@ -108,7 +108,7 @@ function findUpdatedRows(oldData, newData) {
         oldData.map(row => [`${row.ativo}-${row.atividade}-${row.data}`, JSON.stringify(row)])
     );
     newData.forEach(newRow => {
-        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}`;
+        const key = `${newRow.ativo}-${newRow.atividade}-${row.data}`;
         const newSignature = JSON.stringify(newRow);
         const oldSignature = oldDataMap.get(key);
         if (!oldSignature || oldSignature !== newSignature) {
@@ -246,7 +246,7 @@ function App() {
             if (filters.sub && String(row.sub) !== filters.sub) return false;
             if (filters.ativo && (!row.ativo || typeof row.ativo !== 'string' || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
             if (filters.atividade && row.atividade !== filters.atividade) return false;
-            if (filters.tipo && row.programar_para_d1 !== filters.tipo) return false;
+            if (filters.tipo && row.programar_para_d_1 !== filters.tipo) return false;
             return true;
         });
         if (sortConfig.key) {
@@ -315,7 +315,8 @@ function App() {
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="sub">Sub:</label><select id="sub" value={filters.sub} onChange={(e) => handleFilterChange('sub', e.target.value)}><option value="">Todos</option>{subOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="ativo">Ativo:</label><input type="text" id="ativo" value={filters.ativo} onChange={(e) => handleFilterChange('ativo', e.target.value)} /></div>
-                    <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</A</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+                    {/* LINHA CORRIGIDA ABAIXO */}
+                    <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="tipo">Tipo:</label><select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}><option value="">Todos</option>{tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item">
                         <label>Especiais:</label>
