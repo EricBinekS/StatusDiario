@@ -1,8 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
-
-// --- ATUALIZADO ---
-// Agora recebe 'row' e 'now' para termos mais contexto nos logs
 function calculateRealTime(row, now) {
     
     const startISO = row.timer_start_timestamp;
@@ -19,8 +16,8 @@ function calculateRealTime(row, now) {
                 'CÁLCULO DE TEMPO (Retorno: 00:00)', 
                 { 
                     motivo: "Datas inválidas. O startISO ou o endISO não puderam ser lidos (provavelmente são nulos ou mal formatados).",
-                    data: row.data, // LOG ATUALIZADO
-                    ativo: row.ativo, // LOG ATUALIZADO
+                    data: row.data, 
+                    ativo: row.ativo, 
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
                 }
@@ -40,8 +37,8 @@ function calculateRealTime(row, now) {
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Concluída)', 
                 { 
                     motivo: "Duração ilógica. A diferença de tempo é negativa (< 0) ou maior que 36 horas.",
-                    data: row.data, // LOG ATUALIZADO
-                    ativo: row.ativo, // LOG ATUALIZADO
+                    data: row.data, 
+                    ativo: row.ativo, 
                     diferenca_ms: diffMs,
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
@@ -66,8 +63,8 @@ function calculateRealTime(row, now) {
                 'CÁLCULO DE TEMPO (Retorno: Vazio)', 
                 { 
                     motivo: "Data de início inválida. O startISO não pôde ser lido.",
-                    data: row.data, // LOG ATUALIZADO
-                    ativo: row.ativo, // LOG ATUALIZADO
+                    data: row.data, 
+                    ativo: row.ativo, 
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
                 }
@@ -83,8 +80,8 @@ function calculateRealTime(row, now) {
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Em Andamento)', 
                 { 
                     motivo: "Duração ilógica. A hora de início está no futuro (tempo negativo) ou é de mais de 36h atrás.",
-                    data: row.data, // LOG ATUALIZADO
-                    ativo: row.ativo, // LOG ATUALIZADO
+                    data: row.data, 
+                    ativo: row.ativo, 
                     diferenca_ms: diffMs,
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
@@ -105,8 +102,8 @@ function calculateRealTime(row, now) {
         'CÁLCULO DE TEMPO (Retorno: --:-- | Programada)', 
         { 
             motivo: "Atividade não iniciada. O startISO é nulo ou indefinido.",
-            data: row.data, // LOG ATUALIZADO
-            ativo: row.ativo, // LOG ATUALIZADO
+            data: row.data, 
+            ativo: row.ativo, 
             startISO_recebido: startISO,
             endISO_recebido: endISO
         }
@@ -167,21 +164,21 @@ function App() {
     const [updatedRows, setUpdatedRows] = useState(new Set());
     const previousDataRef = useRef([]);
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
-    // --- ORDENAÇÃO PADRÃO ALTERADA ---
-    const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'descending' }); // Ordena por status decrescente
+    const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'descending' });
     const [showDesl, setShowDesl] = useState(false);
-    // --- NOVO ESTADO PARA TIMESTAMP ---
     const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState(null);
+
+    // --- FUNÇÃO AUXILIAR DE FILTRO ---
+    // Garante que o valor da linha seja tratado (String, trim) da mesma forma que as opções do filtro
+    const getSafeRowValue = (val) => (val != null ? String(val).trim() : "");
 
     useEffect(() => {
         async function fetchData() {
-            // setLoading(true); // Opcional: Mostrar carregando a cada fetch
             try {
                 const url = `${import.meta.env.VITE_API_URL}/api/atividades`;
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-                // --- FETCHDATA ATUALIZADO ---
-                const responseData = await response.json(); // Pega o objeto { data: [], last_updated: "..." }
+                const responseData = await response.json(); 
                 const jsonData = responseData.data || [];
                 const timestamp = responseData.last_updated;
 
@@ -195,7 +192,6 @@ function App() {
                 setRawData(jsonData);
                 previousDataRef.current = jsonData;
 
-                // --- ATUALIZA O TIMESTAMP ---
                 if (timestamp) {
                     setLastUpdatedTimestamp(new Date(timestamp));
                 }
@@ -205,7 +201,7 @@ function App() {
                 setRawData([]);
                 setLastUpdatedTimestamp(null);
             } finally {
-                setLoading(false); // Garante que loading seja false após fetch (mesmo com erro)
+                setLoading(false); 
             }
         }
 
@@ -231,18 +227,50 @@ function App() {
         return Array.from(options).sort((a, b) => String(a).localeCompare(String(b)));
     };
 
-    // useMemo para options (inalterados, já usam snake_case)
+    // useMemo para options (Lógica de filtro dependente ATUALIZADA)
     const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'gerência_da_via'), [rawData]);
-    const trechoOptions = useMemo(() => { let d = rawData; if (filters.gerencia) { d = rawData.filter(r => r.gerência_da_via === filters.gerencia); } return getUniqueOptions(d, 'coordenação_da_via'); }, [rawData, filters.gerencia]);
-    const subOptions = useMemo(() => { let d = rawData; if (filters.gerencia) d = d.filter(r => r.gerência_da_via === filters.gerencia); if (filters.trecho) d = d.filter(r => r.coordenação_da_via === filters.trecho); return getUniqueOptions(d, 'sub'); }, [rawData, filters.gerencia, filters.trecho]);
-    const atividadeOptions = useMemo(() => { let d = rawData; if (filters.gerencia) d = d.filter(r => r.gerência_da_via === filters.gerencia); if (filters.trecho) d = d.filter(r => r.coordenação_da_via === filters.trecho); if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub); return getUniqueOptions(d, 'atividade'); }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
-    const tipoOptions = useMemo(() => { let d = rawData; if (filters.gerencia) d = d.filter(r => r.gerência_da_via === filters.gerencia); if (filters.trecho) d = d.filter(r => r.coordenação_da_via === filters.trecho); if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub); return getUniqueOptions(d, 'programar_para_d1'); }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
+    
+    const trechoOptions = useMemo(() => { 
+        let d = rawData; 
+        if (filters.gerencia) { 
+            // --- CORRIGIDO ---
+            d = rawData.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
+        } 
+        return getUniqueOptions(d, 'coordenação_da_via'); 
+    }, [rawData, filters.gerencia]);
+    
+    const subOptions = useMemo(() => { 
+        let d = rawData; 
+        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
+        // --- CORRIGIDO ---
+        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
+        return getUniqueOptions(d, 'sub'); 
+    }, [rawData, filters.gerencia, filters.trecho]);
+    
+    const atividadeOptions = useMemo(() => { 
+        let d = rawData; 
+        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
+        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
+        // --- CORRIGIDO ---
+        if (filters.sub) d = d.filter(r => getSafeRowValue(r.sub) === filters.sub); 
+        return getUniqueOptions(d, 'atividade'); 
+    }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
+    
+    const tipoOptions = useMemo(() => { 
+        let d = rawData; 
+        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
+        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
+        if (filters.sub) d = d.filter(r => getSafeRowValue(r.sub) === filters.sub);
+        // --- CHAVE CORRIGIDA ---
+        return getUniqueOptions(d, 'programar_para_d_1'); 
+    }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
 
     const handleFilterChange = (filterName, value) => {
         const newFilters = { ...filters, [filterName]: value };
         if (filterName === 'gerencia') { newFilters.trecho = ''; newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = ''; }
         if (filterName === 'trecho') { newFilters.sub = ''; newFilters.atividade = ''; newFilters.tipo = ''; }
+        if (filterName === 'sub') { newFilters.atividade = ''; newFilters.tipo = ''; }
         setFilters(newFilters);
     };
 
@@ -252,39 +280,46 @@ function App() {
         if (!showDesl) {
             filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
         }
+
+        // --- LÓGICA DE FILTRO DA TABELA PRINCIPAL CORRIGIDA ---
         filterableData = filterableData.filter(row => {
+            // Filtro de Data (sem alteração)
             if (filters.data && row.data !== filters.data) return false;
-            if (filters.gerencia && row.gerência_da_via !== filters.gerencia) return false;
-            if (filters.trecho && row.coordenação_da_via !== filters.trecho) return false;
-            if (filters.sub && String(row.sub) !== filters.sub) return false;
+            
+            // Filtro de Ativo (sem alteração - usa includes)
             if (filters.ativo && (!row.ativo || typeof row.ativo !== 'string' || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
-            if (filters.atividade && row.atividade !== filters.atividade) return false;
-            if (filters.tipo && row.programar_para_d_1 !== filters.tipo) return false;
+
+            // --- CORRIGIDO ---
+            // Filtros de Select (agora usam getSafeRowValue para garantir consistência)
+            if (filters.gerencia && getSafeRowValue(row.gerência_da_via) !== filters.gerencia) return false;
+            if (filters.trecho && getSafeRowValue(row.coordenação_da_via) !== filters.trecho) return false;
+            if (filters.sub && getSafeRowValue(row.sub) !== filters.sub) return false;
+            if (filters.atividade && getSafeRowValue(row.atividade) !== filters.atividade) return false;
+            if (filters.tipo && getSafeRowValue(row.programar_para_d_1) !== filters.tipo) return false;
+            
             return true;
         });
+        
+        // Lógica de ordenação (sem alteração)
         if (sortConfig.key) {
             const sortKey = sortConfig.key;
             filterableData.sort((a, b) => {
                 const valA = a[sortKey]; const valB = b[sortKey];
                 if (valA == null && valB == null) return 0;
-                // Ajuste para ordenação: nulos sempre por último, independente da direção
                 if (valA == null) return 1;
                 if (valB == null) return -1;
-
-                // Tenta comparar como números primeiro (para status 0, 1, 2)
                 const numA = parseFloat(valA); const numB = parseFloat(valB);
                 let comparison = 0;
                 if (!isNaN(numA) && !isNaN(numB)) {
                      comparison = numA - numB;
                 } else {
-                     // Comparação de strings
                      comparison = String(valA).localeCompare(String(valB));
                 }
                 return sortConfig.direction === 'ascending' ? comparison : comparison * -1;
             });
         }
         return filterableData;
-    }, [rawData, filters, sortConfig, showDesl]);
+    }, [rawData, filters, sortConfig, showDesl]); // getSafeRowValue não precisa ser dependência pois é definida fora
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -299,10 +334,9 @@ function App() {
         return sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
     };
 
-    // Função para formatar o timestamp
     const formatLastUpdated = (timestamp) => {
-        if (loading && !timestamp) return 'Carregando...'; // Mostra carregando se ainda não houver timestamp
-        if (!timestamp) return 'N/D'; // Mostra N/D se não houver timestamp após carregar
+        if (loading && !timestamp) return 'Carregando...'; 
+        if (!timestamp) return 'N/D'; 
         try {
             return timestamp.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium'});
         } catch (e) { return 'Data inválida'; }
@@ -313,7 +347,6 @@ function App() {
             <header>
                  <div className="title-container">
                      <h1>PAINEL INTERVALOS - PCM</h1>
-                     {/* --- EXIBIÇÃO DO TIMESTAMP --- */}
                      <p className="last-updated">
                          Última atualização: {formatLastUpdated(lastUpdatedTimestamp)}
                      </p>
@@ -338,11 +371,8 @@ function App() {
                     </div>
                 </section>
                 <section className="tabela-wrapper">
-                    {/* Indicador de Carregamento */}
                     {loading && <p className="loading-message">Carregando dados...</p>}
-                    {/* Mensagem se não houver dados após carregar */}
                     {!loading && rawData.length === 0 && <p className="loading-message">Nenhum dado disponível.</p>}
-                    {/* Tabela (só renderiza se não estiver carregando e houver dados) */}
                     {!loading && rawData.length > 0 && (
                         <table className="grid-table">
                             <thead>
@@ -362,7 +392,7 @@ function App() {
                                     const isUpdated = updatedRows.has(rowKey);
                                     const statusDisplay = calculateStatusDisplay(row);
                                     return (
-                                        <tr key={rowKey} className={isUpdated ? 'linha-atualizada' : ''}> {/* Usa rowKey para key */}
+                                        <tr key={rowKey} className={isUpdated ? 'linha-atualizada' : ''}>
                                             <td data-label="Data / Status">
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{statusDisplay.date}</span>
@@ -378,8 +408,6 @@ function App() {
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
                                                     <span><strong>
                                                         {row.tempo_real_override ? row.tempo_real_override
-                                                          // --- CHAMADA ATUALIZADA ---
-                                                          // Agora passa 'row' e 'now'
                                                           : (calculateRealTime(row, now) || '--:--')
                                                         }
                                                     </strong></span>
