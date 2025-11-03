@@ -46,12 +46,10 @@ function calculateRealTime(row, now) {
 
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
-    const oldDataMap = new Map(
-        oldData.map(row => {
-            const key = ${ row.ativo }-${ row.atividade } -${ row.data } -${ row.timer_start_timestamp } -${ row.timer_end_timestamp };
-            return [key, JSON.stringify(row)];
-        })
-    );
+    const oldDataMap = new Map(oldData.map(row => {
+        const key = ${ row.ativo }-${ row.atividade } -${ row.data } -${ row.timer_start_timestamp } -${ row.timer_end_timestamp };
+        return [key, JSON.stringify(row)];
+    }));
     newData.forEach(newRow => {
         const key = ${ newRow.ativo }-${ newRow.atividade } -${ newRow.data } -${ newRow.timer_start_timestamp } -${ newRow.timer_end_timestamp };
         const newSignature = JSON.stringify(newRow);
@@ -97,15 +95,7 @@ function App() {
     const [showDesl, setShowDesl] = useState(false);
     const [error, setError] = useState(null);
     const previousDataRef = useRef([]);
-    const [filters, setFilters] = useState({
-        data: '',
-        gerencia: '',
-        trecho: '',
-        sub: '',
-        ativo: '',
-        atividade: '',
-        tipo: ''
-    });
+    const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
 
     useEffect(() => {
         async function fetchData() {
@@ -127,7 +117,6 @@ function App() {
 
                 setRawData(jsonData);
                 previousDataRef.current = jsonData;
-
                 if (timestamp) setLastUpdatedTimestamp(new Date(timestamp));
             } catch (error) {
                 console.error("Erro ao buscar os dados:", error);
@@ -141,7 +130,7 @@ function App() {
 
         fetchData();
         const timerNowId = setInterval(() => setNow(new Date()), 1000);
-        const timerFetchId = setInterval(fetchData, 300000);
+        const timerFetchId = setInterval(fetchData, 600000);
 
         return () => {
             clearInterval(timerNowId);
@@ -152,7 +141,7 @@ function App() {
     const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'gerência_da_via'), [rawData]);
     const trechoOptions = useMemo(() => {
         let d = rawData;
-        if (filters.gerencia) d = rawData.filter(r => String(r.gerência_da_via) === filters.gerencia);
+        if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia);
         return getUniqueOptions(d, 'coordenação_da_via');
     }, [rawData, filters.gerencia]);
     const subOptions = useMemo(() => {
@@ -243,9 +232,7 @@ function App() {
             <header>
                 <div className="title-container">
                     <h1>PAINEL INTERVALOS - PCM</h1>
-                    <p className="last-updated">
-                        Última atualização: {formatLastUpdated(lastUpdatedTimestamp)}
-                    </p>
+                    <p className="last-updated">Última atualização: {formatLastUpdated(lastUpdatedTimestamp)}</p>
                 </div>
                 <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
             </header>
@@ -309,24 +296,12 @@ function App() {
                         <table className="grid-table">
                             <thead>
                                 <tr>
-                                    <th className={`col-status ${getSortDirectionClass('status')}`} onClick={() => requestSort('status')}>
-                                        <strong>Data / Status</strong>
-                                    </th>
-                                    <th className={`col-identificador ${getSortDirectionClass('ativo')}`} onClick={() => requestSort('ativo')}>
-                                        <strong>Identificador</strong><br /><span>Ativo &nbsp;&nbsp; Atividade</span>
-                                    </th>
-                                    <th className={`col-inicio ${getSortDirectionClass('inicio_real')}`} onClick={() => requestSort('inicio_real')}>
-                                        <strong>Início</strong><br /><span>Prog &nbsp;&nbsp; Real</span>
-                                    </th>
-                                    <th className={`col-tempo ${getSortDirectionClass('tempo_prog')}`} onClick={() => requestSort('tempo_prog')}>
-                                        <strong>Tempo</strong><br /><span>Prog &nbsp;&nbsp; Real</span>
-                                    </th>
-                                    <th className={`col-local ${getSortDirectionClass('local_prog')}`} onClick={() => requestSort('local_prog')}>
-                                        <strong>Local</strong><br /><span>Prog &nbsp;&nbsp; Real</span>
-                                    </th>
-                                    <th className={`col-quantidade ${getSortDirectionClass('quantidade_prog')}`} onClick={() => requestSort('quantidade_prog')}>
-                                        <strong>Quantidade</strong><br /><span>Prog &nbsp;&nbsp; Real</span>
-                                    </th>
+                                    <th className={`col-status ${getSortDirectionClass('status')}`} onClick={() => requestSort('status')}><strong>Data / Status</strong></th>
+                                    <th className={`col-identificador ${getSortDirectionClass('ativo')}`} onClick={() => requestSort('ativo')}><strong>Identificador</strong><br /><span>Ativo &nbsp;&nbsp; Atividade</span></th>
+                                    <th className={`col-inicio ${getSortDirectionClass('inicio_real')}`} onClick={() => requestSort('inicio_real')}><strong>Início</strong><br /><span>Prog &nbsp;&nbsp; Real</span></th>
+                                    <th className={`col-tempo ${getSortDirectionClass('tempo_prog')}`} onClick={() => requestSort('tempo_prog')}><strong>Tempo</strong><br /><span>Prog &nbsp;&nbsp; Real</span></th>
+                                    <th className={`col-local ${getSortDirectionClass('local_prog')}`} onClick={() => requestSort('local_prog')}><strong>Local</strong><br /><span>Prog &nbsp;&nbsp; Real</span></th>
+                                    <th className={`col-quantidade ${getSortDirectionClass('quantidade_prog')}`} onClick={() => requestSort('quantidade_prog')}><strong>Quantidade</strong><br /><span>Prog &nbsp;&nbsp; Real</span></th>
                                     <th className="col-detalhamento">Detalhamento</th>
                                 </tr>
                             </thead>
@@ -341,9 +316,7 @@ function App() {
                                             <td data-label="Data / Status">
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{statusDisplay.date}</span>
-                                                    <div title={statusDisplay.tooltip}>
-                                                        <div className={`status-icon ${statusDisplay.colorClass}`}></div>
-                                                    </div>
+                                                    <div title={statusDisplay.tooltip}><div className={`status-icon ${statusDisplay.colorClass}`}></div></div>
                                                 </div>
                                             </td>
                                             <td data-label="Identificador">
@@ -376,18 +349,12 @@ function App() {
                                                     <span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span>
                                                 </div>
                                             </td>
-                                            <td data-label="Detalhamento" className="cell-detalhamento">
-                                                {row.detalhamento || ''}
-                                            </td>
+                                            <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
                                         </tr>
                                     );
                                 })}
                                 {sortedAndFilteredData.length === 0 && !loading && (
-                                    <tr>
-                                        <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                                            Nenhum dado encontrado com os filtros aplicados.
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>Nenhum dado encontrado com os filtros aplicados.</td></tr>
                                 )}
                             </tbody>
                         </table>
