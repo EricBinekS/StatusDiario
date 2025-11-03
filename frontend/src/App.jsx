@@ -17,105 +17,46 @@ function calculateRealTime(row, now) {
     const startISO = row.timer_start_timestamp;
     const endISO = row.timer_end_timestamp;
 
-    // CASO 1: Atividade CONCLUÍDA (tem data de fim)
     if (endISO) {
         const start = new Date(startISO);
         const end = new Date(endISO);
-
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            console.warn('CÁLCULO DE TEMPO (Retorno: 00:00)', {
-                motivo: "Datas inválidas.",
-                data: row.data,
-                ativo: row.ativo,
-                startISO_recebido: startISO,
-                endISO_recebido: endISO
-            });
-            return "00:00";
-        }
-
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return "00:00";
         let effectiveEnd = end;
-        if (end < start) {
-            effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-        }
+        if (end < start) effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
         const diffMs = effectiveEnd - start;
-
-        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) {
-            console.warn('CÁLCULO DE TEMPO (Retorno: --:-- | Concluída)', {
-                motivo: "Duração ilógica.",
-                data: row.data,
-                ativo: row.ativo,
-                diferenca_ms: diffMs,
-                startISO_recebido: startISO,
-                endISO_recebido: endISO
-            });
-            return "--:--";
-        }
-
+        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) return "--:--";
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
-    // CASO 2: Atividade EM ANDAMENTO (tem data de início, mas não de fim)
     if (startISO) {
         const start = new Date(startISO);
-
-        if (isNaN(start.getTime())) {
-            console.warn('CÁLCULO DE TEMPO (Retorno: Vazio)', {
-                motivo: "Data de início inválida.",
-                data: row.data,
-                ativo: row.ativo,
-                startISO_recebido: startISO,
-                endISO_recebido: endISO
-            });
-            return "";
-        }
-
+        if (isNaN(start.getTime())) return "";
         const diffMs = now - start;
-
-        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) {
-            console.warn('CÁLCULO DE TEMPO (Retorno: --:-- | Em Andamento)', {
-                motivo: "Duração ilógica.",
-                data: row.data,
-                ativo: row.ativo,
-                diferenca_ms: diffMs,
-                startISO_recebido: startISO,
-                endISO_recebido: endISO
-            });
-            return "--:--";
-        }
-
+        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) return "--:--";
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return <span className="timer-running">{`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`}</span>;
     }
 
-    // CASO 3: Atividade PROGRAMADA (não tem data de início)
-    console.warn('CÁLCULO DE TEMPO (Retorno: --:-- | Programada)', {
-        motivo: "Atividade não iniciada.",
-        data: row.data,
-        ativo: row.ativo,
-        startISO_recebido: startISO,
-        endISO_recebido: endISO
-    });
     return "--:--";
+
 }
 
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(
         oldData.map(row => {
-            const key = `${row.ativo}-${row.atividade}-${row.data}`;
+            const key = ${ row.ativo }-${ row.atividade } -${ row.data } -${ row.timer_start_timestamp } -${ row.timer_end_timestamp };
             return [key, JSON.stringify(row)];
         })
     );
     newData.forEach(newRow => {
-        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}`;
+        const key = ${ newRow.ativo }-${ newRow.atividade } -${ newRow.data } -${ newRow.timer_start_timestamp } -${ newRow.timer_end_timestamp };
         const newSignature = JSON.stringify(newRow);
         const oldSignature = oldDataMap.get(key);
-        if (!oldSignature || oldSignature !== newSignature) {
-            updated.add(key);
-        }
+        if (!oldSignature || oldSignature !== newSignature) updated.add(key);
     });
     return updated;
 }
@@ -130,16 +71,10 @@ function calculateStatusDisplay(row) {
     let colorClass = 'status-gray';
     let tooltipText = 'Status não definido';
 
-    if (statusValue === 0 || statusValue === '0') {
-        colorClass = 'status-red';
-        tooltipText = 'Status 0 (Vermelho)';
-    } else if (statusValue === 1 || statusValue === '1') {
-        colorClass = 'status-yellow';
-        tooltipText = 'Status 1 (Amarelo)';
-    } else if (statusValue === 2 || statusValue === '2') {
-        colorClass = 'status-green';
-        tooltipText = 'Status 2 (Verde)';
-    } else if (typeof statusValue === 'string') {
+    if (statusValue === 0 || statusValue === '0') colorClass = 'status-red', tooltipText = 'Status 0 (Vermelho)';
+    else if (statusValue === 1 || statusValue === '1') colorClass = 'status-yellow', tooltipText = 'Status 1 (Amarelo)';
+    else if (statusValue === 2 || statusValue === '2') colorClass = 'status-green', tooltipText = 'Status 2 (Verde)';
+    else if (typeof statusValue === 'string') {
         tooltipText = statusValue;
         const lowerStatus = statusValue.toLowerCase();
         if (lowerStatus.includes('concluído') || lowerStatus.includes('concluido')) colorClass = 'status-green';
@@ -149,6 +84,7 @@ function calculateStatusDisplay(row) {
     }
 
     return { date: formattedDate, colorClass, tooltip: tooltipText };
+
 }
 
 function App() {
@@ -177,7 +113,6 @@ function App() {
                 const url = `${import.meta.env.VITE_API_URL}/api/atividades`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
                 const responseData = await response.json();
                 const jsonData = responseData.data || [];
                 const timestamp = responseData.last_updated;
@@ -206,7 +141,7 @@ function App() {
 
         fetchData();
         const timerNowId = setInterval(() => setNow(new Date()), 1000);
-        const timerFetchId = setInterval(fetchData, 300000); // 5 minutos
+        const timerFetchId = setInterval(fetchData, 300000);
 
         return () => {
             clearInterval(timerNowId);
@@ -243,34 +178,16 @@ function App() {
 
     const handleFilterChange = (filterName, value) => {
         const newFilters = { ...filters, [filterName]: value };
-
-        if (filterName === 'gerencia') {
-            newFilters.trecho = '';
-            newFilters.sub = '';
-            newFilters.atividade = '';
-            newFilters.tipo = '';
-        }
-        if (filterName === 'trecho') {
-            newFilters.sub = '';
-            newFilters.atividade = '';
-            newFilters.tipo = '';
-        }
-        if (filterName === 'sub') {
-            newFilters.atividade = '';
-            newFilters.tipo = '';
-        }
-
+        if (filterName === 'gerencia') newFilters.trecho = '', newFilters.sub = '', newFilters.atividade = '', newFilters.tipo = '';
+        if (filterName === 'trecho') newFilters.sub = '', newFilters.atividade = '', newFilters.tipo = '';
+        if (filterName === 'sub') newFilters.atividade = '', newFilters.tipo = '';
         setFilters(newFilters);
     };
 
     const sortedAndFilteredData = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
-
         let filterableData = [...rawData];
-
-        if (!showDesl) {
-            filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
-        }
+        if (!showDesl) filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
 
         filterableData = filterableData.filter(row => {
             if (filters.data && row.data !== filters.data) return false;
@@ -294,11 +211,8 @@ function App() {
                 const numA = parseFloat(valA);
                 const numB = parseFloat(valB);
                 let comparison = 0;
-                if (!isNaN(numA) && !isNaN(numB)) {
-                    comparison = numA - numB;
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
+                if (!isNaN(numA) && !isNaN(numB)) comparison = numA - numB;
+                else comparison = String(valA).localeCompare(String(valB));
                 return sortConfig.direction === 'ascending' ? comparison : comparison * -1;
             });
         }
@@ -308,9 +222,7 @@ function App() {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         setSortConfig({ key, direction });
     };
 
@@ -322,11 +234,8 @@ function App() {
     const formatLastUpdated = (timestamp) => {
         if (loading && !timestamp) return 'Carregando...';
         if (!timestamp) return 'N/D';
-        try {
-            return timestamp.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
-        } catch {
-            return 'Data inválida';
-        }
+        try { return timestamp.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }); }
+        catch { return 'Data inválida'; }
     };
 
     return (
@@ -423,7 +332,7 @@ function App() {
                             </thead>
                             <tbody>
                                 {sortedAndFilteredData.map((row) => {
-                                    const rowKey = `${row.ativo}-${row.atividade}-${row.data}`;
+                                    const rowKey = `${row.ativo}-${row.atividade}-${row.data}-${row.timer_start_timestamp}-${row.timer_end_timestamp}`;
                                     const isUpdated = updatedRows.has(rowKey);
                                     const statusDisplay = calculateStatusDisplay(row);
 
@@ -487,6 +396,7 @@ function App() {
             </main>
         </>
     );
+
 }
 
 export default App;
