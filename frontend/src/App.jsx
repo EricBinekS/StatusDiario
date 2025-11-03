@@ -1,24 +1,18 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css'; 
 
-const getSafeRowValue = (val) => (val != null ? String(val).trim() : "");
-
 const getUniqueOptions = (data, key) => {
     if (!Array.isArray(data)) return [];
     const options = new Set();
     data.forEach(row => {
         const value = row[key];
-        // Adiciona à lista de opções apenas se não for nulo/vazio/"-"/"0"
         if (value != null && value !== '' && value !== '-' && value !== '0') {
-             options.add(String(value).trim());
+             options.add(String(value));
         }
     });
     return Array.from(options).sort((a, b) => String(a).localeCompare(String(b)));
 };
 
-/**
- * Calcula o tempo real gasto (concluído) ou o cronômetro (em andamento).
- */
 function calculateRealTime(row, now) {
     
     const startISO = row.timer_start_timestamp;
@@ -29,7 +23,6 @@ function calculateRealTime(row, now) {
         const start = new Date(startISO);
         const end = new Date(endISO);
 
-        // --- Ponto de Falha 1 (Retorna 00:00) ---
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             console.warn(
                 'CÁLCULO DE TEMPO (Retorno: 00:00)', 
@@ -50,7 +43,6 @@ function calculateRealTime(row, now) {
         }
         const diffMs = effectiveEnd - start;
 
-        // --- Ponto de Falha 2 (Retorna --:--) ---
         if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { 
             console.warn(
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Concluída)', 
@@ -66,7 +58,6 @@ function calculateRealTime(row, now) {
             return "--:--"; 
         }
         
-        // SUCESSO (Concluída)
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
@@ -76,7 +67,6 @@ function calculateRealTime(row, now) {
     if (startISO) {
         const start = new Date(startISO);
         
-        // Falha silenciosa (retorna string vazia)
         if (isNaN(start.getTime())) {
             console.warn(
                 'CÁLCULO DE TEMPO (Retorno: Vazio)', 
@@ -93,7 +83,6 @@ function calculateRealTime(row, now) {
 
         const diffMs = now - start;
 
-        // --- Ponto de Falha 3 (Retorna --:--) ---
         if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { 
             console.warn(
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Em Andamento)', 
@@ -109,13 +98,11 @@ function calculateRealTime(row, now) {
             return "--:--"; 
         }
         
-        // SUCESSO (Em Andamento) - Retorna JSX
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return <span className="timer-running">{`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`}</span>;
     }
 
-    // --- Ponto de Falha 4 (Retorna --:--) ---
     // CASO 3: Atividade PROGRAMADA (não tem data de início)
     console.warn(
         'CÁLCULO DE TEMPO (Retorno: --:-- | Programada)', 
@@ -130,9 +117,6 @@ function calculateRealTime(row, now) {
     return "--:--";
 }
 
-/**
- * Compara dados antigos e novos para encontrar linhas atualizadas.
- */
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
     const oldDataMap = new Map(
@@ -149,9 +133,6 @@ function findUpdatedRows(oldData, newData) {
     return updated;
 }
 
-/**
- * Calcula a exibição de status (data, cor, tooltip).
- */
 function calculateStatusDisplay(row) {
     const statusValue = row.status;
     const rawDate = row.data;
@@ -181,7 +162,6 @@ function calculateStatusDisplay(row) {
     return { date: formattedDate, colorClass: colorClass, tooltip: tooltipText };
 }
 
-// --- COMPONENTE PRINCIPAL ---
 function App() {
     const [rawData, setRawData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -236,48 +216,42 @@ function App() {
         };
     }, []);
 
-    // --- FILTROS DEPENDENTES ---
-    // (Usam as funções 'getSafeRowValue' e 'getUniqueOptions' que agora são estáveis)
     const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'gerência_da_via'), [rawData]);
     
     const trechoOptions = useMemo(() => { 
         let d = rawData; 
         if (filters.gerencia) { 
-            d = rawData.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
+            d = rawData.filter(r => String(r.gerência_da_via) === filters.gerencia); 
         } 
         return getUniqueOptions(d, 'coordenação_da_via'); 
     }, [rawData, filters.gerencia]);
     
     const subOptions = useMemo(() => { 
         let d = rawData; 
-        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
-        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
+        if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia); 
+        if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho); 
         return getUniqueOptions(d, 'sub'); 
     }, [rawData, filters.gerencia, filters.trecho]);
     
     const atividadeOptions = useMemo(() => { 
         let d = rawData; 
-        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
-        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
-        if (filters.sub) d = d.filter(r => getSafeRowValue(r.sub) === filters.sub); 
+        if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia); 
+        if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho); 
+        if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub); 
         return getUniqueOptions(d, 'atividade'); 
     }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
     
     const tipoOptions = useMemo(() => { 
         let d = rawData; 
-        if (filters.gerencia) d = d.filter(r => getSafeRowValue(r.gerência_da_via) === filters.gerencia); 
-        if (filters.trecho) d = d.filter(r => getSafeRowValue(r.coordenação_da_via) === filters.trecho); 
-        if (filters.sub) d = d.filter(r => getSafeRowValue(r.sub) === filters.sub);
+        if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia); 
+        if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho); 
+        if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub);
         return getUniqueOptions(d, 'programar_para_d_1'); 
     }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
-
-    // --- MANIPULADOR DE FILTROS ---
     const handleFilterChange = (filterName, value) => {
         const newFilters = { ...filters, [filterName]: value };
         
-        // --- LÓGICA DE CASCATA CORRIGIDA ---
-        // Se mudar um filtro "pai", reseta os "filhos"
         if (filterName === 'gerencia') { 
             newFilters.trecho = ''; 
             newFilters.sub = ''; 
@@ -297,35 +271,28 @@ function App() {
         setFilters(newFilters);
     };
 
-    // --- FILTRAGEM E ORDENAÇÃO PRINCIPAL ---
     const sortedAndFilteredData = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
         let filterableData = [...rawData];
 
-        // Filtro especial 'DESL'
         if (!showDesl) {
             filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
         }
 
-        // Filtros principais
         filterableData = filterableData.filter(row => {
-            // Filtro de Data
             if (filters.data && row.data !== filters.data) return false;
             
-            // Filtro de Ativo (lógica 'includes' customizada)
             if (filters.ativo && (!row.ativo || typeof row.ativo !== 'string' || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
 
-            // Filtros de Select (lógica 'getSafeRowValue' que agora funciona)
-            if (filters.gerencia && getSafeRowValue(row.gerência_da_via) !== filters.gerencia) return false;
-            if (filters.trecho && getSafeRowValue(row.coordenação_da_via) !== filters.trecho) return false;
-            if (filters.sub && getSafeRowValue(row.sub) !== filters.sub) return false;
-            if (filters.atividade && getSafeRowValue(row.atividade) !== filters.atividade) return false;
-            if (filters.tipo && getSafeRowValue(row.programar_para_d_1) !== filters.tipo) return false;
+            if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia) return false;
+            if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
+            if (filters.sub && String(row.sub) !== filters.sub) return false;
+            if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
+            if (filters.tipo && String(row.programar_para_d_1) !== filters.tipo) return false;
             
             return true;
         });
         
-        // Lógica de ordenação
         if (sortConfig.key) {
             const sortKey = sortConfig.key;
             filterableData.sort((a, b) => {
@@ -344,10 +311,9 @@ function App() {
             });
         }
         return filterableData;
-    }, [rawData, filters, sortConfig, showDesl]); // Funções externas não precisam ser dependências
+    }, [rawData, filters, sortConfig, showDesl]); 
 
     
-    // --- Funções de Ordenação ---
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -361,7 +327,6 @@ function App() {
         return sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
     };
 
-    // --- Função de Formatação de Data ---
     const formatLastUpdated = (timestamp) => {
         if (loading && !timestamp) return 'Carregando...'; 
         if (!timestamp) return 'N/D'; 
@@ -370,7 +335,6 @@ function App() {
         } catch (e) { return 'Data inválida'; }
     };
 
-    // --- RENDER ---
     return (
         <>
             <header>
@@ -384,7 +348,6 @@ function App() {
             </header>
             <main>
                 <section className="filters">
-                    {/* Filtros */}
                     <div className="filter-item"><label htmlFor="data">Data:</label><input type="date" id="data" value={filters.data} onChange={(e) => handleFilterChange('data', e.target.value)} /></div>
                     <div className="filter-item"><label htmlFor="gerencia">Gerência:</label><select id="gerencia" value={filters.gerencia} onChange={(e) => handleFilterChange('gerencia', e.target.value)}><option value="">Todas</option>{gerenciaOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
@@ -433,7 +396,6 @@ function App() {
                                             <td data-label="Identificador"><div className="cell-prog-real"><span><strong>{row.ativo || 'N/A'}</strong></span><span><strong>{row.atividade || 'N/A'}</strong></span></div></td>
                                             <td data-label="Início"><div className="cell-prog-real"><span><strong>{row.inicio_prog || '--:--'}</strong></span><span><strong>{row.inicio_real || '--:--'}</strong></span></div></td>
                                             
-                                            {/* --- CÉLULA DO TEMPO CORRIGIDA --- */}
                                             <td data-label="Tempo">
                                                 <div className="cell-prog-real">
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
@@ -443,7 +405,7 @@ function App() {
                                                         }
                                                     </strong></span>
                                                 </div>
-                                            </td> 
+                                                </td> 
                                             
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
