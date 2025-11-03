@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import './index.css'; 
+import './index.css';
 
 const getUniqueOptions = (data, key) => {
     if (!Array.isArray(data)) return [];
@@ -384,7 +384,7 @@ function App() {
                                     const isUpdated = updatedRows.has(rowKey);
                                     const statusDisplay = calculateStatusDisplay(row);
                                     return (
-                                        <tr key={rowKey} className={isUpdated ? 'linha-atualizada' : ''}>
+                                        <tr key={index} className={isUpdated ? 'linha-atualizada' : ''}>
                                             <td data-label="Data / Status">
                                                 <div className="cell-status-container">
                                                     <span className="status-date">{statusDisplay.date}</span>
@@ -405,7 +405,7 @@ function App() {
                                                         }
                                                     </strong></span>
                                                 </div>
-                                                </td> 
+                                            </td> 
                                             
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
@@ -414,7 +414,7 @@ function App() {
                                     );
                                 })}
                                 {sortedAndFilteredData.length === 0 && !loading && (
-                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>Nenhum dado encontrado com os filtros aplicados.</td></tr>
+                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20Ppx' }}>Nenhum dado encontrado com os filtros aplicados.</td></tr>
                                 )}
                             </tbody>
                         </table>
