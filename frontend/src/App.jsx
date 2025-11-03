@@ -2,33 +2,105 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 
 // Funções auxiliares (calculateRealTime, findUpdatedRows, calculateStatusDisplay)
-// permanecem as mesmas da última versão.
+// A função calculateRealTime foi ATUALIZADA com a lógica detalhada e logs.
 function calculateRealTime(startISO, endISO, now) {
+    
+    // CASO 1: Atividade CONCLUÍDA (tem data de fim)
     if (endISO) {
         const start = new Date(startISO);
         const end = new Date(endISO);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) return "00:00";
+
+        // --- Ponto de Falha 1 (Retorna 00:00) ---
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            console.warn(
+                'CÁLCULO DE TEMPO (Retorno: 00:00)', 
+                { 
+                    motivo: "Datas inválidas. O startISO ou o endISO não puderam ser lidos (provavelmente são nulos ou mal formatados).",
+                    startISO_recebido: startISO,
+                    endISO_recebido: endISO
+                }
+            );
+            return "00:00";
+        }
+
         let effectiveEnd = end;
         if (end < start) {
             effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
         }
         const diffMs = effectiveEnd - start;
-        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { return "--:--"; }
+
+        // --- Ponto de Falha 2 (Retorna --:--) ---
+        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { 
+            console.warn(
+                'CÁLCULO DE TEMPO (Retorno: --:-- | Concluída)', 
+                { 
+                    motivo: "Duração ilógica. A diferença de tempo é negativa (< 0) ou maior que 36 horas.",
+                    diferenca_ms: diffMs,
+                    startISO_recebido: startISO,
+                    endISO_recebido: endISO
+                }
+            );
+            return "--:--"; 
+        }
+        
+        // SUCESSO (Concluída)
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
+
+    // CASO 2: Atividade EM ANDAMENTO (tem data de início, mas não de fim)
     if (startISO) {
         const start = new Date(startISO);
-        if (isNaN(start.getTime())) return "";
+        
+        // Falha silenciosa (retorna string vazia)
+        if (isNaN(start.getTime())) {
+            console.warn(
+                'CÁLCULO DE TEMPO (Retorno: Vazio)', 
+                { 
+                    motivo: "Data de início inválida. O startISO não pôde ser lido.",
+                    startISO_recebido: startISO,
+                    endISO_recebido: endISO
+                }
+            );
+            return "";
+        }
+
         const diffMs = now - start;
-        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { return "--:--"; }
+
+        // --- Ponto de Falha 3 (Retorna --:--) ---
+        if (diffMs < 0 || diffMs > (36 * 60 * 60 * 1000)) { 
+            console.warn(
+                'CÁLCULO DE TEMPO (Retorno: --:-- | Em Andamento)', 
+                { 
+                    motivo: "Duração ilógica. A hora de início está no futuro (tempo negativo) ou é de mais de 36h atrás.",
+                    diferenca_ms: diffMs,
+                    startISO_recebido: startISO,
+                    endISO_recebido: endISO
+                }
+            );
+            return "--:--"; 
+        }
+        
+        // SUCESSO (Em Andamento) - Retorna JSX
         const hours = Math.floor(diffMs / 3600000);
         const minutes = Math.floor((diffMs % 3600000) / 60000);
         return <span className="timer-running">{`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`}</span>;
     }
+
+    // --- Ponto de Falha 4 (Retorna --:--) ---
+    // CASO 3: Atividade PROGRAMADA (não tem data de início)
+    console.warn(
+        'CÁLCULO DE TEMPO (Retorno: --:-- | Programada)', 
+        { 
+            motivo: "Atividade não iniciada. O startISO é nulo ou indefinido.",
+            startISO_recebido: startISO,
+            endISO_recebido: endISO
+        }
+    );
     return "--:--";
 }
+
 
 function findUpdatedRows(oldData, newData) {
     const updated = new Set();
@@ -174,7 +246,7 @@ function App() {
             if (filters.sub && String(row.sub) !== filters.sub) return false;
             if (filters.ativo && (!row.ativo || typeof row.ativo !== 'string' || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
             if (filters.atividade && row.atividade !== filters.atividade) return false;
-            if (filters.tipo && row.programar_para_d_1 !== filters.tipo) return false;
+            if (filters.tipo && row.programar_para_d1 !== filters.tipo) return false;
             return true;
         });
         if (sortConfig.key) {
@@ -243,7 +315,7 @@ function App() {
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="sub">Sub:</label><select id="sub" value={filters.sub} onChange={(e) => handleFilterChange('sub', e.target.value)}><option value="">Todos</option>{subOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="ativo">Ativo:</label><input type="text" id="ativo" value={filters.ativo} onChange={(e) => handleFilterChange('ativo', e.target.value)} /></div>
-                    <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
+                    <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</A</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="tipo">Tipo:</label><select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}><option value="">Todos</option>{tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item">
                         <label>Especiais:</label>
