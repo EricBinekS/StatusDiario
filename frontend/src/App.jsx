@@ -238,7 +238,7 @@ function App() {
         if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia);
         if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho);
         if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub);
-        return getUniqueOptions(d, 'programar_para_d_1');
+        return getUniqueOptions(d, 'programar_para_d1');
     }, [rawData, filters]);
 
     const handleFilterChange = (filterName, value) => {
@@ -279,7 +279,7 @@ function App() {
             if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
             if (filters.sub && String(row.sub) !== filters.sub) return false;
             if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
-            if (filters.tipo && String(row.programar_para_d_1) !== filters.tipo) return false;
+            if (filters.tipo && String(row.programar_para_d1) !== filters.tipo) return false;
             return true;
         });
 
