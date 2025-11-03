@@ -16,7 +16,9 @@ const getUniqueOptions = (data, key) => {
     return Array.from(options).sort((a, b) => String(a).localeCompare(String(b)));
 };
 
-
+/**
+ * Calcula o tempo real gasto (concluído) ou o cronômetro (em andamento).
+ */
 function calculateRealTime(row, now) {
     
     const startISO = row.timer_start_timestamp;
@@ -430,6 +432,8 @@ function App() {
                                             </td>
                                             <td data-label="Identificador"><div className="cell-prog-real"><span><strong>{row.ativo || 'N/A'}</strong></span><span><strong>{row.atividade || 'N/A'}</strong></span></div></td>
                                             <td data-label="Início"><div className="cell-prog-real"><span><strong>{row.inicio_prog || '--:--'}</strong></span><span><strong>{row.inicio_real || '--:--'}</strong></span></div></td>
+                                            
+                                            {/* --- CÉLULA DO TEMPO CORRIGIDA --- */}
                                             <td data-label="Tempo">
                                                 <div className="cell-prog-real">
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
@@ -439,7 +443,8 @@ function App() {
                                                         }
                                                     </strong></span>
                                                 </div>
-Check-in: </td>
+                                            </td> 
+                                            
                                             <td data-label="Local"><div className="cell-prog-real"><span><strong>{row.local_prog || 'N/A'}</strong></span><span><strong>{row.local_real || 'N/A'}</strong></span></div></td>
                                             <td data-label="Quantidade"><div className="cell-prog-real"><span><strong>{isNaN(parseFloat(row.quantidade_prog)) ? 0 : row.quantidade_prog}</strong></span><span><strong>{isNaN(parseFloat(row.quantidade_real)) ? 0 : row.quantidade_real}</strong></span></div></td>
                                             <td data-label="Detalhamento" className="cell-detalhamento">{row.detalhamento || ''}</td>
