@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 
-// Funções auxiliares (calculateRealTime, findUpdatedRows, calculateStatusDisplay)
-// A função calculateRealTime foi ATUALIZADA com a lógica detalhada e logs.
-function calculateRealTime(startISO, endISO, now) {
+// --- ATUALIZADO ---
+// Agora recebe 'row' e 'now' para termos mais contexto nos logs
+function calculateRealTime(row, now) {
     
+    const startISO = row.timer_start_timestamp;
+    const endISO = row.timer_end_timestamp;
+
     // CASO 1: Atividade CONCLUÍDA (tem data de fim)
     if (endISO) {
         const start = new Date(startISO);
@@ -16,6 +19,8 @@ function calculateRealTime(startISO, endISO, now) {
                 'CÁLCULO DE TEMPO (Retorno: 00:00)', 
                 { 
                     motivo: "Datas inválidas. O startISO ou o endISO não puderam ser lidos (provavelmente são nulos ou mal formatados).",
+                    data: row.data, // LOG ATUALIZADO
+                    ativo: row.ativo, // LOG ATUALIZADO
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
                 }
@@ -35,6 +40,8 @@ function calculateRealTime(startISO, endISO, now) {
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Concluída)', 
                 { 
                     motivo: "Duração ilógica. A diferença de tempo é negativa (< 0) ou maior que 36 horas.",
+                    data: row.data, // LOG ATUALIZADO
+                    ativo: row.ativo, // LOG ATUALIZADO
                     diferenca_ms: diffMs,
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
@@ -59,6 +66,8 @@ function calculateRealTime(startISO, endISO, now) {
                 'CÁLCULO DE TEMPO (Retorno: Vazio)', 
                 { 
                     motivo: "Data de início inválida. O startISO não pôde ser lido.",
+                    data: row.data, // LOG ATUALIZADO
+                    ativo: row.ativo, // LOG ATUALIZADO
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
                 }
@@ -74,6 +83,8 @@ function calculateRealTime(startISO, endISO, now) {
                 'CÁLCULO DE TEMPO (Retorno: --:-- | Em Andamento)', 
                 { 
                     motivo: "Duração ilógica. A hora de início está no futuro (tempo negativo) ou é de mais de 36h atrás.",
+                    data: row.data, // LOG ATUALIZADO
+                    ativo: row.ativo, // LOG ATUALIZADO
                     diferenca_ms: diffMs,
                     startISO_recebido: startISO,
                     endISO_recebido: endISO
@@ -94,6 +105,8 @@ function calculateRealTime(startISO, endISO, now) {
         'CÁLCULO DE TEMPO (Retorno: --:-- | Programada)', 
         { 
             motivo: "Atividade não iniciada. O startISO é nulo ou indefinido.",
+            data: row.data, // LOG ATUALIZADO
+            ativo: row.ativo, // LOG ATUALIZADO
             startISO_recebido: startISO,
             endISO_recebido: endISO
         }
@@ -108,7 +121,7 @@ function findUpdatedRows(oldData, newData) {
         oldData.map(row => [`${row.ativo}-${row.atividade}-${row.data}`, JSON.stringify(row)])
     );
     newData.forEach(newRow => {
-        const key = `${newRow.ativo}-${newRow.atividade}-${row.data}`;
+        const key = `${newRow.ativo}-${newRow.atividade}-${newRow.data}`;
         const newSignature = JSON.stringify(newRow);
         const oldSignature = oldDataMap.get(key);
         if (!oldSignature || oldSignature !== newSignature) {
@@ -315,7 +328,6 @@ function App() {
                     <div className="filter-item"><label htmlFor="trecho">Trecho:</label><select id="trecho" value={filters.trecho} onChange={(e) => handleFilterChange('trecho', e.target.value)}><option value="">Todos</option>{trechoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="sub">Sub:</label><select id="sub" value={filters.sub} onChange={(e) => handleFilterChange('sub', e.target.value)}><option value="">Todos</option>{subOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="ativo">Ativo:</label><input type="text" id="ativo" value={filters.ativo} onChange={(e) => handleFilterChange('ativo', e.target.value)} /></div>
-                    {/* LINHA CORRIGIDA ABAIXO */}
                     <div className="filter-item"><label htmlFor="atividade">Atividade:</label><select id="atividade" value={filters.atividade} onChange={(e) => handleFilterChange('atividade', e.target.value)}><option value="">Todas</option>{atividadeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item"><label htmlFor="tipo">Tipo:</label><select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}><option value="">Todos</option>{tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
                     <div className="filter-item">
@@ -366,7 +378,9 @@ function App() {
                                                     <span><strong>{row.tempo_prog || '--:--'}</strong></span>
                                                     <span><strong>
                                                         {row.tempo_real_override ? row.tempo_real_override
-                                                          : (calculateRealTime(row.timer_start_timestamp, row.timer_end_timestamp, now) || '--:--')
+                                                          // --- CHAMADA ATUALIZADA ---
+                                                          // Agora passa 'row' e 'now'
+                                                          : (calculateRealTime(row, now) || '--:--')
                                                         }
                                                     </strong></span>
                                                 </div>
