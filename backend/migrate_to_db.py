@@ -258,8 +258,8 @@ def run_migration():
     try:
         final_columns = [
             'status', 'operational_status', 'gerência_da_via', 'coordenação_da_via', 'trecho', 'sub', 'ativo',
-            'atividade', 'programar_para_d_1', 'data', 'inicio_prog', 'inicio_real',
-            'tempo_prog', 'tempo_real','Programar para D+1',
+            'atividade', 'programar_para_d1', 'data', 'inicio_prog', 'inicio_real',
+            'tempo_prog', 'tempo_real',
             'local_prog', 'local_real', 'quantidade_prog',
             'quantidade_real', 'detalhamento', 'timer_start_timestamp',
             'timer_end_timestamp', 'tempo_real_override'
