@@ -95,6 +95,7 @@ function App() {
     const [error, setError] = useState(null);
     const previousDataRef = useRef([]);
     const [filters, setFilters] = useState({ data: '', gerencia: '', trecho: '', sub: '', ativo: '', atividade: '', tipo: '' });
+    const [nextUpdateIn, setNextUpdateIn] = useState("Calculando...");
 
     useEffect(() => {
         async function fetchData() {
@@ -137,6 +138,33 @@ function App() {
         };
     }, []);
 
+    useEffect(() => {
+        if (lastUpdatedTimestamp) {
+            // Define o intervalo de atualização (10 minutos)
+            const UPDATE_INTERVAL_MS = 10 * 60 * 1000;
+            
+            // Calcula a hora da próxima atualização
+            const nextUpdateTimestamp = lastUpdatedTimestamp.getTime() + UPDATE_INTERVAL_MS;
+            
+            // Calcula a diferença até a próxima atualização
+            const diffMs = nextUpdateTimestamp - now.getTime();
+
+            if (diffMs <= 0) {
+                // Se o tempo já passou, mostra "Atualizando..."
+                setNextUpdateIn("Atualizando...");
+            } else {
+                // Formata o tempo restante em MM:SS
+                const minutes = Math.floor(diffMs / 60000);
+                const seconds = Math.floor((diffMs % 60000) / 1000);
+                setNextUpdateIn(
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+                );
+            }
+        } else {
+            setNextUpdateIn("Aguardando dados...");
+        }
+    }, [now, lastUpdatedTimestamp]);
+
     const gerenciaOptions = useMemo(() => getUniqueOptions(rawData, 'gerência_da_via'), [rawData]);
 
     const trechoOptions = useMemo(() => {
@@ -165,7 +193,7 @@ function App() {
         if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia);
         if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho);
         if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub);
-        return getUniqueOptions(d, 'programar_para_d_1');
+        return getUniqueOptions(d, 'Tipo');
     }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
     const handleFilterChange = (filterName, value) => {
@@ -192,7 +220,7 @@ const sortedAndFilteredData = useMemo(() => {
             if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
             if (filters.sub && String(row.sub) !== filters.sub) return false;
             if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
-            if (filters.tipo && String(row.programar_para_d_1) !== filters.tipo) return false;
+            if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
             
             return true;
         });
@@ -252,13 +280,18 @@ const sortedAndFilteredData = useMemo(() => {
     return (
         <>
             <header>
-                <div className="title-container">
-                    <h1>PAINEL INTERVALOS - PCM</h1>
-                    <p className="last-updated">
-                        Última atualização: {formatLastUpdated(lastUpdatedTimestamp)}
-                    </p>
-                </div>
-                <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
+                <div className="title-container">
+                    <h1>PAINEL INTERVALOS - PCM</h1>
+                    <div className="update-info">
+                        <p className="last-updated">
+                            Última Atualização: {formatLastUpdated(lastUpdatedTimestamp)}
+                        </p>
+                        <p className="next-update">
+                            Próxima em: <strong>{nextUpdateIn}</strong>
+                        </p>
+                    </div>
+                </div>
+                <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
             </header>
 
             <main>

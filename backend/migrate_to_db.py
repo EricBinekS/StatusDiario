@@ -200,16 +200,19 @@ def run_migration():
     DATABASE_URL = os.getenv("DATABASE_URL")
 
     if not DATABASE_URL:
+        print("DATABASE_URL não encontrada.")
         return
 
     try:
         with open(map_path, 'r', encoding='utf-8') as f:
             mapa_de_abas = json.load(f)
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao ler o mapa de abas: {e}")
         return
 
     file_paths = glob.glob(raw_data_path)
     if not file_paths:
+        print("Nenhum arquivo de dados encontrado em raw_data.")
         return
 
     df_list = []
@@ -234,10 +237,12 @@ def run_migration():
                 df_data.dropna(subset=['ativo'], inplace=True)
                 df_list.append(df_data)
                 all_processed_columns.update(df_data.columns)
-            except Exception:
+            except Exception as e:
+                print(f"Erro ao processar o arquivo {nome_do_arquivo}, aba {nome_da_aba}: {e}")
                 continue
 
     if not df_list:
+        print("Nenhum DataFrame foi processado com sucesso.")
         return
 
     df_processed_list = []
@@ -248,16 +253,20 @@ def run_migration():
         df_processed_list.append(df_item)
 
     if not df_processed_list:
+        print("Lista de DataFrames processados está vazia.")
         return
 
     df = pd.concat(df_processed_list, ignore_index=True)
-    
-    # Renomeia 'programar_para_d1' para 'programar_para_d_1' se existir
-    if 'programar_para_d1' in df.columns:
+
+    if 'programar_para_d1' in df.columns and 'programar_para_d_1' not in df.columns:
         df.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
+
+    if 'programar_para_d_1' in df.columns:
+        df.rename(columns={'programar_para_d_1': 'Tipo'}, inplace=True)
 
     transformed_df = transform_df(df)
     if transformed_df.empty:
+        print("DataFrame transformado está vazio.")
         return
 
     hoje = datetime.date.today()
@@ -273,7 +282,7 @@ def run_migration():
             return None
         return str(v).strip().upper()
 
-    for col in ['ativo', 'atividade']:
+    for col in ['ativo', 'atividade', 'Tipo']:
         if col in df_filtrado.columns:
             df_filtrado[col] = df_filtrado[col].apply(normalize_str)
 
@@ -286,21 +295,58 @@ def run_migration():
         return hashlib.sha1(key.encode('utf-8')).hexdigest()
 
     df_filtrado['row_hash'] = df_filtrado.apply(make_row_id, axis=1)
-    engine = create_engine(DATABASE_URL)
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+    except Exception as e:
+        print(f"Erro ao criar engine do SQLAlchemy: {e}")
+        return
 
     final_columns = [
         'row_hash', 'status', 'operational_status', 'gerência_da_via', 'coordenação_da_via', 'trecho', 'sub', 'ativo',
-        'atividade', 'programar_para_d_1', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
+        'atividade', 'Tipo', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
         'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp',
         'timer_end_timestamp', 'tempo_real_override'
     ]
     
-    if 'programar_para_d1' in df_filtrado.columns:
-        df_filtrado.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
 
     cols_to_select = [col for col in final_columns if col in df_filtrado.columns]
-    df_final = df_filtrado[cols_to_select].copy()
-    df_final.to_sql('atividades', engine, if_exists='replace', index=False)
+
+    for col in final_columns:
+        if col not in cols_to_select:
+            df_filtrado[col] = None
+
+    df_final = df_filtrado[final_columns].copy()
+
+    try:
+        df_final.to_sql('atividades', engine, if_exists='replace', index=False)
+        print(f"Migração da tabela 'atividades' concluída. {len(df_final)} linhas salvas.")
+
+ 
+        with engine.connect() as conn:
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS migration_log (
+                    id INT PRIMARY KEY,
+                    last_updated_at TIMESTAMP
+                )
+                """
+            )
+
+            result = conn.execute(
+                "UPDATE migration_log SET last_updated_at = CURRENT_TIMESTAMP WHERE id = 1"
+            )
+            
+            if result.rowcount == 0:
+                conn.execute(
+                    "INSERT INTO migration_log (id, last_updated_at) VALUES (1, CURRENT_TIMESTAMP)"
+                )
+
+        print("Timestamp da migração salvo com sucesso.")
+
+    except Exception as e:
+        print(f"Erro durante a migração ou ao salvar o timestamp: {e}")
 
 
 if __name__ == "__main__":
