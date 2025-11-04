@@ -68,10 +68,14 @@ def clean_column_names(columns):
         if pd.isna(col):
             col = 'Unnamed'
         clean_col = re.sub(r'[^\w\s]+', '', str(col).strip().lower())
-        clean_col = re.sub(r'\s+', '*', clean_col)
+        
+        # <<< CORREÇÃO 1: Voltando para underscore. O asterisco (*) quebra o SQL e o React.
+        clean_col = re.sub(r'\s+', '_', clean_col) 
+        
         if clean_col in counts:
             counts[clean_col] += 1
-            new_columns.append(f"{clean_col}*{counts[clean_col]}")
+            # <<< CORREÇÃO 1 (Continuação): Usando underscore
+            new_columns.append(f"{clean_col}_{counts[clean_col]}")
         else:
             counts[clean_col] = 0
             new_columns.append(clean_col)
@@ -145,7 +149,9 @@ def transform_df(df):
     df['timer_start_timestamp'] = df['start_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
     df['timer_end_timestamp'] = df['end_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
 
-    clean_local = lambda x: re.split(r'[/\]', str(x))[0].strip() if pd.notna(x) else None
+    # <<< CORREÇÃO 2: Corrigindo o Regex para o erro "unterminated character set".
+    clean_local = lambda x: re.split(r'[/\\]', str(x))[0].strip() if pd.notna(x) else None
+    
     df['local_prog'] = df.get('sb', pd.Series(index=df.index)).apply(clean_local)
     df['local_real'] = df.get('sb_4', pd.Series(index=df.index)).apply(clean_local)
 
@@ -245,6 +251,11 @@ def run_migration():
         return
 
     df = pd.concat(df_processed_list, ignore_index=True)
+    
+    # Renomeia 'programar_para_d1' para 'programar_para_d_1' se existir
+    if 'programar_para_d1' in df.columns:
+        df.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
+
     transformed_df = transform_df(df)
     if transformed_df.empty:
         return
@@ -279,10 +290,13 @@ def run_migration():
 
     final_columns = [
         'row_hash', 'status', 'operational_status', 'gerência_da_via', 'coordenação_da_via', 'trecho', 'sub', 'ativo',
-        'atividade', 'programar_para_d1', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
+        'atividade', 'programar_para_d_1', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
         'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp',
         'timer_end_timestamp', 'tempo_real_override'
     ]
+    
+    if 'programar_para_d1' in df_filtrado.columns:
+        df_filtrado.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
 
     cols_to_select = [col for col in final_columns if col in df_filtrado.columns]
     df_final = df_filtrado[cols_to_select].copy()
