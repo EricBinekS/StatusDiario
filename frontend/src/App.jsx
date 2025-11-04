@@ -176,41 +176,57 @@ function App() {
         setFilters(newFilters);
     };
 
-    const sortedAndFilteredData = useMemo(() => {
-        if (!Array.isArray(rawData)) return [];
-        let filterableData = [...rawData];
-        if (!showDesl) filterableData = filterableData.filter(row => row.tempo_real_override !== 'DESL');
+const sortedAndFilteredData = useMemo(() => {
+        if (!Array.isArray(rawData)) return [];
+        
+        
+        let filterableData = rawData.filter(row => {
+            if (!showDesl && row.tempo_real_override === 'DESL') return false;
 
-        filterableData = filterableData.filter(row => {
-            if (filters.data && row.data !== filters.data) return false;
-            if (filters.ativo && (!row.ativo || !row.ativo.toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
-            if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia) return false;
-            if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
-            if (filters.sub && String(row.sub) !== filters.sub) return false;
-            if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
-            if (filters.tipo && String(row.programar_para_d_1) !== filters.tipo) return false;
-            return true;
-        });
+            if (filters.data && row.data !== filters.data) return false;
+            
 
-        if (sortConfig.key) {
-            const sortKey = sortConfig.key;
-            filterableData.sort((a, b) => {
-                const valA = a[sortKey];
-                const valB = b[sortKey];
-                if (valA == null && valB == null) return 0;
-                if (valA == null) return 1;
-                if (valB == null) return -1;
-                const numA = parseFloat(valA);
-                const numB = parseFloat(valB);
-                let comparison = 0;
-                if (!isNaN(numA) && !isNaN(numB)) comparison = numA - numB;
-                else comparison = String(valA).localeCompare(String(valB));
-                return sortConfig.direction === 'ascending' ? comparison : -comparison;
-            });
-        }
+            if (filters.ativo && (!row.ativo || !String(row.ativo).toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
+            
+            if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia) return false;
+            if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
+            if (filters.sub && String(row.sub) !== filters.sub) return false;
+            if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
+            if (filters.tipo && String(row.programar_para_d_1) !== filters.tipo) return false;
+            
+            return true;
+        });
 
-        return filterableData;
-    }, [rawData, filters, sortConfig, showDesl]);
+        if (sortConfig.key) {
+            const sortKey = sortConfig.key;
+            
+            const sortableData = [...filterableData]; 
+            
+            sortableData.sort((a, b) => {
+                const valA = a[sortKey];
+                const valB = b[sortKey];
+                if (valA == null && valB == null) return 0;
+                if (valA == null) return 1; 
+                if (valB == null) return -1; 
+                
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+                let comparison = 0;
+                
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    comparison = numA - numB;
+                } else {
+                    comparison = String(valA).localeCompare(String(valB));
+                }
+                
+                return sortConfig.direction === 'ascending' ? comparison : (comparison * -1);
+            });
+            
+            return sortableData; 
+        }
+
+        return filterableData; 
+    }, [rawData, filters, sortConfig, showDesl]);
 
     const requestSort = (key) => {
         let direction = 'ascending';
