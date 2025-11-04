@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, Response
 from flask_cors import CORS
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 import pandas as pd
@@ -44,7 +44,8 @@ def get_atividades():
             last_updated = None
             try:
                 print("Consultando 'migration_log'...")
-                result = conn.execute("SELECT last_updated_at FROM migration_log WHERE id = 1")
+                query = text("SELECT last_updated_at FROM migration_log WHERE id = 1")
+                result = conn.execute(query)
                 timestamp_row = result.fetchone()
                 
                 if timestamp_row and timestamp_row[0]:

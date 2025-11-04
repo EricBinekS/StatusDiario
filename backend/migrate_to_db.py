@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -69,12 +69,10 @@ def clean_column_names(columns):
             col = 'Unnamed'
         clean_col = re.sub(r'[^\w\s]+', '', str(col).strip().lower())
         
-        # <<< CORREÇÃO 1: Voltando para underscore. O asterisco (*) quebra o SQL e o React.
         clean_col = re.sub(r'\s+', '_', clean_col) 
-        
+     
         if clean_col in counts:
             counts[clean_col] += 1
-            # <<< CORREÇÃO 1 (Continuação): Usando underscore
             new_columns.append(f"{clean_col}_{counts[clean_col]}")
         else:
             counts[clean_col] = 0
@@ -149,7 +147,6 @@ def transform_df(df):
     df['timer_start_timestamp'] = df['start_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
     df['timer_end_timestamp'] = df['end_real_dt'].apply(lambda dt: dt.isoformat() if pd.notna(dt) else None)
 
-    # <<< CORREÇÃO 2: Corrigindo o Regex para o erro "unterminated character set".
     clean_local = lambda x: re.split(r'[/\\]', str(x))[0].strip() if pd.notna(x) else None
     
     df['local_prog'] = df.get('sb', pd.Series(index=df.index)).apply(clean_local)
@@ -326,22 +323,26 @@ def run_migration():
         with engine.connect() as conn:
 
             conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS migration_log (
-                    id INT PRIMARY KEY,
-                    last_updated_at TIMESTAMP
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS migration_log (
+                        id INT PRIMARY KEY,
+                        last_updated_at TIMESTAMP
+                    )
+                    """
                 )
-                """
             )
 
             result = conn.execute(
-                "UPDATE migration_log SET last_updated_at = CURRENT_TIMESTAMP WHERE id = 1"
+                text("UPDATE migration_log SET last_updated_at = CURRENT_TIMESTAMP WHERE id = 1")
             )
             
             if result.rowcount == 0:
                 conn.execute(
-                    "INSERT INTO migration_log (id, last_updated_at) VALUES (1, CURRENT_TIMESTAMP)"
+                    text("INSERT INTO migration_log (id, last_updated_at) VALUES (1, CURRENT_TIMESTAMP)")
                 )
+
+            conn.commit()
 
         print("Timestamp da migração salvo com sucesso.")
 

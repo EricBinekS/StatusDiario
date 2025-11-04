@@ -51,14 +51,32 @@ h1 {
     margin: 0; /* Remove margem padrão do h1 */
 }
 
-.last-updated {
-    font-size: 10px; /* Fonte pequena */
-    color: var(--cor-texto-secundario);
-    margin: 2px 0 0 0; /* Espaçamento pequeno */
-    font-style: italic;
-    white-space: nowrap; /* Evita quebra de linha */
+/* <<< [ALTERAÇÃO] Estilos unificados para info de atualização >>> */
+.update-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Alinha os textos à esquerda */
+  gap: 4px; /* Espaço entre as duas linhas */
+  margin-top: 4px; /* Espaço abaixo do título H1 */
 }
 
+/* Estilo unificado para os dois textos */
+.last-updated,
+.next-update {
+  margin: 0;
+  font-size: 11px; /* Tamanho unificado */
+  color: var(--cor-texto-principal); /* Cor unificada */
+  font-weight: 500; /* Peso unificado */
+  white-space: nowrap; 
+}
+
+/* Destaque apenas para o contador */
+.next-update strong {
+  color: var(--cor-status-verde); /* Destaque verde */
+  font-weight: bold;
+  font-size: 12px; /* Destaque de tamanho */
+}
+/* --- Fim da alteração --- */
 
 .logo {
     height: clamp(35px, 9vw, 55px);
@@ -250,6 +268,11 @@ th.col-detalhamento { background-color: var(--cor-header-detalhamento); }
     main { padding: 8px; }
     header { margin-bottom: 10px; flex-direction: column; gap: 8px; align-items: center; }
     .title-container { align-items: center; }
+
+   .update-info {
+     align-items: center; 
+   }
+
     .filters { flex-direction: column; align-items: stretch; }
     .filter-item { min-width: unset; flex-basis: auto; }
 
@@ -267,7 +290,7 @@ th.col-detalhamento { background-color: var(--cor-header-detalhamento); }
          white-space: nowrap;
          padding: 8px 5px;
          border-bottom-width: 2px;
-     }
+    }
      .grid-table th > span { display: none; }
      .grid-table th strong { display: block; line-height: 1.1; }
 
