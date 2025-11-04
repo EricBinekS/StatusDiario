@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 import pandas as pd
-import datetime
+import datetime  # Importa o módulo datetime
 import json
 
 load_dotenv()
@@ -49,8 +49,16 @@ def get_atividades():
                 timestamp_row = result.fetchone()
                 
                 if timestamp_row and timestamp_row[0]:
-                    last_updated = timestamp_row[0].isoformat()
-                    print(f"Timestamp da migração encontrado: {last_updated}")
+                    
+                    db_timestamp = timestamp_row[0] 
+                    
+                    if db_timestamp.tzinfo is None:
+                        db_timestamp = db_timestamp.replace(tzinfo=datetime.timezone.utc)
+                    
+                    last_updated = db_timestamp.isoformat()
+
+                    print(f"Timestamp da migração (com fuso) encontrado: {last_updated}")
+                
                 else:
                     print("Nenhum timestamp na 'migration_log'. Usando hora atual como fallback.")
                     last_updated = datetime.datetime.now(datetime.timezone.utc).isoformat()
