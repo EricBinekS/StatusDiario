@@ -6,6 +6,11 @@ on:
       - 'backend/raw_data/**'
   workflow_dispatch:
 
+concurrency:
+
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   run-migration:
     name: Run Data Migration Script
@@ -15,9 +20,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Wait 3 minutes
-        run: sleep 60s 
-        shell: bash
+        with:
+          ref: ${{ github.ref }} 
 
       - name: Setup Python
         uses: actions/setup-python@v5
