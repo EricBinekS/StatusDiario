@@ -259,7 +259,7 @@ def run_migration():
         df.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
 
     if 'programar_para_d_1' in df.columns:
-        df.rename(columns={'programar_para_d_1': 'Tipo'}, inplace=True)
+        df.rename(columns={'programar_para_d_1': 'tipo'}, inplace=True)
 
     transformed_df = transform_df(df)
     if transformed_df.empty:
@@ -279,7 +279,7 @@ def run_migration():
             return None
         return str(v).strip().upper()
 
-    for col in ['ativo', 'atividade', 'Tipo']:
+    for col in ['ativo', 'atividade', 'tipo']:
         if col in df_filtrado.columns:
             df_filtrado[col] = df_filtrado[col].apply(normalize_str)
 
@@ -301,7 +301,7 @@ def run_migration():
 
     final_columns = [
         'row_hash', 'status', 'operational_status', 'gerência_da_via', 'coordenação_da_via', 'trecho', 'sub', 'ativo',
-        'atividade', 'Tipo', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
+        'atividade', 'tipo', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
         'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp',
         'timer_end_timestamp', 'tempo_real_override'
     ]
