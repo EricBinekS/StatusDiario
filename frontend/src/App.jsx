@@ -193,7 +193,7 @@ function App() {
         if (filters.gerencia) d = d.filter(r => String(r.gerência_da_via) === filters.gerencia);
         if (filters.trecho) d = d.filter(r => String(r.coordenação_da_via) === filters.trecho);
         if (filters.sub) d = d.filter(r => String(r.sub) === filters.sub);
-        return getUniqueOptions(d, 'Tipo');
+        return getUniqueOptions(d, 'tipo');
     }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
     const handleFilterChange = (filterName, value) => {
@@ -339,7 +339,7 @@ const sortedAndFilteredData = useMemo(() => {
                     </div>
 
                     <div className="filter-item">
-                        <label htmlFor="tipo">Tipo:</label>
+                        <label htmlFor="tipo">tipo:</label>
                         <select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}>
                             <option value="">Todos</option>
                             {tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}
