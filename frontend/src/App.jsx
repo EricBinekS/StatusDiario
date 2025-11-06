@@ -339,7 +339,7 @@ const sortedAndFilteredData = useMemo(() => {
                     </div>
 
                     <div className="filter-item">
-                        <label htmlFor="tipo">tipo:</label>
+                        <label htmlFor="tipo">Tipo:</label>
                         <select id="tipo" value={filters.tipo} onChange={(e) => handleFilterChange('tipo', e.target.value)}>
                             <option value="">Todos</option>
                             {tipoOptions.map(option => <option key={option} value={option}>{option}</option>)}
