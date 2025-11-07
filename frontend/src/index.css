@@ -446,146 +446,179 @@ th.col-detalhamento {
   main {
     padding: 8px;
   }
+
+  /* 1. HEADER */
   header {
     margin-bottom: 10px;
     flex-direction: column;
     gap: 8px;
     align-items: center;
   }
-  .title-container {
+  .title-container, .update-info {
     align-items: center;
   }
-  .update-info {
-    align-items: center;
-  }
-
   .header-right-group {
-    order: -1;
+    order: -1; 
     justify-content: space-between;
     width: 100%;
     padding: 0 8px;
     box-sizing: border-box;
   }
+
+  /* 2. FILTROS */
   .filters {
     flex-direction: column;
     align-items: stretch;
+    flex-wrap: nowrap; 
+    overflow-x: visible;
   }
   .filter-item {
     min-width: unset;
     flex-basis: auto;
+    width: 100%;
+    box-sizing: border-box;
   }
+
+  /* 3. LÓGICA DA TABELA EM "CARDS" */
   .tabela-wrapper {
-    overflow-x: auto;
+    overflow-x: hidden; 
   }
+
   .grid-table {
     table-layout: auto;
     width: 100%;
     min-width: 0;
-  }
-  .grid-table th,
-  .grid-table td {
-    font-size: 10px;
-    padding: 6px 5px;
-    white-space: normal;
     border: none;
-    border-bottom: 1px solid var(--cor-borda);
   }
-  .grid-table th {
-    white-space: nowrap;
-    padding: 8px 5px;
-    border-bottom-width: 2px;
-  }
-  .grid-table th > span {
+
+  .grid-table thead {
     display: none;
   }
-  .grid-table th strong {
-    display: block;
-    line-height: 1.1;
+
+  .grid-table tr {
+    display: block; 
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background-color: var(--cor-container); 
   }
-  th.col-status,
-  th.col-identificador,
-  th.col-inicio,
-  th.col-tempo,
-  th.col-local,
-  th.col-quantidade,
-  th.col-detalhamento {
-    width: auto;
+  
+  .grid-table tbody tr:nth-child(even) {
+    background-color: var(--cor-container); 
   }
-  .grid-table td.cell-detalhamento {
+
+  .grid-table td {
+    display: block; 
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid var(--cor-borda);
+    text-align: right; 
+    min-height: 20px; 
+    font-size: 12px; 
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .grid-table tr td:last-child {
+    border-bottom: none; 
+  }
+
+
+  .grid-table td::before {
+    content: attr(data-label); 
+    float: left;
+    font-weight: bold;
+    margin-right: 10px;
     text-align: left;
-    white-space: normal;
-    font-size: 9px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--cor-texto-secundario);
+    /* --- CORREÇÃO IMPORTANTE --- */
+    /* Permite que o label quebre a linha */
+    white-space: normal; 
+    word-break: break-all;
   }
-  .cell-prog-real {
-    flex-direction: row;
-    gap: 4px;
-    justify-content: center;
-  }
-  .cell-prog-real span:first-of-type::after {
-    content: "|";
-    margin-left: 4px;
-    margin-right: 4px;
-  }
-  .status-icon {
-    width: 14px;
-    height: 14px;
+
+  /* 3.5. Ajustes de alinhamento para células complexas */
+  
+  .cell-status-container {
+     justify-content: flex-end;
+     flex-direction: row-reverse;
+     gap: 8px;
   }
   .status-date {
-    font-size: 9px;
+    font-size: 12px;
   }
-  .grid-table td,
-  .grid-table th {
-    border-left: none;
-    border-right: none;
+  .grid-table td[data-label="Data / Status"]::before {
+    display: none;
   }
-  .grid-table th:first-child {
-    border-top-left-radius: 0;
+
+  .cell-prog-real {
+     justify-content: flex-end; 
   }
-  .grid-table th:last-child {
-    border-top-right-radius: 0;
+  .cell-prog-real span {
+    font-size: 12px;
+    /* --- CORREÇÃO IMPORTANTE --- */
+    /* Permite que os spans de Prog/Real quebrem a linha */
+    white-space: normal; 
+    flex-shrink: 1; 
+  }
+  /* Remove o | em telas pequenas */
+  .cell-prog-real span:first-of-type::after {
+    content: "|"; 
+  }
+
+  .grid-table td[data-label="Identificador"] .cell-prog-real {
+      flex-direction: column; /* Empilha Ativo e Atividade */
+      align-items: flex-end; /* Alinha ambos à direita */
+      gap: 2px;
+  }
+  .grid-table td[data-label="Identificador"] .cell-prog-real span:first-of-type::after {
+      display: none; /* Remove o | entre eles */
+  }
+
+
+  /* Detalhamento: Ocupa mais espaço */
+  .grid-table td[data-label="Detalhamento"] {
+    text-align: left;
+    font-size: 11px;
+    background-color: #fdfdfd;
+    line-height: 1.4;
+  }
+  .grid-table td[data-label="Detalhamento"]::before {
+     display: block; 
+     margin-bottom: 6px;
+     float: none;
   }
 }
 
+/* 4. Ajustes finos para celulares pequenos */
 @media (max-width: 480px) {
-  h1 {
-    font-size: 15px;
+  h1 { 
+    font-size: 15px; 
   }
-  .logo {
-    height: 30px;
+  .logo { 
+    height: 30px; 
   }
-  .header-right-group {
-    gap: 12px;
+  .header-right-group { 
+    gap: 12px; 
   }
-  .adherence-box {
-    min-width: 90px;
+  .adherence-box { 
+    min-width: 90px; 
   }
-  .adherence-label {
-    font-size: 9px;
+  .adherence-label { 
+    font-size: 9px; 
   }
-  .adherence-value {
-    font-size: 20px;
+  .adherence-value { 
+    font-size: 20px; 
   }
-  .grid-table th,
+  
   .grid-table td {
-    font-size: 9px;
-    padding: 4px 3px;
+      padding: 8px 10px;
+      font-size: 11px;
   }
-  .status-icon {
-    width: 12px;
-    height: 12px;
-  }
-  .status-date {
-    font-size: 8px;
-  }
-  .cell-prog-real {
-    gap: 2px;
-  }
-  .cell-prog-real span:first-of-type::after {
-    margin-left: 2px;
-    margin-right: 2px;
-  }
-  .grid-table td.cell-detalhamento {
-    min-width: 70px;
-    font-size: 8px;
+  .cell-prog-real span {
+    font-size: 11px;
   }
 }
