@@ -480,3 +480,53 @@ th.col-detalhamento {
     font-size: 8px;
   }
 }
+/* --- INÍCIO: BLOCO 4 (Adicionar no index.css) --- */
+
+/* --- NOVO: Estilos para Aderência --- */
+.adherence-container {
+    display: flex;
+    gap: 16px;
+    margin-left: 24px;
+    padding: 4px 12px;
+    background-color: #f0f4f8; /* Um azul bem claro */
+    border-radius: 8px;
+    border: 1px solid #d0d9e3;
+}
+
+.adherence-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px; /* Largura mínima */
+}
+
+.adherence-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #4a5568; /* Cinza escuro */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.adherence-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #002d5a; /* Azul da Rumo */
+}
+
+/* Cor um pouco diferente para o valor global */
+.adherence-box.global .adherence-value {
+    color: #2d3748; /* Cinza mais escuro */
+}
+
+/* --- Ajuste no Header para Responsividade --- */
+.title-container {
+    /* Garante que o container possa quebrar linha em telas menores */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap; 
+    gap: 10px; /* Espaçamento entre os itens (título, update, aderência) */
+}
+/* --- FIM: BLOCO 4 --- */
