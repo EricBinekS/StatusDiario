@@ -8,8 +8,11 @@ import json
 import re
 import datetime
 import hashlib
+from zoneinfo import ZoneInfo
 
 load_dotenv()
+
+BR_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 def calculate_operational_status(row):
@@ -119,6 +122,21 @@ def calculate_end_datetime(row):
     return pd.to_datetime(end_dt_naive)
 
 
+def calculate_detalhamento_by_time(row, now_aware):
+    activity_date = row.get('data') 
+    if pd.isna(activity_date):
+        return row.get('prévia_1')
+    try:
+        cutoff_time_naive = datetime.datetime.combine(activity_date.date(), datetime.time(12, 0))
+        cutoff_time_aware = cutoff_time_naive.replace(tzinfo=BR_TZ)
+    except Exception:
+        return row.get('prévia_1')
+    if now_aware < cutoff_time_aware:
+        return row.get('prévia_1')
+    else:
+        return row.get('prévia_2')
+
+
 def transform_df(df):
     df.columns = clean_column_names(df.columns)
     required_cols = ['data', 'ativo']
@@ -129,6 +147,8 @@ def transform_df(df):
     df = df.where(pd.notnull(df), None)
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df.dropna(subset=['data'], inplace=True)
+
+    now_aware = datetime.datetime.now(BR_TZ)
 
     df['start_prog_dt'] = df.apply(_create_full_datetime, args=('inicia',), axis=1)
     df['start_real_dt'] = df.apply(_create_full_datetime, args=('inicio',), axis=1)
@@ -155,10 +175,7 @@ def transform_df(df):
     df['quantidade_prog'] = df.get('quantidade')
     df['quantidade_real'] = df.get('quantidade_11')
 
-    df['detalhamento'] = df.apply(
-        lambda row: row.get('prévia_2') if pd.notna(row.get('end_real_dt')) else row.get('prévia_1'),
-        axis=1
-    )
+    df['detalhamento'] = df.apply(calculate_detalhamento_by_time, args=(now_aware,), axis=1)
 
     df['tempo_real_override'] = None
 
