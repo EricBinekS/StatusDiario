@@ -84,6 +84,75 @@ function calculateStatusDisplay(row) {
     return { date: formattedDate, colorClass, tooltip: tooltipText };
 }
 
+const parseHHMMtoMinutes = (hhmmStr) => {
+    if (!hhmmStr || typeof hhmmStr !== 'string' || hhmmStr.includes('--')) return 0;
+    const parts = hhmmStr.split(':');
+    if (parts.length !== 2) return 0;
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    if (isNaN(hours) || isNaN(minutes)) return 0;
+    return (hours * 60) + minutes;
+};
+
+const calculateRealizedMinutes = (row, now) => {
+    if (row.tempo_real_override === 'DESL' || row.tempo_real_override === 'BLOCO') {
+        return 0;
+    }
+
+    const startISO = row.timer_start_timestamp;
+    const endISO = row.timer_end_timestamp;
+
+    if (endISO) {
+        const start = new Date(startISO);
+        const end = new Date(endISO);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+        
+        let effectiveEnd = end;
+        if (end < start) effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+        
+        const diffMs = effectiveEnd - start;
+        if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) return 0;
+        
+        return Math.floor(diffMs / 60000);
+    }
+
+    if (startISO) {
+        const start = new Date(startISO);
+        if (isNaN(start.getTime())) return 0;
+        
+        const diffMs = now - start;
+        if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) return 0;
+        
+        return Math.floor(diffMs / 60000); 
+    }
+
+    return 0;
+};
+
+const calculateAdherence = (data, now) => {
+    if (!data || data.length === 0) {
+        return { adherence: "0.0" };
+    }
+
+    let totalProgMinutes = 0;
+    let totalRealMinutes = 0;
+
+    data.forEach(row => {
+        totalProgMinutes += parseHHMMtoMinutes(row.tempo_prog);
+        totalRealMinutes += calculateRealizedMinutes(row, now);
+    });
+
+    // Evita divisão por zero
+    const adherence = (totalProgMinutes > 0) 
+        ? (totalRealMinutes / totalProgMinutes) * 100 
+        : 0;
+    
+    return {
+        adherence: adherence.toFixed(1) 
+    };
+};
+
+
 function App() {
     const [rawData, setRawData] = useState([]);
     const [updatedRows, setUpdatedRows] = useState(new Set());
@@ -140,20 +209,15 @@ function App() {
 
     useEffect(() => {
         if (lastUpdatedTimestamp) {
-            // Define o intervalo de atualização (10 minutos)
             const UPDATE_INTERVAL_MS = 10 * 60 * 1000;
-            
-            // Calcula a hora da próxima atualização
+
             const nextUpdateTimestamp = lastUpdatedTimestamp.getTime() + UPDATE_INTERVAL_MS;
-            
-            // Calcula a diferença até a próxima atualização
+
             const diffMs = nextUpdateTimestamp - now.getTime();
 
             if (diffMs <= 0) {
-                // Se o tempo já passou, mostra "Atualizando..."
                 setNextUpdateIn("Atualizando...");
             } else {
-                // Formata o tempo restante em MM:SS
                 const minutes = Math.floor(diffMs / 60000);
                 const seconds = Math.floor((diffMs % 60000) / 1000);
                 setNextUpdateIn(
@@ -205,56 +269,56 @@ function App() {
     };
 
 const sortedAndFilteredData = useMemo(() => {
-        if (!Array.isArray(rawData)) return [];
-        
-        
-        let filterableData = rawData.filter(row => {
-            if (!showDesl && row.tempo_real_override === 'DESL') return false;
+        if (!Array.isArray(rawData)) return [];
+        
+        
+        let filterableData = rawData.filter(row => {
+            if (!showDesl && row.tempo_real_override === 'DESL') return false;
 
-            if (filters.data && row.data !== filters.data) return false;
-            
+            if (filters.data && row.data !== filters.data) return false;
+            
 
-            if (filters.ativo && (!row.ativo || !String(row.ativo).toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
-            
-            if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia) return false;
-            if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
-            if (filters.sub && String(row.sub) !== filters.sub) return false;
-            if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
-            if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
-            
-            return true;
-        });
+            if (filters.ativo && (!row.ativo || !String(row.ativo).toLowerCase().includes(filters.ativo.toLowerCase()))) return false;
+            
+            if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia) return false;
+            if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho) return false;
+            if (filters.sub && String(row.sub) !== filters.sub) return false;
+            if (filters.atividade && String(row.atividade) !== filters.atividade) return false;
+            if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
+            
+            return true;
+        });
 
-        if (sortConfig.key) {
-            const sortKey = sortConfig.key;
-            
-            const sortableData = [...filterableData]; 
-            
-            sortableData.sort((a, b) => {
-                const valA = a[sortKey];
-                const valB = b[sortKey];
-                if (valA == null && valB == null) return 0;
-                if (valA == null) return 1; 
-                if (valB == null) return -1; 
-                
-                const numA = parseFloat(valA);
-                const numB = parseFloat(valB);
-                let comparison = 0;
-                
-                if (!isNaN(numA) && !isNaN(numB)) {
-                    comparison = numA - numB;
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
-                
-                return sortConfig.direction === 'ascending' ? comparison : (comparison * -1);
-            });
-            
-            return sortableData; 
-        }
+        if (sortConfig.key) {
+            const sortKey = sortConfig.key;
+            
+            const sortableData = [...filterableData]; 
+            
+            sortableData.sort((a, b) => {
+                const valA = a[sortKey];
+                const valB = b[sortKey];
+                if (valA == null && valB == null) return 0;
+                if (valA == null) return 1; 
+                if (valB == null) return -1; 
+                
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+                let comparison = 0;
+                
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    comparison = numA - numB;
+                } else {
+                    comparison = String(valA).localeCompare(String(valB));
+                }
+                
+                return sortConfig.direction === 'ascending' ? comparison : (comparison * -1);
+            });
+            
+            return sortableData; 
+        }
 
-        return filterableData; 
-    }, [rawData, filters, sortConfig, showDesl]);
+        return filterableData; 
+    }, [rawData, filters, sortConfig, showDesl]);
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -277,21 +341,50 @@ const sortedAndFilteredData = useMemo(() => {
         }
     };
 
+    const isAnyFilterApplied = useMemo(() => {
+        if (!filters) return false;
+        return Object.values(filters).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+    }, [filters]);
+
+    const globalAdherence = useMemo(() => {
+        return calculateAdherence(rawData, now);
+    }, [rawData, now]);
+
+    const filteredAdherence = useMemo(() => {
+        return calculateAdherence(sortedAndFilteredData, now);
+    }, [sortedAndFilteredData, now]);
+
+    const displayedAdherence = useMemo(() => {
+        return isAnyFilterApplied ? filteredAdherence : globalAdherence;
+    }, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
+
+
+
     return (
         <>
             <header>
-                <div className="title-container">
-                    <h1>PAINEL INTERVALOS - PCM</h1>
-                    <div className="update-info">
-                        <p className="last-updated">
-                            Última Atualização: {formatLastUpdated(lastUpdatedTimestamp)}
-                        </p>
-                        <p className="next-update">
-                            Próxima em: <strong>{nextUpdateIn}</strong>
-                        </p>
-                    </div>
-                </div>
-                <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
+                <div className="title-container">
+                    <h1>PAINEL INTERVALOS - PCM</h1>
+                    <div className="update-info">
+                        <p className="last-updated">
+                            Última Atualização: {formatLastUpdated(lastUpdatedTimestamp)}
+                        </p>
+                        <p className="next-update">
+                            Próxima em: <strong>{nextUpdateIn}</strong>
+                        </p>
+                    </div>
+
+                    {/* --- INÍCIO: BLOCO 3 (Bloco Único de Aderência adaptativo) --- */}
+                    <div className="adherence-container" role="status" aria-label="Aderência">
+                        <div className="adherence-box global">
+                            <span className="adherence-label">{isAnyFilterApplied ? 'Aderência (Filtro)' : 'Aderência Global'}</span>
+                            <span className="adherence-value">{displayedAdherence.adherence}%</span>
+                        </div>
+                    </div>
+                    {/* --- FIM: BLOCO 3 --- */}
+
+                </div>
+                <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
             </header>
 
             <main>
