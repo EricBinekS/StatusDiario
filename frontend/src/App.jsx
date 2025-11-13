@@ -116,7 +116,7 @@ const parseHHMMtoMinutes = (hhmmStr) => {
 
 const calculateRealizedMinutes = (row, now) => {
   if (
-    row.tempo_real_override === "DESL" ||
+    row.tempo_real_override === "Esp" ||
     row.tempo_real_override === "BLOCO"
   ) {
     return 0;
@@ -185,7 +185,7 @@ function App() {
     key: "status",
     direction: "descending",
   });
-  const [showDesl, setShowDesl] = useState(false);
+  const [showESP, setShowESP] = useState(false);
   const [error, setError] = useState(null);
   const previousDataRef = useRef([]);
   const [filters, setFilters] = useState({
@@ -326,7 +326,7 @@ function App() {
     if (!Array.isArray(rawData)) return [];
 
     let filterableData = rawData.filter((row) => {
-      if (!showDesl && row.tempo_real_override === "DESL") return false;
+      if (!showESP && row.tempo_real_override === "Esp") return false;
 
       if (filters.data && row.data !== filters.data) return false;
 
@@ -382,7 +382,7 @@ function App() {
     }
 
     return filterableData;
-  }, [rawData, filters, sortConfig, showDesl]);
+  }, [rawData, filters, sortConfig, showESP]);
 
   const requestSort = (key) => {
     let direction = "ascending";
@@ -569,11 +569,11 @@ function App() {
             <div className="checkbox-container">
               <input
                 type="checkbox"
-                id="show-desl"
-                checked={showDesl}
-                onChange={(e) => setShowDesl(e.target.checked)}
+                id="show-Esp"
+                checked={showESP}
+                onChange={(e) => setShowESP(e.target.checked)}
               />
-              <label htmlFor="show-desl">Mostrar DESL</label>
+              <label htmlFor="show-Esp">Mostrar Esp</label>
             </div>
           </div>
         </section>
