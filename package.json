@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "nodemailer": "^7.0.10",
+    "puppeteer": "^24.30.0"
+  }
+}

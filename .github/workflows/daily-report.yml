@@ -1,0 +1,37 @@
+# .github/workflows/daily-report.yml
+
+name: Relatório Diário do Painel
+
+on:
+  schedule:
+    - cron: '0 11 * * *' # 8:00 AM (BRT)
+  workflow_dispatch:
+
+jobs:
+  send-daily-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 1. Checkout (Baixar o código)
+        uses: actions/checkout@v3
+
+      - name: 2. Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18 # Importante ser 18+ para ter o 'fetch'
+
+      - name: 3. Instalar dependências (incluindo Puppeteer)
+        run: npm ci 
+        
+      - name: 4. Instalar dependências do sistema para o Puppeteer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq gconf-service libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 libnss3
+
+      - name: 5. Rodar o script de captura e envio
+        # ATUALIZE ESTE BLOCO 'ENV'
+        run: node .github/scripts/sendReport.js
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
