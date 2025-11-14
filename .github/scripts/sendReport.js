@@ -104,34 +104,27 @@ async function captureAndSendReports() {
 
         const screenshotPath = `report_${gerencia.value}.png`;
         
-        // --- MUDANÇA IMPORTANTE AQUI (MÉTODO "CLIP") ---
-        
-        // 1. Encontra o elemento da tabela
-        const tableElement = await page.$('.tabela-wrapper');
-        if (!tableElement) {
-          console.warn("Elemento .tabela-wrapper não encontrado. Pulando...");
-          continue;
-        }
+        const mainElement = await page.$('main'); 
+        if (!mainElement) {
+          console.warn("Elemento <main> não encontrado. Pulando...");
+          continue;
+        }
 
-        // 2. Mede o tamanho e a Posição dele
-        const boundingBox = await tableElement.boundingBox();
-        if (!boundingBox) {
-          console.warn("Não foi possível medir a tabela (está oculta?). Pulando...");
-          continue;
-        }
+        const boundingBox = await mainElement.boundingBox(); 
+        if (!boundingBox) {
+          console.warn("Não foi possível medir o <main> (está oculta?). Pulando...");
+          continue;
+        }
 
-        // 3. Tira o print usando 'clip' com as coordenadas exatas
-        await page.screenshot({ 
-          path: screenshotPath,
-          clip: {
-            x: boundingBox.x,
-            y: boundingBox.y,
-            width: boundingBox.width,
-            // Arredonda a altura para evitar erros
-            height: Math.ceil(boundingBox.height) 
-          }
-        });
-        // --- FIM DA MUDANÇA ---
+        await page.screenshot({ 
+          path: screenshotPath,
+          clip: {
+            x: boundingBox.x,
+            y: boundingBox.y,
+            width: boundingBox.width,
+            height: Math.ceil(boundingBox.height) 
+          }
+        });
 
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
         localScreenshots.push(screenshotPath); 
