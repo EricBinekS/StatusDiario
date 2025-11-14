@@ -24,7 +24,11 @@ async function captureAndSendReports() {
     });
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    
+    // --- MUDANÇA IMPORTANTE AQUI (VIEWPORT ALTO) ---
+    // Em vez de 1080, damos uma altura gigante para o navegador "pintar" tudo.
+    await page.setViewport({ width: 1920, height: 8000 });
+    // --- FIM DA MUDANÇA ---
 
     console.log(`Navegando para ${DASHBOARD_URL}...`);
     await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
@@ -55,24 +59,13 @@ async function captureAndSendReports() {
         console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
         await new Promise((r) => setTimeout(r, 5000)); 
 
-        // --- 📸 MUDANÇA IMPORTANTE AQUI ---
-        // Não vamos mais printar o '.tabela-wrapper'.
-        // Vamos printar a PÁGINA INTEIRA, que é mais confiável.
-        
-        // const tableElement = await page.$(".tabela-wrapper");
-        // if (!tableElement) {
-        //   console.warn("Tabela não encontrada. Pulando...");
-        //   continue;
-        // }
-
         const screenshotPath = `report_${gerencia.value}.png`;
         
-        // Substituímos 'tableElement.screenshot' por 'page.screenshot'
+        // --- MUDANÇA IMPORTANTE AQUI (REMOVENDO fullPage) ---
+        // Agora tiramos um print simples do viewport (que já é gigante)
         await page.screenshot({ 
-          path: screenshotPath, 
-          fullPage: true // Captura a página inteira, não importa a altura
+          path: screenshotPath
         });
-        
         // --- FIM DA MUDANÇA ---
 
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
