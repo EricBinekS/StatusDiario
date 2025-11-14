@@ -46,7 +46,7 @@ async function uploadImageToImgBB(base64ImageString) {
 }
 
 async function captureAndSendReports() {
-  console.log("Iniciando captura dos relatórios diários...");
+  console.log("Iniciando captura dos status diários...");
   let browser;
   const powerAutomatePayload = [];
   const localScreenshots = []; 
@@ -145,7 +145,7 @@ async function captureAndSendReports() {
         if (publicUrl) {
           console.log(`Upload com sucesso: ${publicUrl}`);
           powerAutomatePayload.push({
-            Name: `Relatório - ${gerencia.text}`,
+            Name: `Status - ${gerencia.text}`,
             Url: publicUrl,
           });
         }
