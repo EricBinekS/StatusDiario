@@ -36,9 +36,6 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // --- ETAPA DE FILTRO DE DATA FOI REMOVIDA ---
-    // A página agora carrega com o filtro por padrão.
-
     // 2. Lê todas as opções do filtro "Gerência"
     console.log("Lendo lista de Gerências...");
     const gerenciaOptions = await page.$$eval("#gerencia option", (options) => {
@@ -58,14 +55,26 @@ async function captureAndSendReports() {
         console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
         await new Promise((r) => setTimeout(r, 5000)); 
 
-        const tableElement = await page.$(".tabela-wrapper");
-        if (!tableElement) {
-          console.warn("Tabela não encontrada. Pulando...");
-          continue;
-        }
+        // --- 📸 MUDANÇA IMPORTANTE AQUI ---
+        // Não vamos mais printar o '.tabela-wrapper'.
+        // Vamos printar a PÁGINA INTEIRA, que é mais confiável.
+        
+        // const tableElement = await page.$(".tabela-wrapper");
+        // if (!tableElement) {
+        //   console.warn("Tabela não encontrada. Pulando...");
+        //   continue;
+        // }
 
         const screenshotPath = `report_${gerencia.value}.png`;
-        await tableElement.screenshot({ path: screenshotPath });
+        
+        // Substituímos 'tableElement.screenshot' por 'page.screenshot'
+        await page.screenshot({ 
+          path: screenshotPath, 
+          fullPage: true // Captura a página inteira, não importa a altura
+        });
+        
+        // --- FIM DA MUDANÇA ---
+
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
         localScreenshots.push(screenshotPath); 
 
