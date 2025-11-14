@@ -52,7 +52,7 @@ async function captureAndSendReports() {
     // 2. Aplica o filtro de data de "Hoje"
     console.log(`Aplicando filtro de data: ${todayString}`);
     await page.type("#data", todayString);
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 5000));
 
     // 3. Lê todas as opções do filtro "Gerência"
     console.log("Lendo lista de Gerências...");
@@ -70,7 +70,7 @@ async function captureAndSendReports() {
       try {
         await page.select("#gerencia", gerencia.value);
         console.log("Aguardando 3 segundos para o filtro ser aplicado...");
-        await new Promise((r) => setTimeout(r, 3000));
+        await new Promise((r) => setTimeout(r, 5000));
 
         const tableElement = await page.$(".tabela-wrapper");
         if (!tableElement) {
