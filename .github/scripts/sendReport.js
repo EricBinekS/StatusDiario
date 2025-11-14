@@ -3,7 +3,9 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs").promises; 
 const path = require("path"); 
-// const FormData = require("form-data"); // <-- REMOVIDO
+
+// Mudei para URLSearchParams, que é nativo do Node.js
+const { URLSearchParams } = require('url');
 
 process.env.TZ = "America/Sao_Paulo";
 
@@ -19,7 +21,6 @@ const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
  */
 async function uploadImageToImgBB(base64ImageString) {
   try {
-    // URLSearchParams é a forma correta de enviar dados de formulário como texto.
     const body = new URLSearchParams();
     body.append('image', base64ImageString);
 
@@ -37,10 +38,10 @@ async function uploadImageToImgBB(base64ImageString) {
       throw new Error(`Erro no imgbb: ${json.error.message}`);
     }
     
-    return json.data.display_url; // URL pública da imagem
+    return json.data.display_url;
   } catch (error) {
     console.error("Erro ao fazer upload da imagem:", error);
-    return null; // Retorna nulo se o upload falhar
+    return null;
   }
 }
 
@@ -57,7 +58,9 @@ async function captureAndSendReports() {
     });
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 8000 });
+    
+    // --- MUDANÇA: Viewport de volta ao normal ---
+    await page.setViewport({ width: 1920, height: 1080 });
 
     console.log(`Navegando para ${DASHBOARD_URL}...`);
     await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
@@ -101,17 +104,42 @@ async function captureAndSendReports() {
 
         const screenshotPath = `report_${gerencia.value}.png`;
         
-        await page.screenshot({ path: screenshotPath });
+        // --- MUDANÇA IMPORTANTE AQUI (MÉTODO "CLIP") ---
+        
+        // 1. Encontra o elemento da tabela
+        const tableElement = await page.$('.tabela-wrapper');
+        if (!tableElement) {
+          console.warn("Elemento .tabela-wrapper não encontrado. Pulando...");
+          continue;
+        }
+
+        // 2. Mede o tamanho e a Posição dele
+        const boundingBox = await tableElement.boundingBox();
+        if (!boundingBox) {
+          console.warn("Não foi possível medir a tabela (está oculta?). Pulando...");
+          continue;
+        }
+
+        // 3. Tira o print usando 'clip' com as coordenadas exatas
+        await page.screenshot({ 
+          path: screenshotPath,
+          clip: {
+            x: boundingBox.x,
+            y: boundingBox.y,
+            width: boundingBox.width,
+            // Arredonda a altura para evitar erros
+            height: Math.ceil(boundingBox.height) 
+          }
+        });
+        // --- FIM DA MUDANÇA ---
 
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
         localScreenshots.push(screenshotPath); 
 
-        // Lê o arquivo para o buffer, e converte para Base64
         const fileData = await fs.readFile(screenshotPath);
         const base64Content = fileData.toString("base64");
         
         console.log(`Fazendo upload da imagem ${gerencia.text} para o imgbb...`);
-        // Passa a string Base64 (que é o que a função corrigida espera)
         const publicUrl = await uploadImageToImgBB(base64Content); 
 
         if (publicUrl) {
