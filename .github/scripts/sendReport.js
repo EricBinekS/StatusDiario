@@ -24,11 +24,7 @@ async function captureAndSendReports() {
     });
 
     const page = await browser.newPage();
-    
-    // --- MUDANÇA IMPORTANTE AQUI (VIEWPORT ALTO) ---
-    // Em vez de 1080, damos uma altura gigante para o navegador "pintar" tudo.
-    await page.setViewport({ width: 1920, height: 8000 });
-    // --- FIM DA MUDANÇA ---
+    await page.setViewport({ width: 1920, height: 1080 });
 
     console.log(`Navegando para ${DASHBOARD_URL}...`);
     await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
@@ -59,13 +55,15 @@ async function captureAndSendReports() {
         console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
         await new Promise((r) => setTimeout(r, 5000)); 
 
+
         const screenshotPath = `report_${gerencia.value}.png`;
         
-        // --- MUDANÇA IMPORTANTE AQUI (REMOVENDO fullPage) ---
-        // Agora tiramos um print simples do viewport (que já é gigante)
+        // Substituímos 'tableElement.screenshot' por 'page.screenshot'
         await page.screenshot({ 
-          path: screenshotPath
+          path: screenshotPath, 
+          fullPage: true // Captura a página inteira, não importa a altura
         });
+        
         // --- FIM DA MUDANÇA ---
 
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
@@ -138,5 +136,4 @@ async function captureAndSendReports() {
   }
 }
 
-// Executa a função
 captureAndSendReports();
