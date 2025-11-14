@@ -323,66 +323,69 @@ function App() {
   };
 
   const sortedAndFilteredData = useMemo(() => {
-    if (!Array.isArray(rawData)) return [];
+    if (!Array.isArray(rawData)) return [];
 
-    let filterableData = rawData.filter((row) => {
-      if (!showESP && row.tempo_real_override === "Esp") return false;
+    let filterableData = rawData.filter((row) => {
+      if (!showESP && row.tempo_real_override === "Esp") return false;
 
-      if (filters.data && row.data !== filters.data) return false;
+      // --- LINHA CORRIGIDA ABAIXO ---
+      if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
+        return false;
+      // --- FIM DA CORREÇÃO ---
 
-      if (
-        filters.ativo &&
-        (!row.ativo ||
-          !String(row.ativo)
-            .toLowerCase()
-            .includes(filters.ativo.toLowerCase()))
-      )
-        return false;
+      if (
+        filters.ativo &&
+        (!row.ativo ||
+          !String(row.ativo)
+            .toLowerCase()
+            .includes(filters.ativo.toLowerCase()))
+      )
+        return false;
 
-      if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia)
-        return false;
-      if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho)
-        return false;
-      if (filters.sub && String(row.sub) !== filters.sub) return false;
-      if (filters.atividade && String(row.atividade) !== filters.atividade)
-        return false;
-      if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
+      if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia)
+        return false;
+      if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho)
+        return false;
+      if (filters.sub && String(row.sub) !== filters.sub) return false;
+      if (filters.atividade && String(row.atividade) !== filters.atividade)
+        return false;
+      if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
 
-      return true;
-    });
+      return true;
+    });
 
-    if (sortConfig.key) {
-      const sortKey = sortConfig.key;
+    if (sortConfig.key) {
+      const sortKey = sortConfig.key;
 
-      const sortableData = [...filterableData];
+      const sortableData = [...filterableData];
 
-      sortableData.sort((a, b) => {
-        const valA = a[sortKey];
-        const valB = b[sortKey];
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
+      sortableData.sort((a, b) => {
+        const valA = a[sortKey];
+        const valB = b[sortKey];
+        if (valA == null && valB == null) return 0;
+        if (valA == null) return 1;
+        if (valB == null) return -1;
 
-        const numA = parseFloat(valA);
-        const numB = parseFloat(valB);
-        let comparison = 0;
+        const numA = parseFloat(valA);
+        const numB = parseFloat(valB);
+        let comparison = 0;
 
-        if (!isNaN(numA) && !isNaN(numB)) {
-          comparison = numA - numB;
-        } else {
-          comparison = String(valA).localeCompare(String(valB));
-        }
+        if (!isNaN(numA) && !isNaN(numB)) {
+          comparison = numA - numB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
 
-        return sortConfig.direction === "ascending"
-          ? comparison
-          : comparison * -1;
-      });
+        return sortConfig.direction === "ascending"
+          ? comparison
+          : comparison * -1;
+      });
 
-      return sortableData;
-    }
+      return sortableData;
+    }
 
-    return filterableData;
-  }, [rawData, filters, sortConfig, showESP]);
+    return filterableData;
+  }, [rawData, filters, sortConfig, showESP]);
 
   const requestSort = (key) => {
     let direction = "ascending";
