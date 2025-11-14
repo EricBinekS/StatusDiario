@@ -1,8 +1,8 @@
-name: Relatório Diário do Painel
+name: Status Diário do Painel
 
 on:
   schedule:
-    - cron: '0 15 * * *'
+    - cron: '0 15 * * *' 
     - cron: '0 19 * * *'
   workflow_dispatch:
 
@@ -33,3 +33,4 @@ jobs:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
           POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
+          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}

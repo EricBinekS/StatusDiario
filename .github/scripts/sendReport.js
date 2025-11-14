@@ -3,6 +3,7 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs").promises; 
 const path = require("path"); 
+const FormData = require("form-data"); 
 
 process.env.TZ = "America/Sao_Paulo";
 
@@ -10,11 +11,37 @@ process.env.TZ = "America/Sao_Paulo";
 const DASHBOARD_URL = process.env.DASHBOARD_URL;
 const POWER_AUTOMATE_URL = process.env.POWER_AUTOMATE_URL;
 const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL;
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
+
+/**
+ * Faz upload de uma imagem (em Base64) para o imgbb e retorna a URL pública.
+ */
+async function uploadImageToImgBB(base64ImageString) {
+  try {
+    const form = new FormData();
+    form.append('image', base64ImageString);
+
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: 'POST',
+      body: form,
+    });
+
+    const json = await response.json();
+    if (!json.success) {
+      throw new Error(`Erro no imgbb: ${json.error.message}`);
+    }
+    
+    return json.data.display_url; // URL pública da imagem
+  } catch (error) {
+    console.error("Erro ao fazer upload da imagem:", error);
+    return null; // Retorna nulo se o upload falhar
+  }
+}
 
 async function captureAndSendReports() {
   console.log("Iniciando captura dos relatórios diários...");
   let browser;
-  const powerAutomateAttachments = []; 
+  const powerAutomatePayload = [];
   const localScreenshots = []; 
 
   try {
@@ -24,7 +51,7 @@ async function captureAndSendReports() {
     });
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({ width: 1920, height: 8000 });
 
     console.log(`Navegando para ${DASHBOARD_URL}...`);
     await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
@@ -36,46 +63,63 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // 2. Lê todas as opções do filtro "Gerência"
-    console.log("Lendo lista de Gerências...");
-    const gerenciaOptions = await page.$$eval("#gerencia option", (options) => {
-      return options
-        .map((opt) => ({ value: opt.value, text: opt.innerText }))
-        .filter((opt) => opt.value !== ""); 
-    });
+    // --- MUDANÇA IMPORTANTE AQUI (ORDEM PERSONALIZADA) ---
+    // 2. Define a ordem de processamento das Gerências
+    console.log("Definindo a ordem de processamento personalizada...");
+    const gerenciasParaProcessar = [
+      { value: "SP SUL", text: "SP SUL" },
+      { value: "SP NORTE", text: "SP NORTE" },
+      { value: "FERRONORTE", text: "FERRONORTE" },
+      { value: "MALHA CENTRAL", text: "MALHA CENTRAL" }
+    ];
+    // --- FIM DA MUDANÇA ---
 
-    console.log(`Encontradas ${gerenciaOptions.length} gerências para processar.`);
+    console.log(`Total de ${gerenciasParaProcessar.length} gerências para processar.`);
 
-    // 3. Inicia o LOOP para cada gerência
-    for (const gerencia of gerenciaOptions) {
+    // 3. Inicia o LOOP para cada gerência (na ordem definida)
+    for (const gerencia of gerenciasParaProcessar) {
       console.log(`--- Processando Gerência: ${gerencia.text} ---`);
       try {
+        
+        // Verifica se a opção realmente existe na página antes de tentar selecionar
+        const optionExists = await page.evaluate((value) => {
+          return !!document.querySelector(`#gerencia option[value="${value}"]`);
+        }, gerencia.value);
+
+        if (!optionExists) {
+          console.warn(`Gerência "${gerencia.text}" não encontrada no filtro. Pulando...`);
+          continue; // Pula para a próxima gerência
+        }
+
+        // Seleciona a gerência
         await page.select("#gerencia", gerencia.value);
         
         console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
         await new Promise((r) => setTimeout(r, 5000)); 
 
-
         const screenshotPath = `report_${gerencia.value}.png`;
         
-        // Substituímos 'tableElement.screenshot' por 'page.screenshot'
-        await page.screenshot({ 
-          path: screenshotPath, 
-          fullPage: true // Captura a página inteira, não importa a altura
-        });
-        
-        // --- FIM DA MUDANÇA ---
+        await page.screenshot({ path: screenshotPath });
 
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
         localScreenshots.push(screenshotPath); 
 
+        // --- NOVO FLUXO DE UPLOAD ---
         const fileData = await fs.readFile(screenshotPath);
         const base64Content = fileData.toString("base64");
+        
+        console.log(`Fazendo upload da imagem ${gerencia.text} para o imgbb...`);
+        const publicUrl = await uploadImageToImgBB(base64Content);
 
-        powerAutomateAttachments.push({
-          Name: `Status - ${gerencia.text}.png`,
-          ContentBytes: base64Content,
-        });
+        if (publicUrl) {
+          console.log(`Upload com sucesso: ${publicUrl}`);
+          powerAutomatePayload.push({
+            Name: `Relatório - ${gerencia.text}`, // Nome limpo
+            Url: publicUrl, // A URL pública
+          });
+        }
+        // --- FIM DO NOVO FLUXO ---
+        
       } catch (loopError) {
         console.error(
           `Falha ao processar a gerência ${gerencia.text}:`,
@@ -86,23 +130,19 @@ async function captureAndSendReports() {
 
     console.log("--- Processamento de todas as gerências concluído ---");
 
-    if (powerAutomateAttachments.length === 0) {
-      console.warn("Nenhum print foi gerado, mesmo assim o fluxo continuará.");
-      powerAutomateAttachments.push({
-        Name: "ERRO-NENHUM_DADO_ENCONTRADO.png",
-        ContentBytes: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-      });
+    if (powerAutomatePayload.length === 0) {
+      throw new Error("Nenhum print foi gerado ou teve upload com sucesso.");
     }
 
-    // 4. Monta o JSON final para o Power Automate
+    // 4. Monta o JSON final para o Power AutomATE
     const payload = {
       recipient: RECIPIENT_EMAIL,
       reportDate: new Date().toLocaleDateString("pt-BR"), 
-      attachmentsArray: powerAutomateAttachments,
+      attachmentsArray: powerAutomatePayload, 
     };
 
     // 5. Envia a chamada HTTP para o Power Automate
-    console.log(`Enviando ${payload.attachmentsArray.length} anexos para o Power Automate...`);
+    console.log(`Enviando ${payload.attachmentsArray.length} links de imagem para o Power Automate...`);
 
     const response = await fetch(POWER_AUTOMATE_URL, {
       method: "POST",
@@ -136,4 +176,5 @@ async function captureAndSendReports() {
   }
 }
 
+// Executa a função
 captureAndSendReports();
