@@ -73,7 +73,7 @@ async function captureAndSendReports() {
         const base64Content = fileData.toString("base64");
 
         powerAutomateAttachments.push({
-          Name: `Relatório - ${gerencia.text}.png`,
+          Name: `Status - ${gerencia.text}.png`,
           ContentBytes: base64Content,
         });
       } catch (loopError) {
