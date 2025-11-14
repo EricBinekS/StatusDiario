@@ -437,144 +437,148 @@ function App() {
     return isAnyFilterApplied ? filteredAdherence : globalAdherence;
   }, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
 
-  return (
-    <>
-      <header>
-        <div className="title-container">
-          <h1>PAINEL INTERVALOS - PCM</h1>
-          <div className="update-info">
-            <p className="last-updated">
-              Última Atualização: {formatLastUpdated(lastUpdatedTimestamp)}
-            </p>
-            <p className="next-update">
-              Próxima em: <strong>{nextUpdateIn}</strong>
-            </p>
-          </div>
-        </div>
+return (
+  <>
+    <header>
+      <div className="title-container">
+        <h1>PAINEL INTERVALOS - PCM</h1>
+        <div className="update-info">
+          <p className="last-updated">
+            Última Atualização: {formatLastUpdated(lastUpdatedTimestamp)}
+          </p>
+          <p className="next-update">
+            Próxima em: <strong>{nextUpdateIn}</strong>
+          </p>
+        </div>
+      </div>
 
-        <div className="header-right-group">
-          <div
-            className="adherence-container"
-            role="status"
-            aria-label="Aderência"
-          >
-            <div className="adherence-box global">
-              <span className="adherence-label">
-                {isAnyFilterApplied ? "Aderência (Filtro)" : "Aderência Global"}
-              </span>
-              <span className="adherence-value">
-                {displayedAdherence.adherence}%
-              </span>
-            </div>
-          </div>
+      <div className="header-right-group">
+        {/* */}
+        <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
+      </div>
+    </header>
 
-          <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
-        </div>
-      </header>
+    <main>
+      {/* */}
+      <div className="filters-and-adherence-wrapper">
+        
+        <section className="filters">
+          <div className="filter-item">
+            <label htmlFor="data">Data:</label>
+            <input
+              type="date"
+              id="data"
+              value={filters.data}
+              onChange={(e) => handleFilterChange("data", e.target.value)}
+            />
+          </div>
 
-      <main>
-        <section className="filters">
-          <div className="filter-item">
-            <label htmlFor="data">Data:</label>
-            <input
-              type="date"
-              id="data"
-              value={filters.data}
-              onChange={(e) => handleFilterChange("data", e.target.value)}
-            />
-          </div>
+          <div className="filter-item">
+            <label htmlFor="gerencia">Gerência:</label>
+            <select
+              id="gerencia"
+              value={filters.gerencia}
+              onChange={(e) => handleFilterChange("gerencia", e.target.value)}
+            >
+              <option value="">Todas</option>
+              {gerenciaOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="filter-item">
-            <label htmlFor="gerencia">Gerência:</label>
-            <select
-              id="gerencia"
-              value={filters.gerencia}
-              onChange={(e) => handleFilterChange("gerencia", e.target.value)}
-            >
-              <option value="">Todas</option>
-              {gerenciaOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="filter-item">
+            <label htmlFor="trecho">Trecho:</label>
+            <select
+              id="trecho"
+              value={filters.trecho}
+              onChange={(e) => handleFilterChange("trecho", e.target.value)}
+            >
+              <option value="">Todos</option>
+              {trechoOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="filter-item">
-            <label htmlFor="trecho">Trecho:</label>
-            <select
-              id="trecho"
-              value={filters.trecho}
-              onChange={(e) => handleFilterChange("trecho", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {trechoOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="filter-item">
+            <label htmlFor="sub">Sub:</label>
+            <select
+              id="sub"
+              value={filters.sub}
+              onChange={(e) => handleFilterChange("sub", e.target.value)}
+            >
+              <option value="">Todos</option>
+              {subOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="filter-item">
-            <label htmlFor="sub">Sub:</label>
-            <select
-              id="sub"
-              value={filters.sub}
-              onChange={(e) => handleFilterChange("sub", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {subOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="filter-item">
+            <label htmlFor="ativo">Ativo:</label>
+            <input
+              type="text"
+              id="ativo"
+              value={filters.ativo}
+              onChange={(e) => handleFilterChange("ativo", e.target.value)}
+            />
+          </div>
 
-          <div className="filter-item">
-            <label htmlFor="ativo">Ativo:</label>
-            <input
-              type="text"
-              id="ativo"
-              value={filters.ativo}
-              onChange={(e) => handleFilterChange("ativo", e.target.value)}
-            />
-          </div>
+          <div className="filter-item">
+            <label htmlFor="atividade">Atividade:</label>
+            <select
+              id="atividade"
+              value={filters.atividade}
+              onChange={(e) => handleFilterChange("atividade", e.target.value)}
+            >
+              <option value="">Todas</option>
+              {atividadeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="filter-item">
-            <label htmlFor="atividade">Atividade:</label>
-            <select
-              id="atividade"
-              value={filters.atividade}
-              onChange={(e) => handleFilterChange("atividade", e.target.value)}
-            >
-              <option value="">Todas</option>
-              {atividadeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="filter-item">
+            <label htmlFor="tipo">Tipo:</label>
+            <select
+              id="tipo"
+              value={filters.tipo}
+              onChange={(e) => handleFilterChange("tipo", e.target.value)}
+            >
+              <option value="">Todos</option>
+              {tipoOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+        <div
+          className="adherence-container"
+          role="status"
+          aria-label="Aderência"
+        >
+          <div className="adherence-box global">
+            <span className="adherence-label">
+              {isAnyFilterApplied ? "Aderência (Filtro)" : "Aderência Global"}
+            </span>
+            <span className="adherence-value">
+              {displayedAdherence.adherence}%
+            </span>
+          </div>
+        </div>
 
-          <div className="filter-item">
-            <label htmlFor="tipo">Tipo:</label>
-            <select
-              id="tipo"
-              value={filters.tipo}
-              onChange={(e) => handleFilterChange("tipo", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {tipoOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-
+      </div> 
         <section className="tabela-wrapper">
           {loading && <p className="loading-message">Carregando dados...</p>}
 

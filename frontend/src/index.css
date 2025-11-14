@@ -1,624 +1,654 @@
 :root {
-  --cor-fundo-pagina: #f7f7f7;
-  --cor-container: #fff;
-  --cor-texto-principal: #062e4e;
-  --cor-cinza-claro: #d9d9d9;
-  --cor-texto-secundario: #555;
-  --cor-borda: #e9e9e9;
-  --cor-header-identificador: #9eb0be;
-  --cor-header-status: #e6e6fa;
-  --cor-header-inicio-tempo: #8acaba;
-  --cor-header-local-qtd: #a7fa97;
-  --cor-header-detalhamento: #fc9254;
-  --cor-timer: #d9534f;
-  --cor-status-verde: #28a745;
-  --cor-status-amarelo: #ffc107;
-  --cor-status-vermelho: #dc3545;
-  --cor-status-cinza: #6c757d;
+  --cor-fundo-pagina: #f7f7f7;
+  --cor-container: #fff;
+  --cor-texto-principal: #062e4e;
+  --cor-cinza-claro: #d9d9d9;
+  --cor-texto-secundario: #555;
+  --cor-borda: #e9e9e9;
+  --cor-header-identificador: #9eb0be;
+  --cor-header-status: #e6e6fa;
+  --cor-header-inicio-tempo: #8acaba;
+  --cor-header-local-qtd: #a7fa97;
+  --cor-header-detalhamento: #fc9254;
+  --cor-timer: #d9534f;
+  --cor-status-verde: #28a745;
+  --cor-status-amarelo: #ffc107;
+  --cor-status-vermelho: #dc3545;
+  --cor-status-cinza: #6c757d;
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background-color: var(--cor-fundo-pagina);
-  margin: 0;
-  padding: 8px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-size: 13px;
+  font-family: Arial, sans-serif;
+  background-color: var(--cor-fundo-pagina);
+  margin: 0;
+  padding: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
 }
 
 header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 16px 24px;
-  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px 24px;
+  box-sizing: border-box;
 }
 
 .header-right-group {
-  display: flex;
-  align-items: center;
-  gap: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
 .title-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
 }
 
 .adherence-container {
-  display: flex;
-  gap: 16px;
-  padding: 4px 12px;
-  background-color: #f0f4f8;
-  border-radius: 8px;
-  border: 1px solid #d0d9e3;
+  display: flex;
+  gap: 16px;
+  padding: 4px 12px;
+  background-color: #f0f4f8;
+  border-radius: 8px;
+  border: 1px solid #d0d9e3;
 }
 
 .adherence-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
 }
 
 .adherence-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #4a5568;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .adherence-value {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #002d5a;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #002d5a;
 }
 
 .adherence-box.global .adherence-value {
-  color: #2d3748;
+  color: #2d3748;
 }
 
 h1 {
-  font-size: clamp(16px, 4vw, 22px);
-  color: var(--cor-texto-principal);
-  font-weight: bold;
-  margin: 0;
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--cor-texto-principal);
+  font-weight: bold;
+  margin: 0;
 }
 
 .update-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .last-updated,
 .next-update {
-  margin: 0;
-  font-size: 11px;
-  color: var(--cor-texto-principal);
-  font-weight: 500;
-  white-space: nowrap;
+  margin: 0;
+  font-size: 11px;
+  color: var(--cor-texto-principal);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .next-update strong {
-  color: var(--cor-status-verde);
-  font-weight: bold;
-  font-size: 12px;
+  color: var(--cor-status-verde);
+  font-weight: bold;
+  font-size: 12px;
 }
 
 .logo {
-  height: clamp(35px, 9vw, 55px);
-  object-fit: contain;
-  margin-left: 10px;
+  height: clamp(35px, 9vw, 55px);
+  object-fit: contain;
+  margin-left: 10px;
 }
 
 main {
-  background-color: var(--cor-container);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background-color: var(--cor-container);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+/* --- NOVAS REGRAS PARA O WRAPPER DE FILTROS E ADERÊNCIA --- */
+.filters-and-adherence-wrapper {
+  display: flex;
+  justify-content: space-between; /* Coloca um item em cada ponta */
+  align-items: flex-start; /* Alinha os itens pelo topo */
+  gap: 20px; /* Espaçamento entre eles */
+  margin-bottom: 16px; /* Espaçamento antes da tabela */
+}
+
+.filters-and-adherence-wrapper .filters {
+  flex-grow: 1; /* Faz os filtros crescerem para preencher o espaço */
+}
+
+.filters-and-adherence-wrapper .adherence-container {
+  flex-shrink: 0; /* Impede que o container de aderência encolha */
+  /* Note: O container de aderência foi movido para fora do header no JSX */
+}
+/* --- FIM DAS NOVAS REGRAS --- */
+
 .filters {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 15px;
-  align-items: flex-end;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  /* margin-bottom foi movido para o wrapper acima */
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 
 .filter-item {
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  flex-shrink: 0;
-  flex-basis: 120px;
-  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 0;
+  flex-basis: 120px;
+  min-width: 110px;
 }
 
 .filter-item:last-child {
-  flex-basis: auto;
-  min-width: auto;
-  flex-grow: 0;
+  flex-basis: auto;
+  min-width: auto;
+  flex-grow: 0;
 }
 
 .filter-item label {
-  font-size: 10px;
-  color: var(--cor-texto-secundario);
-  margin-bottom: 3px;
-  font-weight: bold;
-  white-space: nowrap;
+  font-size: 10px;
+  color: var(--cor-texto-secundario);
+  margin-bottom: 3px;
+  font-weight: bold;
+  white-space: nowrap;
 }
 
 .filter-item input,
 .filter-item select {
-  border: 1px solid var(--cor-cinza-claro);
-  border-radius: 4px;
-  padding: 5px 7px;
-  background-color: var(--cor-fundo-pagina);
-  font-size: 12px;
-  min-height: 32px;
-  box-sizing: border-box;
-  width: 100%;
+  border: 1px solid var(--cor-cinza-claro);
+  border-radius: 4px;
+  padding: 5px 7px;
+  background-color: var(--cor-fundo-pagina);
+  font-size: 12px;
+  min-height: 32px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .checkbox-container {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  gap: 4px;
-  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  gap: 4px;
+  padding: 0 4px;
 }
 
 .checkbox-container input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
-  margin: 0;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  margin: 0;
 }
 
 .tabela-wrapper {
-  width: 100%;
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .grid-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  min-width: 850px;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 850px;
 }
 
 .grid-table th,
 .grid-table td {
-  padding: 5px 7px;
-  text-align: center;
-  font-size: 10px;
-  line-height: 1.3;
-  vertical-align: middle;
-  word-wrap: break-word;
-  border-left: 1px solid var(--cor-borda);
-  border-right: 1px solid var(--cor-borda);
+  padding: 5px 7px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.3;
+  vertical-align: middle;
+  word-wrap: break-word;
+section: border-left: 1px solid var(--cor-borda);
+  border-right: 1px solid var(--cor-borda);
 }
 
 .grid-table th {
-  border-top: 1px solid var(--cor-borda);
+  border-top: 1px solid var(--cor-borda);
 }
 
 .grid-table td {
-  border-bottom: 1px solid var(--cor-borda);
+  border-bottom: 1px solid var(--cor-borda);
 }
 
 .grid-table th {
-  color: var(--cor-texto-principal);
-  white-space: pre-wrap;
-  font-size: 11px;
-  font-weight: bold;
-  background-color: var(--cor-cinza-claro);
-  border-bottom: 2px solid #ccc;
-  cursor: pointer;
-  position: relative;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  color: var(--cor-texto-principal);
+  white-space: pre-wrap;
+  font-size: 11px;
+  font-weight: bold;
+  background-color: var(--cor-cinza-claro);
+  border-bottom: 2px solid #ccc;
+  cursor: pointer;
+  position: relative;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 th.col-status {
-  width: 8%;
+  width: 8%;
 }
 th.col-identificador {
-  width: 15%;
+  width: 15%;
 }
 th.col-inicio {
-  width: 10%;
+  width: 10%;
 }
 th.col-tempo {
-  width: 10%;
+  width: 10%;
 }
 th.col-local {
-  width: 12%;
+  width: 12%;
 }
 th.col-quantidade {
-  width: 10%;
+  width: 10%;
 }
 th.col-detalhamento {
-  width: 35%;
+  width: 35%;
 }
 
 .grid-table th:first-child {
-  border-top-left-radius: 6px;
-  border-left: none;
+  border-top-left-radius: 6px;
+  border-left: none;
 }
 .grid-table th:last-child {
-  border-top-right-radius: 6px;
-  border-right: none;
+  border-top-right-radius: 6px;
+  border-right: none;
 }
 .grid-table td:first-child {
-  border-left: none;
+  border-left: none;
 }
 .grid-table td:last-child {
-  border-right: none;
+  border-right: none;
 }
 
 .grid-table tbody tr:nth-child(even) {
-  background-color: var(--cor-fundo-pagina);
+  background-color: var(--cor-fundo-pagina);
 }
 
 .grid-table tbody tr:hover {
-  background-color: #e0e0e0;
+  background-color: #e0e0e0;
 }
 
 .grid-table td.cell-detalhamento {
-  white-space: normal;
-  text-align: left;
-  hyphens: auto;
-  font-size: 9px;
+  white-space: normal;
+  text-align: left;
+  hyphens: auto;
+  font-size: 9px;
 }
 
 th.col-status {
-  background-color: var(--cor-header-status);
+  background-color: var(--cor-header-status);
 }
 th.col-identificador {
-  background-color: var(--cor-header-identificador);
+  background-color: var(--cor-header-identificador);
 }
 th.col-inicio,
 th.col-tempo {
-  background-color: var(--cor-header-inicio-tempo);
+  background-color: var(--cor-header-inicio-tempo);
 }
 th.col-local,
 th.col-quantidade {
-  background-color: var(--cor-header-local-qtd);
+  background-color: var(--cor-header-local-qtd);
 }
 th.col-detalhamento {
-  background-color: var(--cor-header-detalhamento);
+  background-color: var(--cor-header-detalhamento);
 }
 
 .timer-running {
-  font-weight: bold;
-  color: var(--cor-timer);
-  animation: pulse 1.5s infinite;
+  font-weight: bold;
+  color: var(--cor-timer);
+  animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-  100% {
-    opacity: 1;
-  }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .cell-prog-real {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
 }
 
 .cell-prog-real span:first-of-type::after {
-  content: "|";
-  margin-left: 4px;
-  margin-right: 4px;
-  color: var(--cor-cinza-claro);
-  font-weight: normal;
+  content: "|";
+  margin-left: 4px;
+  margin-right: 4px;
+  color: var(--cor-cinza-claro);
+  font-weight: normal;
 }
 
 .cell-prog-real span {
-  white-space: nowrap;
-  flex-shrink: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @keyframes highlight-fade {
-  from {
-    background-color: rgba(255, 215, 0, 0.5);
-  }
-  to {
-    background-color: transparent;
-  }
+  from {
+    background-color: rgba(255, 215, 0, 0.5);
+  }
+  to {
+    background-color: transparent;
+  }
 }
 
 .linha-atualizada td {
-  animation: highlight-fade 2s ease-out;
+  animation: highlight-fade 2s ease-out;
 }
 
 .grid-table th.sort-asc::after,
 .grid-table th.sort-desc::after {
-  content: "";
-  position: absolute;
-  right: 4px;
-  top: calc(50%);
-  transform: translateY(-50%);
-  border: 3px solid transparent;
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: calc(50%);
+  transform: translateY(-50%);
+  border: 3px solid transparent;
 }
 
 .grid-table th.sort-asc::after {
-  border-bottom-color: var(--cor-texto-principal);
-  margin-top: -2px;
+  border-bottom-color: var(--cor-texto-principal);
+  margin-top: -2px;
 }
 
 .grid-table th.sort-desc::after {
-  border-top-color: var(--cor-texto-principal);
-  margin-top: 2px;
+  border-top-color: var(--cor-texto-principal);
+  margin-top: 2px;
 }
 
 .cell-status-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 
 .status-date {
-  font-weight: bold;
-  font-size: 9px;
+  font-weight: bold;
+  font-size: 9px;
 }
 
 .status-icon {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .status-gray {
-  background-color: var(--cor-status-cinza);
+  background-color: var(--cor-status-cinza);
 }
 .status-green {
-  background-color: var(--cor-status-verde);
+  background-color: var(--cor-status-verde);
 }
 .status-yellow {
-  background-color: var(--cor-status-amarelo);
+  background-color: var(--cor-status-amarelo);
 }
 .status-red {
-  background-color: var(--cor-status-vermelho);
+  background-color: var(--cor-status-vermelho);
 }
 
 .loading-message {
-  text-align: center;
-  padding: 20px;
-  color: var(--cor-texto-secundario);
-  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  color: var(--cor-texto-secundario);
+  font-style: italic;
 }
 
 @media (max-width: 992px) {
-  .filters {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-  .grid-table {
-    min-width: 700px;
-  }
-  .grid-table th,
-  .grid-table td {
-    font-size: 9px;
-    padding: 4px 5px;
-  }
-  th.col-detalhamento {
-    width: 30%;
-  }
-  .status-icon {
-    width: 12px;
-    height: 12px;
-  }
-  .status-date {
-    font-size: 8px;
-  }
+  .filters {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .grid-table {
+    min-width: 700px;
+  }
+  .grid-table th,
+  .grid-table td {
+    font-size: 9px;
+    padding: 4px 5px;
+  }
+  th.col-detalhamento {
+    width: 30%;
+  }
+  .status-icon {
+    width: 12px;
+    height: 12px;
+  }
+  .status-date {
+    font-size: 8px;
+  }
 }
 
 @media (max-width: 768px) {
-  body {
-    padding: 4px;
-  }
-  main {
-    padding: 8px;
-  }
+  body {
+    padding: 4px;
+  }
+  main {
+    padding: 8px;
+  }
 
-  /* 1. HEADER */
-  header {
-    margin-bottom: 10px;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-  }
-  .title-container, .update-info {
-    align-items: center;
-  }
-  .header-right-group {
-    order: -1; 
-    justify-content: space-between;
-    width: 100%;
-    padding: 0 8px;
-    box-sizing: border-box;
-  }
+  /* 1. HEADER */
+  header {
+    margin-bottom: 10px;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  .title-container, .update-info {
+    align-items: center;
+  }
+  .header-right-group {
+    order: -1; 
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 8px;
+    box-sizing: border-box;
+  }
 
-  /* 2. FILTROS */
-  .filters {
+  /* 2. FILTROS */
+
+  /* --- NOVA REGRA RESPONSIVA PARA O WRAPPER --- */
+  .filters-and-adherence-wrapper {
     flex-direction: column;
     align-items: stretch;
-    flex-wrap: nowrap; 
-    overflow-x: visible;
+    gap: 16px;
   }
-  .filter-item {
-    min-width: unset;
-    flex-basis: auto;
-    width: 100%;
-    box-sizing: border-box;
-  }
+  /* --- FIM DA NOVA REGRA RESPONSIVA --- */
 
-  /* 3. LÓGICA DA TABELA EM "CARDS" */
-  .tabela-wrapper {
-    overflow-x: hidden; 
-  }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap; 
+    overflow-x: visible;
+    padding-bottom: 0; /* Remove padding desnecessário */
+    margin-bottom: 0; /* Margin agora está no wrapper */
+  }
+  .filter-item {
+    min-width: unset;
+    flex-basis: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
 
-  .grid-table {
-    table-layout: auto;
-    width: 100%;
-    min-width: 0;
-    border: none;
-  }
+  /* 3. LÓGICA DA TABELA EM "CARDS" */
+  .tabela-wrapper {
+    overflow-x: hidden; 
+  }
 
-  .grid-table thead {
-    display: none;
-  }
+  .grid-table {
+    table-layout: auto;
+    width: 100%;
+    min-width: 0;
+    border: none;
+  }
 
-  .grid-table tr {
-    display: block; 
-    border: 1px solid var(--cor-borda);
-    border-radius: 6px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    background-color: var(--cor-container); 
-  }
-  
-  .grid-table tbody tr:nth-child(even) {
-    background-color: var(--cor-container); 
-  }
+  .grid-table thead {
+    display: none;
+  }
 
-  .grid-table td {
-    display: block; 
-    padding: 8px 12px;
-    border: none;
-    border-bottom: 1px solid var(--cor-borda);
-    text-align: right; 
-    min-height: 20px; 
-    font-size: 12px; 
-    overflow-wrap: break-word;
-    word-break: break-word;
-  }
+  .grid-table tr {
+    display: block; 
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background-color: var(--cor-container); 
+  }
+  
+  .grid-table tbody tr:nth-child(even) {
+    background-color: var(--cor-container); 
+  }
 
-  .grid-table tr td:last-child {
-    border-bottom: none; 
-  }
+  .grid-table td {
+    display: block; 
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid var(--cor-borda);
+    text-align: right; 
+    min-height: 20px; 
+    font-size: 12px; 
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 
-
-  .grid-table td::before {
-    content: attr(data-label); 
-    float: left;
-    font-weight: bold;
-    margin-right: 10px;
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
-    color: var(--cor-texto-secundario);
-    /* --- CORREÇÃO IMPORTANTE --- */
-    /* Permite que o label quebre a linha */
-    white-space: normal; 
-    word-break: break-all;
-  }
-
-  /* 3.5. Ajustes de alinhamento para células complexas */
-  
-  .cell-status-container {
-     justify-content: flex-end;
-     flex-direction: row-reverse;
-     gap: 8px;
-  }
-  .status-date {
-    font-size: 12px;
-  }
-  .grid-table td[data-label="Data / Status"]::before {
-    display: none;
-  }
-
-  .cell-prog-real {
-     justify-content: flex-end; 
-  }
-  .cell-prog-real span {
-    font-size: 12px;
-    /* --- CORREÇÃO IMPORTANTE --- */
-    /* Permite que os spans de Prog/Real quebrem a linha */
-    white-space: normal; 
-    flex-shrink: 1; 
-  }
-  /* Remove o | em telas pequenas */
-  .cell-prog-real span:first-of-type::after {
-    content: "|"; 
-  }
-
-  .grid-table td[data-label="Identificador"] .cell-prog-real {
-      flex-direction: column; /* Empilha Ativo e Atividade */
-      align-items: flex-end; /* Alinha ambos à direita */
-      gap: 2px;
-  }
-  .grid-table td[data-label="Identificador"] .cell-prog-real span:first-of-type::after {
-      display: none; /* Remove o | entre eles */
-  }
+  .grid-table tr td:last-child {
+    border-bottom: none; 
+  }
 
 
-  /* Detalhamento: Ocupa mais espaço */
-  .grid-table td[data-label="Detalhamento"] {
-    text-align: left;
-    font-size: 11px;
-    background-color: #fdfdfd;
-    line-height: 1.4;
-  }
-  .grid-table td[data-label="Detalhamento"]::before {
-     display: block; 
-     margin-bottom: 6px;
-     float: none;
-  }
+  .grid-table td::before {
+    content: attr(data-label); 
+    float: left;
+    font-weight: bold;
+    margin-right: 10px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--cor-texto-secundario);
+    /* --- CORREÇÃO IMPORTANTE --- */
+    /* Permite que o label quebre a linha */
+    white-space: normal; 
+    word-break: break-all;
+  }
+
+  /* 3.5. Ajustes de alinhamento para células complexas */
+  
+  .cell-status-container {
+     justify-content: flex-end;
+     flex-direction: row-reverse;
+     gap: 8px;
+  }
+  .status-date {
+    font-size: 12px;
+  }
+  .grid-table td[data-label="Data / Status"]::before {
+    display: none;
+  }
+
+  .cell-prog-real {
+     justify-content: flex-end; 
+  }
+  .cell-prog-real span {
+    font-size: 12px;
+    /* --- CORREÇÃO IMPORTANTE --- */
+    /* Permite que os spans de Prog/Real quebrem a linha */
+    white-space: normal; 
+    flex-shrink: 1; 
+  }
+  /* Remove o | em telas pequenas */
+  .cell-prog-real span:first-of-type::after {
+    content: "|"; 
+section: }
+
+  .grid-table td[data-label="Identificador"] .cell-prog-real {
+      flex-direction: column; /* Empilha Ativo e Atividade */
+      align-items: flex-end; /* Alinha ambos à direita */
+      gap: 2px;
+  }
+  .grid-table td[data-label="Identificador"] .cell-prog-real span:first-of-type::after {
+      display: none; /* Remove o | entre eles */
+  }
+
+
+  /* Detalhamento: Ocupa mais espaço */
+  .grid-table td[data-label="Detalhamento"] {
+    text-align: left;
+section:   font-size: 11px;
+    background-color: #fdfdfd;
+    line-height: 1.4;
+  }
+  .grid-table td[data-label="Detalhamento"]::before {
+     display: block; 
+     margin-bottom: 6px;
+     float: none;
+  }
 }
 
 /* 4. Ajustes finos para celulares pequenos */
 @media (max-width: 480px) {
-  h1 { 
-    font-size: 15px; 
-  }
-  .logo { 
-    height: 30px; 
-  }
-  .header-right-group { 
-    gap: 12px; 
-  }
-  .adherence-box { 
-    min-width: 90px; 
-  }
-  .adherence-label { 
-    font-size: 9px; 
-  }
-  .adherence-value { 
-    font-size: 20px; 
-  }
-  
-  .grid-table td {
-      padding: 8px 10px;
-      font-size: 11px;
-  }
-  .cell-prog-real span {
-    font-size: 11px;
-  }
+  h1 { 
+    font-size: 15px; 
+  }
+  .logo { 
+    height: 30px; 
+  }
+  .header-right-group { 
+    gap: 12px; 
+  }
+  .adherence-box { 
+    min-width: 90px; 
+  }
+  .adherence-label { 
+    font-size: 9px; 
+  }
+  .adherence-value { 
+    font-size: 20px; 
+  }
+  
+  .grid-table td {
+      padding: 8px 10px;
+      font-size: 11px;
+  }
+  .cell-prog-real span {
+    font-size: 11px;
+  }
 }
