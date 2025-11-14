@@ -3,7 +3,7 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs").promises; 
 const path = require("path"); 
-const FormData = require("form-data"); 
+// const FormData = require("form-data"); // <-- REMOVIDO
 
 process.env.TZ = "America/Sao_Paulo";
 
@@ -15,19 +15,25 @@ const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
 
 /**
  * Faz upload de uma imagem (em Base64) para o imgbb e retorna a URL pública.
+ * (Função corrigida para usar URLSearchParams)
  */
 async function uploadImageToImgBB(base64ImageString) {
   try {
-    const form = new FormData();
-    form.append('image', base64ImageString);
+    // URLSearchParams é a forma correta de enviar dados de formulário como texto.
+    const body = new URLSearchParams();
+    body.append('image', base64ImageString);
 
     const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
       method: 'POST',
-      body: form,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: body
     });
 
     const json = await response.json();
     if (!json.success) {
+      console.error("Resposta de erro do imgbb:", json);
       throw new Error(`Erro no imgbb: ${json.error.message}`);
     }
     
@@ -63,7 +69,6 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // --- MUDANÇA IMPORTANTE AQUI (ORDEM PERSONALIZADA) ---
     // 2. Define a ordem de processamento das Gerências
     console.log("Definindo a ordem de processamento personalizada...");
     const gerenciasParaProcessar = [
@@ -72,7 +77,6 @@ async function captureAndSendReports() {
       { value: "FERRONORTE", text: "FERRONORTE" },
       { value: "MALHA CENTRAL", text: "MALHA CENTRAL" }
     ];
-    // --- FIM DA MUDANÇA ---
 
     console.log(`Total de ${gerenciasParaProcessar.length} gerências para processar.`);
 
@@ -81,17 +85,15 @@ async function captureAndSendReports() {
       console.log(`--- Processando Gerência: ${gerencia.text} ---`);
       try {
         
-        // Verifica se a opção realmente existe na página antes de tentar selecionar
         const optionExists = await page.evaluate((value) => {
           return !!document.querySelector(`#gerencia option[value="${value}"]`);
         }, gerencia.value);
 
         if (!optionExists) {
           console.warn(`Gerência "${gerencia.text}" não encontrada no filtro. Pulando...`);
-          continue; // Pula para a próxima gerência
+          continue; 
         }
 
-        // Seleciona a gerência
         await page.select("#gerencia", gerencia.value);
         
         console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
@@ -104,21 +106,21 @@ async function captureAndSendReports() {
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
         localScreenshots.push(screenshotPath); 
 
-        // --- NOVO FLUXO DE UPLOAD ---
+        // Lê o arquivo para o buffer, e converte para Base64
         const fileData = await fs.readFile(screenshotPath);
         const base64Content = fileData.toString("base64");
         
         console.log(`Fazendo upload da imagem ${gerencia.text} para o imgbb...`);
-        const publicUrl = await uploadImageToImgBB(base64Content);
+        // Passa a string Base64 (que é o que a função corrigida espera)
+        const publicUrl = await uploadImageToImgBB(base64Content); 
 
         if (publicUrl) {
           console.log(`Upload com sucesso: ${publicUrl}`);
           powerAutomatePayload.push({
-            Name: `Relatório - ${gerencia.text}`, // Nome limpo
-            Url: publicUrl, // A URL pública
+            Name: `Relatório - ${gerencia.text}`,
+            Url: publicUrl,
           });
         }
-        // --- FIM DO NOVO FLUXO ---
         
       } catch (loopError) {
         console.error(
