@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import "./index.css";
 
 const getTodaysDateStringForReact = () => {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const getUniqueOptions = (data, key) => {
@@ -93,11 +93,11 @@ function calculateStatusDisplay(row) {
   let tooltipText = "Status não definido";
 
   if (statusValue === 0 || statusValue === "0")
-    (colorClass = "status-red"), (tooltipText = "Status 0 (Vermelho)");
+    ((colorClass = "status-red"), (tooltipText = "Status 0 (Vermelho)"));
   else if (statusValue === 1 || statusValue === "1")
-    (colorClass = "status-yellow"), (tooltipText = "Status 1 (Amarelo)");
+    ((colorClass = "status-yellow"), (tooltipText = "Status 1 (Amarelo)"));
   else if (statusValue === 2 || statusValue === "2")
-    (colorClass = "status-green"), (tooltipText = "Status 2 (Verde)");
+    ((colorClass = "status-green"), (tooltipText = "Status 2 (Verde)"));
   else if (typeof statusValue === "string") {
     tooltipText = statusValue;
     const lowerStatus = statusValue.toLowerCase();
@@ -172,9 +172,8 @@ const calculateAdherence = (data, now) => {
   data.forEach((row) => {
     totalProgMinutes += parseHHMMtoMinutes(row.tempo_prog);
     totalRealMinutes += calculateRealizedMinutes(row, now);
-  });
+  }); // Evita divisão por zero
 
-  // Evita divisão por zero
   const adherence =
     totalProgMinutes > 0 ? (totalRealMinutes / totalProgMinutes) * 100 : 0;
 
@@ -192,8 +191,7 @@ function App() {
   const [sortConfig, setSortConfig] = useState({
     key: "status",
     direction: "descending",
-  });
-  const [showESP, setShowESP] = useState(false);
+  }); // const [showESP, setShowESP] = useState(false); // <-- REMOVIDO
   const [error, setError] = useState(null);
   const previousDataRef = useRef([]);
   const [filters, setFilters] = useState({
@@ -328,72 +326,72 @@ function App() {
       newFilters.sub = newFilters.atividade = newFilters.tipo = "";
     if (filterName === "sub") newFilters.atividade = newFilters.tipo = "";
     setFilters(newFilters);
-  };
+  }; // ESTE É O ÚNICO BLOCO sortedAndFilteredData. O DUPLICADO FOI REMOVIDO.
 
   const sortedAndFilteredData = useMemo(() => {
-    if (!Array.isArray(rawData)) return [];
+    if (!Array.isArray(rawData)) return [];
 
-    let filterableData = rawData.filter((row) => {
-      if (!showESP && row.tempo_real_override === "Esp") return false;
+    let filterableData = rawData.filter((row) => {
+      // LÓGICA DO 'showESP' REMOVIDA
+      // if (!showESP && row.tempo_real_override === "Esp") return false;
 
-      // --- LINHA CORRIGIDA ABAIXO ---
-      if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
-        return false;
-      // --- FIM DA CORREÇÃO ---
+      // CORREÇÃO DO FILTRO DE DATA
+      if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
+        return false;
 
-      if (
-        filters.ativo &&
-        (!row.ativo ||
-          !String(row.ativo)
-            .toLowerCase()
-            .includes(filters.ativo.toLowerCase()))
-      )
-        return false;
+      if (
+        filters.ativo &&
+        (!row.ativo ||
+          !String(row.ativo)
+            .toLowerCase()
+            .includes(filters.ativo.toLowerCase()))
+      )
+        return false;
 
-      if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia)
-        return false;
-      if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho)
-        return false;
-      if (filters.sub && String(row.sub) !== filters.sub) return false;
-      if (filters.atividade && String(row.atividade) !== filters.atividade)
-        return false;
-      if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
+      if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia)
+        return false;
+      if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho)
+        return false;
+      if (filters.sub && String(row.sub) !== filters.sub) return false;
+      if (filters.atividade && String(row.atividade) !== filters.atividade)
+        return false;
+      if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
 
-      return true;
-    });
+      return true;
+    });
 
-    if (sortConfig.key) {
-      const sortKey = sortConfig.key;
+    if (sortConfig.key) {
+      const sortKey = sortConfig.key;
 
-      const sortableData = [...filterableData];
+      const sortableData = [...filterableData];
 
-      sortableData.sort((a, b) => {
-        const valA = a[sortKey];
-        const valB = b[sortKey];
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
+      sortableData.sort((a, b) => {
+        const valA = a[sortKey];
+        const valB = b[sortKey];
+        if (valA == null && valB == null) return 0;
+        if (valA == null) return 1;
+        if (valB == null) return -1;
 
-        const numA = parseFloat(valA);
-        const numB = parseFloat(valB);
-        let comparison = 0;
+        const numA = parseFloat(valA);
+        const numB = parseFloat(valB);
+        let comparison = 0;
 
-        if (!isNaN(numA) && !isNaN(numB)) {
-          comparison = numA - numB;
-        } else {
-          comparison = String(valA).localeCompare(String(valB));
-        }
+        if (!isNaN(numA) && !isNaN(numB)) {
+          comparison = numA - numB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
 
-        return sortConfig.direction === "ascending"
-          ? comparison
-          : comparison * -1;
-      });
+        return sortConfig.direction === "ascending"
+          ? comparison
+          : comparison * -1;
+      });
 
-      return sortableData;
-    }
+      return sortableData;
+    }
 
-    return filterableData;
-  }, [rawData, filters, sortConfig, showESP]);
+    return filterableData;
+  }, [rawData, filters, sortConfig]); // 'showESP' REMOVIDO DAS DEPENDÊNCIAS
 
   const requestSort = (key) => {
     let direction = "ascending";
@@ -469,6 +467,7 @@ function App() {
               </span>
             </div>
           </div>
+
           <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
         </div>
       </header>
@@ -574,23 +573,11 @@ function App() {
               ))}
             </select>
           </div>
-
-          <div className="filter-item">
-            <label>Especiais:</label>
-            <div className="checkbox-container">
-              <input
-                type="checkbox"
-                id="show-Esp"
-                checked={showESP}
-                onChange={(e) => setShowESP(e.target.checked)}
-              />
-              <label htmlFor="show-Esp">Mostrar Esp</label>
-            </div>
-          </div>
         </section>
 
         <section className="tabela-wrapper">
           {loading && <p className="loading-message">Carregando dados...</p>}
+
           {!loading && rawData.length === 0 && (
             <p className="loading-message">Nenhum dado disponível.</p>
           )}
@@ -605,6 +592,7 @@ function App() {
                   >
                     <strong>Data / Status</strong>
                   </th>
+
                   <th
                     className={`col-identificador ${getSortDirectionClass(
                       "ativo"
@@ -615,6 +603,7 @@ function App() {
                     <br />
                     <span>Ativo &nbsp;&nbsp; Atividade</span>
                   </th>
+
                   <th
                     className={`col-inicio ${getSortDirectionClass(
                       "inicio_real"
@@ -625,26 +614,25 @@ function App() {
                     <br />
                     <span>Prog &nbsp;&nbsp; Real</span>
                   </th>
+
                   <th
-                    className={`col-tempo ${getSortDirectionClass(
-                      "tempo_prog"
-                    )}`}
+                    className={`col-tempo ${getSortDirectionClass("tempo_prog")}`}
                     onClick={() => requestSort("tempo_prog")}
                   >
                     <strong>Tempo</strong>
                     <br />
                     <span>Prog &nbsp;&nbsp; Real</span>
                   </th>
+
                   <th
-                    className={`col-local ${getSortDirectionClass(
-                      "local_prog"
-                    )}`}
+                    className={`col-local ${getSortDirectionClass("local_prog")}`}
                     onClick={() => requestSort("local_prog")}
                   >
                     <strong>Local</strong>
                     <br />
                     <span>Prog &nbsp;&nbsp; Real</span>
                   </th>
+
                   <th
                     className={`col-quantidade ${getSortDirectionClass(
                       "quantidade_prog"
@@ -655,6 +643,7 @@ function App() {
                     <br />
                     <span>Prog &nbsp;&nbsp; Real</span>
                   </th>
+
                   <th className="col-detalhamento">Detalhamento</th>
                 </tr>
               </thead>
@@ -663,6 +652,7 @@ function App() {
                 {sortedAndFilteredData.map((row) => {
                   const isUpdated = updatedRows.has(row.row_hash);
                   const statusDisplay = calculateStatusDisplay(row);
+
                   return (
                     <tr
                       key={row.row_hash}
@@ -673,6 +663,7 @@ function App() {
                           <span className="status-date">
                             {statusDisplay.date}
                           </span>
+
                           <div title={statusDisplay.tooltip}>
                             <div
                               className={`status-icon ${statusDisplay.colorClass}`}
@@ -733,40 +724,27 @@ function App() {
                         <div className="cell-prog-real">
                           <span>
                             <strong>
-                              {isNaN(parseFloat(row.quantidade_prog))
-                                ? 0
-                                : row.quantidade_prog}
+                              {row.quantidade_prog != null
+                                ? row.quantidade_prog
+                                : "--"}
                             </strong>
                           </span>
                           <span>
                             <strong>
-                              {isNaN(parseFloat(row.quantidade_real))
-                                ? 0
-                                : row.quantidade_real}
+                              {row.quantidade_real != null
+                                ? row.quantidade_real
+                                : "--"}
                             </strong>
                           </span>
                         </div>
                       </td>
 
-                      <td
-                        data-label="Detalhamento"
-                        className="cell-detalhamento"
-                      >
-                        {row.detalhamento || ""}
+                      <td data-label="Detalhamento">
+                        <span>{row.detalhamento || "—"}</span>
                       </td>
                     </tr>
                   );
                 })}
-                {sortedAndFilteredData.length === 0 && !loading && (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      style={{ textAlign: "center", padding: "20px" }}
-                    >
-                      Nenhum dado encontrado com os filtros aplicados.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           )}
@@ -775,5 +753,4 @@ function App() {
     </>
   );
 }
-
 export default App;
