@@ -48,12 +48,23 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // 2. APLICA O FILTRO DE DATA (MÉTODO NOVO: page.fill)
+    // 2. APLICA O FILTRO DE DATA (MÉTODO page.evaluate CORRIGIDO)
     console.log(`Aplicando filtro de data: ${todayString}`);
     
-    // page.fill() é o comando correto para <input type="date">
-    // Ele espera o formato AAAA-MM-DD, que é o que 'todayString' fornece.
-    await page.fill("#data", todayString);
+    await page.evaluate((date) => {
+      const input = document.getElementById('data');
+      if (input) {
+        input.value = date; // Define o valor
+        
+        // Dispara 'input' event (comum no React)
+        const inputEvent = new Event('input', { bubbles: true }); 
+        input.dispatchEvent(inputEvent);
+
+        // Dispara 'change' event (para garantir)
+        const changeEvent = new Event('change', { bubbles: true }); 
+        input.dispatchEvent(changeEvent);
+      }
+    }, todayString);
 
     // --- TEMPO DE ESPERA ---
     console.log("Aguardando 5s para o filtro de data ser aplicado...");
@@ -110,7 +121,7 @@ async function captureAndSendReports() {
       console.warn("Nenhum print foi gerado, mesmo assim o fluxo continuará.");
       powerAutomateAttachments.push({
         Name: "ERRO-NENHUM_DADO_ENCONTRADO.png",
-        ContentBytes: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        ContentBytes: "iVBORw0KGgoAAAANSUEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
       });
     }
 
