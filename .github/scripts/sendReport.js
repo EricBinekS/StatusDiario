@@ -11,21 +11,9 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL;
 const POWER_AUTOMATE_URL = process.env.POWER_AUTOMATE_URL;
 const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL;
 
-/**
- * Pega a data de "hoje" no formato AAAA-MM-DD.
- */
-function getTodaysDateString() {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0"); 
-  const dd = String(today.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`; // Retorna "2025-11-14"
-}
-
 async function captureAndSendReports() {
   console.log("Iniciando captura dos relatórios diários...");
   let browser;
-  const todayString = getTodaysDateString();
   const powerAutomateAttachments = []; 
   const localScreenshots = []; 
 
@@ -42,35 +30,16 @@ async function captureAndSendReports() {
     await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
 
     // 1. Espera a tabela carregar
-    console.log("Aguardando a tabela inicial carregar...");
+    console.log("Aguardando a tabela inicial carregar (já filtrada para 'hoje')...");
     await page.waitForSelector(".tabela-wrapper .grid-table tbody tr", {
       timeout: 30000,
     });
     console.log("Tabela inicial carregada.");
 
-    // 2. APLICA O FILTRO DE DATA (MÉTODO page.evaluate CORRIGIDO)
-    console.log(`Aplicando filtro de data: ${todayString}`);
-    
-    await page.evaluate((date) => {
-      const input = document.getElementById('data');
-      if (input) {
-        input.value = date; // Define o valor
-        
-        // Dispara 'input' event (comum no React)
-        const inputEvent = new Event('input', { bubbles: true }); 
-        input.dispatchEvent(inputEvent);
+    // --- ETAPA DE FILTRO DE DATA FOI REMOVIDA ---
+    // A página agora carrega com o filtro por padrão.
 
-        // Dispara 'change' event (para garantir)
-        const changeEvent = new Event('change', { bubbles: true }); 
-        input.dispatchEvent(changeEvent);
-      }
-    }, todayString);
-
-    // --- TEMPO DE ESPERA ---
-    console.log("Aguardando 5s para o filtro de data ser aplicado...");
-    await new Promise((r) => setTimeout(r, 5000)); 
-
-    // 3. Lê todas as opções do filtro "Gerência"
+    // 2. Lê todas as opções do filtro "Gerência"
     console.log("Lendo lista de Gerências...");
     const gerenciaOptions = await page.$$eval("#gerencia option", (options) => {
       return options
@@ -80,7 +49,7 @@ async function captureAndSendReports() {
 
     console.log(`Encontradas ${gerenciaOptions.length} gerências para processar.`);
 
-    // 4. Inicia o LOOP para cada gerência
+    // 3. Inicia o LOOP para cada gerência
     for (const gerencia of gerenciaOptions) {
       console.log(`--- Processando Gerência: ${gerencia.text} ---`);
       try {
@@ -121,18 +90,18 @@ async function captureAndSendReports() {
       console.warn("Nenhum print foi gerado, mesmo assim o fluxo continuará.");
       powerAutomateAttachments.push({
         Name: "ERRO-NENHUM_DADO_ENCONTRADO.png",
-        ContentBytes: "iVBORw0KGgoAAAANSUEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        ContentBytes: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
       });
     }
 
-    // 5. Monta o JSON final para o Power Automate
+    // 4. Monta o JSON final para o Power Automate
     const payload = {
       recipient: RECIPIENT_EMAIL,
       reportDate: new Date().toLocaleDateString("pt-BR"), 
       attachmentsArray: powerAutomateAttachments,
     };
 
-    // 6. Envia a chamada HTTP para o Power Automate
+    // 5. Envia a chamada HTTP para o Power Automate
     console.log(`Enviando ${payload.attachmentsArray.length} anexos para o Power Automate...`);
 
     const response = await fetch(POWER_AUTOMATE_URL, {

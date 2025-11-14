@@ -1,6 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import "./index.css";
 
+const getTodaysDateStringForReact = () => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const getUniqueOptions = (data, key) => {
   if (!Array.isArray(data)) return [];
   const options = new Set();
@@ -189,7 +197,7 @@ function App() {
   const [error, setError] = useState(null);
   const previousDataRef = useRef([]);
   const [filters, setFilters] = useState({
-    data: "",
+    data: getTodaysDateStringForReact(),
     gerencia: "",
     trecho: "",
     sub: "",
