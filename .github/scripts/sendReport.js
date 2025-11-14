@@ -1,10 +1,9 @@
 // .github/scripts/sendReport.js
 
 const puppeteer = require("puppeteer");
-const fs = require("fs").promises; // Para ler arquivos
-const path = require("path"); // Para lidar com caminhos
+const fs = require("fs").promises; 
+const path = require("path"); 
 
-// Define o fuso horário para 'America/Sao_Paulo' (Brasil)
 process.env.TZ = "America/Sao_Paulo";
 
 // --- Variáveis de Ambiente (Vindas dos Secrets do GitHub) ---
@@ -18,17 +17,17 @@ const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL;
 function getTodaysDateString() {
   const today = new Date();
   const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, "0"); 
   const dd = String(today.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return `${yyyy}-${mm}-${dd}`; // Retorna "2025-11-14"
 }
 
 async function captureAndSendReports() {
   console.log("Iniciando captura dos relatórios diários...");
   let browser;
   const todayString = getTodaysDateString();
-  const powerAutomateAttachments = []; // Array para os anexos do Power Automate
-  const localScreenshots = []; // Para deletar no final
+  const powerAutomateAttachments = []; 
+  const localScreenshots = []; 
 
   try {
     browser = await puppeteer.launch({
@@ -49,31 +48,23 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // 2. APLICA O FILTRO DE DATA (MÉTODO NOVO E ROBUSTO)
+    // 2. APLICA O FILTRO DE DATA (MÉTODO NOVO: page.fill)
     console.log(`Aplicando filtro de data: ${todayString}`);
     
-    // page.type() não é confiável para o React
-    // Vamos setar o valor e disparar o evento 'change' manualmente
-    await page.evaluate((date) => {
-      const input = document.getElementById('data');
-      if (input) {
-        input.value = date; // Define o valor
-        // Cria e dispara o evento que o React "escuta"
-        const event = new Event('change', { bubbles: true }); 
-        input.dispatchEvent(event);
-      }
-    }, todayString); // Passa 'todayString' como argumento 'date'
+    // page.fill() é o comando correto para <input type="date">
+    // Ele espera o formato AAAA-MM-DD, que é o que 'todayString' fornece.
+    await page.fill("#data", todayString);
 
-    // Espera 2 segundos para o React (que é client-side) re-renderizar
-    console.log("Aguardando 2s para o filtro de data ser aplicado...");
-    await new Promise((r) => setTimeout(r, 2000));
+    // --- TEMPO DE ESPERA ---
+    console.log("Aguardando 5s para o filtro de data ser aplicado...");
+    await new Promise((r) => setTimeout(r, 5000)); 
 
     // 3. Lê todas as opções do filtro "Gerência"
     console.log("Lendo lista de Gerências...");
     const gerenciaOptions = await page.$$eval("#gerencia option", (options) => {
       return options
         .map((opt) => ({ value: opt.value, text: opt.innerText }))
-        .filter((opt) => opt.value !== ""); // Remove a opção "Todas"
+        .filter((opt) => opt.value !== ""); 
     });
 
     console.log(`Encontradas ${gerenciaOptions.length} gerências para processar.`);
@@ -83,8 +74,9 @@ async function captureAndSendReports() {
       console.log(`--- Processando Gerência: ${gerencia.text} ---`);
       try {
         await page.select("#gerencia", gerencia.value);
-        console.log("Aguardando 3 segundos para o filtro (gerência) ser aplicado...");
-        await new Promise((r) => setTimeout(r, 3000));
+        
+        console.log("Aguardando 5 segundos para o filtro (gerência) ser aplicado...");
+        await new Promise((r) => setTimeout(r, 5000)); 
 
         const tableElement = await page.$(".tabela-wrapper");
         if (!tableElement) {
@@ -95,14 +87,11 @@ async function captureAndSendReports() {
         const screenshotPath = `report_${gerencia.value}.png`;
         await tableElement.screenshot({ path: screenshotPath });
         console.log(`Screenshot salvo localmente: ${screenshotPath}`);
-        localScreenshots.push(screenshotPath); // Salva para deletar depois
+        localScreenshots.push(screenshotPath); 
 
-        // Lê o arquivo que acabou de salvar
         const fileData = await fs.readFile(screenshotPath);
-        // Converte para Base64 (texto)
         const base64Content = fileData.toString("base64");
 
-        // Adiciona no formato que o Power Automate espera
         powerAutomateAttachments.push({
           Name: `Relatório - ${gerencia.text}.png`,
           ContentBytes: base64Content,
@@ -118,13 +107,17 @@ async function captureAndSendReports() {
     console.log("--- Processamento de todas as gerências concluído ---");
 
     if (powerAutomateAttachments.length === 0) {
-      throw new Error("Nenhum screenshot foi gerado.");
+      console.warn("Nenhum print foi gerado, mesmo assim o fluxo continuará.");
+      powerAutomateAttachments.push({
+        Name: "ERRO-NENHUM_DADO_ENCONTRADO.png",
+        ContentBytes: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      });
     }
 
     // 5. Monta o JSON final para o Power Automate
     const payload = {
       recipient: RECIPIENT_EMAIL,
-      reportDate: new Date().toLocaleDateString("pt-BR"), // Formato "14/11/2025"
+      reportDate: new Date().toLocaleDateString("pt-BR"), 
       attachmentsArray: powerAutomateAttachments,
     };
 
@@ -138,7 +131,6 @@ async function captureAndSendReports() {
     });
 
     if (!response.ok) {
-      // Se o Power Automate der erro (ex: 400, 500)
       throw new Error(`Erro ao chamar o Power Automate: ${response.status} ${response.statusText}`);
     }
 
@@ -146,13 +138,13 @@ async function captureAndSendReports() {
     
   } catch (error) {
     console.error("Ocorreu um erro principal na automação:", error);
-    process.exit(1); // Faz o "action" falhar
+    process.exit(1); 
   } finally {
     if (browser) {
       console.log("Fechando o navegador.");
       await browser.close();
     }
-    // Limpa os arquivos de print locais da VM do GitHub
+    
     console.log("Limpando arquivos locais...");
     for (const file of localScreenshots) {
       try {
