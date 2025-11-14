@@ -49,10 +49,24 @@ async function captureAndSendReports() {
     });
     console.log("Tabela inicial carregada.");
 
-    // 2. Aplica o filtro de data de "Hoje"
+    // 2. APLICA O FILTRO DE DATA (MÉTODO NOVO E ROBUSTO)
     console.log(`Aplicando filtro de data: ${todayString}`);
-    await page.type("#data", todayString);
-    await new Promise((r) => setTimeout(r, 5000));
+    
+    // page.type() não é confiável para o React
+    // Vamos setar o valor e disparar o evento 'change' manualmente
+    await page.evaluate((date) => {
+      const input = document.getElementById('data');
+      if (input) {
+        input.value = date; // Define o valor
+        // Cria e dispara o evento que o React "escuta"
+        const event = new Event('change', { bubbles: true }); 
+        input.dispatchEvent(event);
+      }
+    }, todayString); // Passa 'todayString' como argumento 'date'
+
+    // Espera 2 segundos para o React (que é client-side) re-renderizar
+    console.log("Aguardando 2s para o filtro de data ser aplicado...");
+    await new Promise((r) => setTimeout(r, 2000));
 
     // 3. Lê todas as opções do filtro "Gerência"
     console.log("Lendo lista de Gerências...");
@@ -69,8 +83,8 @@ async function captureAndSendReports() {
       console.log(`--- Processando Gerência: ${gerencia.text} ---`);
       try {
         await page.select("#gerencia", gerencia.value);
-        console.log("Aguardando 3 segundos para o filtro ser aplicado...");
-        await new Promise((r) => setTimeout(r, 5000));
+        console.log("Aguardando 3 segundos para o filtro (gerência) ser aplicado...");
+        await new Promise((r) => setTimeout(r, 3000));
 
         const tableElement = await page.$(".tabela-wrapper");
         if (!tableElement) {
