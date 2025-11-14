@@ -131,7 +131,6 @@ main {
 .filters {
   display: flex;
   gap: 8px;
-  margin-bottom: 15px;
   align-items: flex-end;
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -171,6 +170,22 @@ main {
   min-height: 32px;
   box-sizing: border-box;
   width: 100%;
+}
+
+.filters-and-adherence-wrapper {
+  display: flex;
+  justify-content: space-between; 
+  align-items: flex-start;     
+  gap: 20px;                  
+  margin-bottom: 16px;        
+}
+
+.filters-and-adherence-wrapper .filters {
+  flex-grow: 1; 
+}
+
+.filters-and-adherence-wrapper .adherence-container {
+  flex-shrink: 0; 
 }
 
 .checkbox-container {
