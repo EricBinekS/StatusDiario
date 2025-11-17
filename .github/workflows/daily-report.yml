@@ -20,8 +20,10 @@ jobs:
           node-version: 18
           cache: 'npm'
 
-      - name: 3. Instalar dependências do Projeto
-        run: npm ci 
+      - name: 3. Instalar dependências
+        run: |
+          npm ci
+          npm install axios puppeteer  # <--- ADICIONEI ESSA LINHA AQUI
 
       - name: 4. Instalar libs do sistema (Ubuntu 24.04)
         run: |
@@ -63,7 +65,7 @@ jobs:
           lsb-release \
           xdg-utils \
           wget
-          
+
       - name: 5. Rodar o script
         run: node .github/scripts/sendReport.js
         env:
