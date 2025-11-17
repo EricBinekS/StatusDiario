@@ -17,8 +17,8 @@ BR_TZ = ZoneInfo("America/Sao_Paulo")
 
 def calculate_operational_status(row):
     override_status = row.get('tempo_real_override')
-    if override_status == 'DESL':
-        return 'Cancelado (DESL)'
+    if override_status == 'ESP':
+        return 'Cancelado (ESP)'
     if override_status == 'BLOCO':
         return 'Cancelado (BLOCO)'
     if pd.notna(row.get('end_real_dt')) and pd.notna(row.get('start_real_dt')):
@@ -189,9 +189,9 @@ def transform_df(df):
             else None
         )
 
-        cond_desl = df['fim_time_obj'] == datetime.time(1, 0)
-        df.loc[cond_desl, 'tempo_real_override'] = 'DESL'
-        df.loc[cond_desl, ['timer_start_timestamp', 'timer_end_timestamp', 'tempo_real']] = None
+        cond_esp = df['fim_time_obj'] == datetime.time(1, 0)
+        df.loc[cond_esp, 'tempo_real_override'] = 'ESP'
+        df.loc[cond_esp, ['timer_start_timestamp', 'timer_end_timestamp', 'tempo_real']] = None
 
         cond_bloco = df['fim_time_obj'] == datetime.time(0, 1)
         df.loc[cond_bloco, 'tempo_real_override'] = 'BLOCO'
