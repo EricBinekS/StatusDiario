@@ -1,152 +1,106 @@
-// .github/scripts/sendReport.js
-
-const puppeteer = require("puppeteer");
-const fs = require("fs").promises; 
-const path = require("path"); 
-
-process.env.TZ = "America/Sao_Paulo";
+const puppeteer = require('puppeteer');
+const axios = require('axios');
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL;
 const POWER_AUTOMATE_URL = process.env.POWER_AUTOMATE_URL;
 const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL;
 
-async function captureAndSendReports() {
-  console.log("Iniciando geração do Relatório PDF...");
-  let browser;
+const GERENCIAS_ALVO = [
+    "SP SUL", 
+    "SP NORTE", 
+    "FERRONORTE", 
+    "MALHA CENTRAL"
+]; 
+// -------------------------------------------
 
-  const capturedImages = []; 
+async function run() {
+    if (!DASHBOARD_URL || !POWER_AUTOMATE_URL || !RECIPIENT_EMAIL) {
+        console.error("ERRO: Variáveis de ambiente (Secrets) faltando.");
+        process.exit(1);
+    }
 
-  try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    console.log('Iniciando navegador (Puppeteer)...');
+    
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage'
+        ]
     });
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
-    console.log(`Navegando para ${DASHBOARD_URL}...`);
-    await page.goto(DASHBOARD_URL, { waitUntil: "networkidle0" });
-
-    console.log("Aguardando a tabela carregar...");
-    await page.waitForSelector(".tabela-wrapper .grid-table tbody tr", { timeout: 30000 });
-
-    const gerenciasParaProcessar = [
-      { value: "SP SUL", text: "SP SUL" },
-      { value: "SP NORTE", text: "SP NORTE" },
-      { value: "FERRONORTE", text: "FERRONORTE" },
-      { value: "MALHA CENTRAL", text: "MALHA CENTRAL" }
-    ];
-
-    for (const gerencia of gerenciasParaProcessar) {
-      console.log(`--- Capturando: ${gerencia.text} ---`);
-      try {
-        const optionExists = await page.evaluate((value) => {
-          return !!document.querySelector(`#gerencia option[value="${value}"]`);
-        }, gerencia.value);
-
-        if (!optionExists) continue;
-
-        await page.select("#gerencia", gerencia.value);
-        await new Promise((r) => setTimeout(r, 5000));
-
-        const mainElement = await page.$('main');
-        if (!mainElement) continue;
-
-        const boundingBox = await mainElement.boundingBox();
-        if (!boundingBox) continue;
-
-        const screenshotBuffer = await page.screenshot({ 
-          clip: {
-            x: boundingBox.x,
-            y: boundingBox.y,
-            width: boundingBox.width,
-            height: Math.ceil(boundingBox.height) 
-          }
-        });
+    try {
+        console.log('Acessando Painel...');
+        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle0', timeout: 90000 });
         
-        capturedImages.push({
-          title: gerencia.text,
-          base64: screenshotBuffer.toString('base64')
+        await page.waitForSelector('#gerencia', { timeout: 15000 });
+
+        let htmlEmailBody = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2 style="border-bottom: 2px solid #005ca9; padding-bottom: 10px;">
+                    Relatório Diário de Intervalos - Rumo
+                </h2>
+                <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+                <p>Segue abaixo o status consolidado por gerência:</p>
+            </div>
+        `;
+
+        console.log('Iniciando captura na ordem solicitada...');
+
+        for (const gerencia of GERENCIAS_ALVO) {
+            console.log(`>> Processando: ${gerencia}`);
+
+            try {
+                await page.select('#gerencia', gerencia);
+
+                await new Promise(r => setTimeout(r, 2000));
+
+                const screenshotBase64 = await page.screenshot({
+                    encoding: 'base64',
+                    fullPage: true 
+                });
+
+                htmlEmailBody += `
+                    <div style="margin-top: 30px; margin-bottom: 40px; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                        <h3 style="background-color: #f4f4f4; padding: 10px; margin-top: 0; border-left: 5px solid #005ca9;">
+                            ${gerencia}
+                        </h3>
+                        <img src="data:image/png;base64,${screenshotBase64}" alt="Painel ${gerencia}" style="width: 100%; max-width: 100%; height: auto; display: block;" />
+                    </div>
+                `;
+            } catch (innerError) {
+                console.error(`Erro ao capturar ${gerencia}:`, innerError.message);
+                htmlEmailBody += `<p style="color: red;">Não foi possível capturar a imagem de <strong>${gerencia}</strong>.</p>`;
+            }
+        }
+
+        htmlEmailBody += `<p style="font-size: 12px; color: #999; margin-top: 50px;">Relatório automático - GitHub Actions & Power Automate.</p>`;
+
+        console.log('Enviando pacote consolidado...');
+
+        const payload = {
+            recipient: RECIPIENT_EMAIL,
+            subject: `Painel Intervalos - ${new Date().toLocaleDateString('pt-BR')}`,
+            htmlContent: htmlEmailBody 
+        };
+
+        await axios.post(POWER_AUTOMATE_URL, payload, {
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity
         });
-        
-        console.log(`Captura de ${gerencia.text} concluída.`);
 
-      } catch (e) {
-        console.error(`Erro ao capturar ${gerencia.text}:`, e.message);
-      }
+        console.log('Envio realizado com sucesso!');
+
+    } catch (error) {
+        console.error("Erro crítico:", error.message);
+        process.exit(1);
+    } finally {
+        await browser.close();
     }
-
-    if (capturedImages.length === 0) {
-      throw new Error("Nenhuma imagem foi capturada para gerar o PDF.");
-    }
-
-    console.log("Montando o PDF final...");
-    
-    let htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; color: #333; }
-            .report-section { margin-bottom: 40px; page-break-inside: avoid; }
-            h2 { color: #0056b3; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
-            img { width: 100%; height: auto; border: 1px solid #ccc; }
-          </style>
-        </head>
-        <body>
-          <h1>Relatório de Status - ${new Date().toLocaleDateString("pt-BR")}</h1>
-    `;
-
-    for (const item of capturedImages) {
-      htmlContent += `
-        <div class="report-section">
-          <h2>${item.title}</h2>
-          <img src="data:image/png;base64,${item.base64}" />
-        </div>
-      `;
-    }
-
-    htmlContent += `</body></html>`;
-
-    await page.setContent(htmlContent);
-
-    // Gera o PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' }
-    });
-
-    const pdfBase64 = pdfBuffer.toString('base64');
-    console.log("PDF gerado com sucesso!");
-
-    const payload = {
-      recipient: RECIPIENT_EMAIL,
-      reportDate: new Date().toLocaleDateString("pt-BR"),
-      fileName: "Relatorio_Diario_Status.pdf",
-      fileContent: pdfBase64
-    };
-
-    console.log("Enviando PDF para o Power Automate...");
-    const response = await fetch(POWER_AUTOMATE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro Power Automate: ${response.statusText}`);
-    }
-
-    console.log("PDF enviado com sucesso!");
-
-  } catch (error) {
-    console.error("Erro fatal:", error);
-    process.exit(1);
-  } finally {
-    if (browser) await browser.close();
-  }
 }
 
-captureAndSendReports();
+run();
