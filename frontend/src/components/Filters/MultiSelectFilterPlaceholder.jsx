@@ -3,8 +3,32 @@ import { useState, useEffect, useMemo, useRef } from "react";
 export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const ref = useRef(null);
+  // Novo estado para controlar se abre para cima ou para baixo
+  const [positionStyle, setPositionStyle] = useState({}); 
+  const ref = useRef(null); // Ref para o wrapper (.filter-item)
+  const triggerRef = useRef(null); // Ref para o botão trigger
 
+  // Lógica de cálculo de posição (abrir para cima ou para baixo)
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+        const triggerRect = triggerRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownHeight = 250; // Altura máxima definida no CSS
+        const spaceBelow = viewportHeight - triggerRect.bottom;
+        
+        // Condição: Abrir para cima se o espaço abaixo for menor que a altura do dropdown (250px)
+        // E se houver espaço suficiente acima.
+        if (spaceBelow < dropdownHeight && triggerRect.top > dropdownHeight) {
+            // Abrir para cima (bottom: 100%)
+            setPositionStyle({ bottom: '100%', top: 'auto', transform: 'translateY(0)' });
+        } else {
+            // Abrir para baixo (top: 100%)
+            setPositionStyle({ top: '100%', bottom: 'auto', transform: 'translateY(0)' });
+        }
+    }
+  }, [isOpen]); // Recalcula a posição sempre que o popup abre/fecha
+
+  // Lógica de fechar ao clicar fora (mantida)
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (ref.current && !ref.current.contains(event.target)) {
@@ -56,12 +80,16 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
           id={label}
           className="filter-item-trigger"
           onClick={() => setIsOpen(!isOpen)}
+          ref={triggerRef} // Adiciona ref para cálculo de posição
         >
           <span>{displayLabel}</span>
         </button>
         
         {isOpen && (
-          <div className="multiselect-dropdown">
+          <div 
+            className="multiselect-dropdown"
+            style={positionStyle} // APLICA O ESTILO DE POSIÇÃO DINÂMICA
+          >
             
             <div className="search-input-container">
               <input 
