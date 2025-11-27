@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install -r backend/requirements.txt
 
-      - name: Run migration script
-        run: python backend/migrate_to_db.py
+      - name: Run migration script (Com correção do PYTHONPATH)
+        run: PYTHONPATH=$PYTHONPATH:./backend python backend/migrate_to_db.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
