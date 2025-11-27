@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { getTodaysDateStringForReact } from "../utils/dateUtils";
 import { getUniqueOptions } from "../utils/dataUtils"; 
-import { calculateAdherence } from "../utils/calcUtils";
+import { calculateAdherence } from "../utils/calcUtils"; 
 
 export const useFiltering = (rawData, now) => {
   const [filters, setFilters] = useState({
@@ -39,7 +39,6 @@ export const useFiltering = (rawData, now) => {
     if (!Array.isArray(rawData)) return [];
 
     let filterableData = rawData.filter((row) => {
-      // Filtro de Data
       if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
         return false;
 
@@ -68,6 +67,7 @@ export const useFiltering = (rawData, now) => {
 
     return filterableData;
   }, [rawData, filters]);
+
 
   const gerenciaOptions = useMemo(
     () => getUniqueOptions(rawData, "gerência_da_via"),
@@ -131,8 +131,8 @@ export const useFiltering = (rawData, now) => {
   }, [rawData, now]);
 
   const filteredAdherence = useMemo(() => {
-    return calculateAdherence(sortedAndFilteredData, now);
-  }, [sortedAndFilteredData, now]);
+    return calculateAdherence(sortedAndFilteredData, now); 
+  }, [sortedAndFilteredData, now]); 
 
   const displayedAdherence = useMemo(() => {
     return isAnyFilterApplied ? filteredAdherence : globalAdherence;
