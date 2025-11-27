@@ -1,34 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { FilterPortal } from "./FilterPortal"; // Importa o Portal
 
 export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  // Novo estado para controlar se abre para cima ou para baixo
-  const [positionStyle, setPositionStyle] = useState({}); 
+  const [dropdownPosition, setDropdownPosition] = useState(null); // Posição absoluta
   const ref = useRef(null); // Ref para o wrapper (.filter-item)
-  const triggerRef = useRef(null); // Ref para o botão trigger
+  const triggerRef = useRef(null); // Ref para o botão trigger (para medir a posição)
 
-  // Lógica de cálculo de posição (abrir para cima ou para baixo)
-  useEffect(() => {
-    if (isOpen && triggerRef.current) {
-        const triggerRect = triggerRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const dropdownHeight = 250; // Altura máxima definida no CSS
-        const spaceBelow = viewportHeight - triggerRect.bottom;
-        
-        // Condição: Abrir para cima se o espaço abaixo for menor que a altura do dropdown (250px)
-        // E se houver espaço suficiente acima.
-        if (spaceBelow < dropdownHeight && triggerRect.top > dropdownHeight) {
-            // Abrir para cima (bottom: 100%)
-            setPositionStyle({ bottom: '100%', top: 'auto', transform: 'translateY(0)' });
-        } else {
-            // Abrir para baixo (top: 100%)
-            setPositionStyle({ top: '100%', bottom: 'auto', transform: 'translateY(0)' });
-        }
-    }
-  }, [isOpen]); // Recalcula a posição sempre que o popup abre/fecha
-
-  // Lógica de fechar ao clicar fora (mantida)
+  // 1. Lógica de cálculo de posição e fechamento
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (ref.current && !ref.current.contains(event.target)) {
@@ -36,9 +16,39 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
+    // Lógica para calcular a posição do popup
+    if (isOpen && triggerRef.current) {
+        const triggerRect = triggerRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownHeight = 250; 
+        const spaceBelow = viewportHeight - triggerRect.bottom;
+        
+        let position = {
+            width: triggerRect.width,
+            left: triggerRect.left,
+            // O dropdown sempre terá position: fixed (via Portal), então top/bottom são relativos ao viewport
+        };
+        
+        // Abrir para cima se o espaço abaixo for menor que a altura do dropdown
+        // E se houver espaço suficiente acima (ou se estiver no modo mobile - que será position: fixed bottom)
+        if (spaceBelow < dropdownHeight && triggerRect.top > dropdownHeight) {
+            position.bottom = viewportHeight - triggerRect.top; // Distância do fundo até o topo do trigger
+            position.top = 'auto';
+        } else {
+            position.top = triggerRect.bottom;
+            position.bottom = 'auto';
+        }
+
+        setDropdownPosition(position);
+    } else {
+        setDropdownPosition(null);
+    }
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]); 
+
+  // Lógica de Filtros e Seleção (mantida)
   const filteredOptions = useMemo(() => {
     if (!searchTerm) return options;
     return options.filter(option =>
@@ -72,6 +82,53 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
 
   const allSelected = options.length > 0 && selectedValues.length === options.length;
 
+  // 2. Renderização do Componente
+  const DropdownContent = (
+    <div 
+      className="multiselect-dropdown"
+      // Aplica a posição calculada, usando position: fixed do CSS
+      style={dropdownPosition || {}} 
+    >
+      <div className="search-input-container">
+        <input 
+          type="text" 
+          placeholder="Pesquisar" 
+          className="search-input"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <div className="header-all">
+        <label className="checkbox-container">
+          <input 
+            type="checkbox" 
+            checked={allSelected} 
+            onChange={(e) => handleSelectAll(e.target.checked)}
+          />
+          <span>Todos</span>
+        </label>
+      </div>
+
+      <div className="option-list">
+        {filteredOptions.length === 0 ? (
+          <div style={{ padding: '4px 7px', color: 'var(--cor-texto-secundario)' }}>Nenhuma opção encontrada.</div>
+        ) : (
+          filteredOptions.map((option) => (
+            <label key={option} className="checkbox-container">
+              <input 
+                type="checkbox" 
+                checked={selectedValues.includes(option)} 
+                onChange={() => handleSelectToggle(option)}
+              />
+              <span>{option}</span>
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="filter-item" ref={ref}>
       <label htmlFor={label}>{label}:</label>
@@ -80,56 +137,13 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
           id={label}
           className="filter-item-trigger"
           onClick={() => setIsOpen(!isOpen)}
-          ref={triggerRef} // Adiciona ref para cálculo de posição
+          ref={triggerRef}
         >
           <span>{displayLabel}</span>
         </button>
         
-        {isOpen && (
-          <div 
-            className="multiselect-dropdown"
-            style={positionStyle} // APLICA O ESTILO DE POSIÇÃO DINÂMICA
-          >
-            
-            <div className="search-input-container">
-              <input 
-                type="text" 
-                placeholder="Pesquisar" 
-                className="search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div className="header-all">
-              <label className="checkbox-container">
-                <input 
-                  type="checkbox" 
-                  checked={allSelected} 
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                />
-                <span>Todos</span>
-              </label>
-            </div>
-
-            <div className="option-list">
-              {filteredOptions.length === 0 ? (
-                <div style={{ padding: '4px 7px', color: 'var(--cor-texto-secundario)' }}>Nenhuma opção encontrada.</div>
-              ) : (
-                filteredOptions.map((option) => (
-                  <label key={option} className="checkbox-container">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedValues.includes(option)} 
-                      onChange={() => handleSelectToggle(option)}
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {/* Renderiza o dropdown apenas se estiver aberto e via Portal */}
+        {isOpen && <FilterPortal>{DropdownContent}</FilterPortal>}
       </div>
     </div>
   );
