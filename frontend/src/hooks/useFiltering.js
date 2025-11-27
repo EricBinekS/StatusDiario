@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { getTodaysDateStringForReact } from "../utils/dateUtils";
 import { getUniqueOptions } from "../utils/dataUtils"; 
 import { calculateAdherence } from "../utils/calcUtils"; 
+import { useStableArray } from "./useStableArray"; // IMPORTAÇÃO CHAVE
 
 export const useFiltering = (rawData, now) => {
   const [filters, setFilters] = useState({
@@ -31,12 +32,11 @@ export const useFiltering = (rawData, now) => {
     if (filterName === "sub") {
       newFilters.atividade = [];
       newFilters.tipo = [];
-      newFilters.tipo = [];
     }
     setFilters(newFilters);
   };
 
-  // 1. Lógica de Filtragem (Gera array instável)
+  // 1. Array filtrado "instável" (cria nova referência a cada mudança)
   const unstableFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
@@ -70,17 +70,10 @@ export const useFiltering = (rawData, now) => {
     return filterableData;
   }, [rawData, filters]);
 
-  // 2. CORREÇÃO: Estabiliza a referência do array de dados
-  const filteredData = useMemo(() => {
-    // Cria uma chave estável baseada no conteúdo do array
-    const stableKey = JSON.stringify(unstableFilteredData);
+  // 2. APLICAÇÃO DA CORREÇÃO: Estabiliza a referência
+  const filteredData = useStableArray(unstableFilteredData);
 
-    // Retorna o array instável. O useMemo garante que esta função só será executada
-    // se a chave (o conteúdo do array) mudar.
-    return unstableFilteredData;
-  }, [unstableFilteredData]); // A dependência real é o array instável
 
-  // --- 3. Lógica para as Opções de Filtro (Cascata) ---
   const gerenciaOptions = useMemo(
     () => getUniqueOptions(rawData, "gerência_da_via"),
     [rawData]
@@ -125,7 +118,6 @@ export const useFiltering = (rawData, now) => {
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
 
-  // --- 4. Lógica de Aderência e Status de Filtro ---
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
     return Object.entries(filters).some(([key, v]) => {
@@ -155,7 +147,7 @@ export const useFiltering = (rawData, now) => {
   return {
     filters,
     handleFilterChange,
-    filteredData, // Agora é o array estável
+    filteredData, 
     gerenciaOptions,
     trechoOptions,
     subOptions,
