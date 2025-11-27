@@ -1,9 +1,0 @@
-{
-  "devDependencies": {
-    "nodemailer": "^7.0.10",
-    "puppeteer": "^24.30.0"
-  },
-  "dependencies": {
-    "form-data": "^4.0.4"
-  }
-}
