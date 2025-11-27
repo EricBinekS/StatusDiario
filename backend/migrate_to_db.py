@@ -9,11 +9,14 @@ import re
 import datetime
 import hashlib
 from zoneinfo import ZoneInfo
+import sys # Adicionado para forçar a saída de log
 
 load_dotenv()
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
+
+# --- FUNÇÕES AUXILIARES (mantidas) ---
 
 def calculate_operational_status(row):
     override_status = row.get('tempo_real_override')
@@ -70,10 +73,12 @@ def clean_column_names(columns):
     for col in columns:
         if pd.isna(col):
             col = 'Unnamed'
+        # Remove caracteres especiais e acentos, mantém minúsculas e remove espaços.
         clean_col = re.sub(r'[^\w\s]+', '', str(col).strip().lower())
         
+        # Substitui espaços por underscore
         clean_col = re.sub(r'\s+', '_', clean_col) 
-     
+    
         if clean_col in counts:
             counts[clean_col] += 1
             new_columns.append(f"{clean_col}_{counts[clean_col]}")
@@ -104,7 +109,7 @@ def calculate_end_datetime(row):
     if pd.isna(start_dt):
         return None
     end_time_cols = ['fim', 'fim_8', 'fim_10']
-    end_time_val = None 
+    end_time_val = None
     for col in end_time_cols:
         val = row.get(col)
         if pd.notna(val) and val != '':
@@ -136,17 +141,31 @@ def calculate_detalhamento_by_time(row, now_aware):
     else:
         return row.get('prévia_2')
 
+# --- FIM DAS FUNÇÕES AUXILIARES ---
+
 
 def transform_df(df):
     df.columns = clean_column_names(df.columns)
+    
+    # 🚨 PONTO DE ALTERAÇÃO 1: Mapeamento de 'gerencia_da_via13' para 'gerencia_da_via'
+    if 'gerencia_da_via13' in df.columns:
+        if 'gerencia_da_via' in df.columns:
+            # Se ambas existirem, mantenha a nova e remova a antiga duplicada para evitar conflito.
+            df.drop(columns=['gerencia_da_via'], inplace=True, errors='ignore')
+        df.rename(columns={'gerencia_da_via13': 'gerencia_da_via'}, inplace=True)
+        print("  -> Renomeado 'gerencia_da_via13' para 'gerencia_da_via'.")
+
     required_cols = ['data', 'ativo']
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
+        print(f"  -> ERRO: Colunas requeridas faltando: {missing_cols}. DataFrame descartado.")
         return pd.DataFrame()
 
+    print(f"  -> Linhas iniciais no transform_df: {len(df)}")
     df = df.where(pd.notnull(df), None)
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df.dropna(subset=['data'], inplace=True)
+    print(f"  -> Linhas após remoção de NaT na data: {len(df)}")
 
     now_aware = datetime.datetime.now(BR_TZ)
 
@@ -207,26 +226,41 @@ def transform_df(df):
     return df
 
 
+def normalize_str(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    return str(v).strip().upper()
+
+
+def make_row_id(row):
+    # Usa 'gerencia_da_via' (sem acento) para criar o hash, pois é o nome limpo da coluna
+    key = f"{row.get('ativo','')}|{row.get('atividade','')}|{row.get('data','')}|{row.get('inicio_real','')}|{row.get('gerencia_da_via', '')}"
+    return hashlib.sha1(key.encode('utf-8')).hexdigest()
+
+
 def run_migration():
+    print("--- 🏁 INICIANDO MIGRAÇÃO DE DADOS 🏁 ---")
+    sys.stdout.flush() 
+    
     BACKEND_ROOT = Path(__file__).resolve().parent
     map_path = str(BACKEND_ROOT / "scripts" / "mapeamento_abas.json")
     raw_data_path = str(BACKEND_ROOT / "raw_data" / "*.xlsx")
     DATABASE_URL = os.getenv("DATABASE_URL")
 
     if not DATABASE_URL:
-        print("DATABASE_URL não encontrada.")
+        print("🔴 ERRO: DATABASE_URL não encontrada.")
         return
 
     try:
         with open(map_path, 'r', encoding='utf-8') as f:
             mapa_de_abas = json.load(f)
     except Exception as e:
-        print(f"Erro ao ler o mapa de abas: {e}")
+        print(f"🔴 ERRO: Ao ler o mapa de abas: {e}")
         return
 
     file_paths = glob.glob(raw_data_path)
     if not file_paths:
-        print("Nenhum arquivo de dados encontrado em raw_data.")
+        print("🟠 AVISO: Nenhum arquivo de dados encontrado em raw_data.")
         return
 
     df_list = []
@@ -235,54 +269,78 @@ def run_migration():
     for f_path in file_paths:
         nome_do_arquivo = os.path.basename(f_path)
         nome_da_aba = mapa_de_abas.get(nome_do_arquivo)
+        print(f"\n⚙️ Processando arquivo: {nome_do_arquivo} (Aba: {nome_da_aba})")
+        sys.stdout.flush()
+
         if nome_da_aba:
             try:
                 temp_df = pd.read_excel(f_path, sheet_name=nome_da_aba, header=None, engine='openpyxl')
                 header_row_index = 4
                 data_start_row_index = 5
+                
                 header_row = temp_df.iloc[header_row_index]
                 df_data = temp_df[data_start_row_index:].copy()
                 cleaned_cols = clean_column_names(header_row)
                 df_data.columns = cleaned_cols
+                print(f"  -> Cabeçalho limpo com {len(cleaned_cols)} colunas.")
 
                 if 'ativo' not in df_data.columns:
+                    print("  -> Coluna 'ativo' não encontrada. Descartando arquivo.")
                     continue
 
+                initial_rows = len(df_data)
                 df_data.dropna(subset=['ativo'], inplace=True)
+                print(f"  -> Linhas lidas: {initial_rows}. Linhas após dropna('ativo'): {len(df_data)}")
+                
                 df_list.append(df_data)
                 all_processed_columns.update(df_data.columns)
             except Exception as e:
-                print(f"Erro ao processar o arquivo {nome_do_arquivo}, aba {nome_da_aba}: {e}")
+                print(f"  -> 🔴 ERRO ao processar: {e}")
                 continue
+        else:
+            print("  -> Não há mapeamento para este arquivo. Ignorando.")
 
     if not df_list:
-        print("Nenhum DataFrame foi processado com sucesso.")
+        print("\n🟠 AVISO: Nenhum DataFrame foi processado com sucesso.")
         return
 
+    print("\n📦 Unificando e Padronizando DataFrames...")
+    # Reindexa DFs para terem o mesmo conjunto de colunas (preenchendo faltantes com None)
     df_processed_list = []
-    for df_item in df_list:
+    for i, df_item in enumerate(df_list):
         missing = list(all_processed_columns - set(df_item.columns))
         if missing:
             df_item = df_item.reindex(columns=sorted(list(all_processed_columns)), fill_value=None)
         df_processed_list.append(df_item)
-
-    if not df_processed_list:
-        print("Lista de DataFrames processados está vazia.")
-        return
-
+        
     df = pd.concat(df_processed_list, ignore_index=True)
+    print(f"  -> Total de linhas após concatenação: {len(df)}")
 
+    # Renomeação de colunas específicas antes de transformar
     if 'programar_para_d1' in df.columns and 'programar_para_d_1' not in df.columns:
         df.rename(columns={'programar_para_d1': 'programar_para_d_1'}, inplace=True)
 
     if 'programar_para_d_1' in df.columns:
         df.rename(columns={'programar_para_d_1': 'tipo'}, inplace=True)
 
+    # 🚨 PONTO DE ALTERAÇÃO 1: Mapeamento de 'gerencia_da_via13' para 'gerencia_da_via'
+    if 'gerencia_da_via13' in df.columns:
+        if 'gerencia_da_via' in df.columns:
+             # Se ambas existirem, assuma que 'gerencia_da_via13' é a correta e descarte 'gerencia_da_via'
+            df.drop(columns=['gerencia_da_via'], inplace=True, errors='ignore')
+            print("  -> Coluna 'gerencia_da_via' duplicada descartada.")
+        df.rename(columns={'gerencia_da_via13': 'gerencia_da_via'}, inplace=True)
+        print("  -> Coluna 'gerencia_da_via13' renomeada para 'gerencia_da_via'.")
+    
+    print("\n🔄 Iniciando Transformação de Dados...")
     transformed_df = transform_df(df)
     if transformed_df.empty:
-        print("DataFrame transformado está vazio.")
+        print("🔴 ERRO: DataFrame transformado está vazio.")
         return
 
+    print(f"  -> Linhas após transform_df e cálculo de colunas: {len(transformed_df)}")
+    
+    # Filtro de data limite
     hoje = datetime.date.today()
     data_limite = hoje - datetime.timedelta(days=10)
 
@@ -290,55 +348,73 @@ def run_migration():
     df_filtrado = transformed_df.dropna(subset=['data_dt_temp'])
     df_filtrado = df_filtrado[df_filtrado['data_dt_temp'].dt.date >= data_limite].copy()
     df_filtrado.drop(columns=['data_dt_temp'], inplace=True)
+    print(f"  -> Linhas após filtro de data (últimos 10 dias): {len(df_filtrado)}")
 
-    def normalize_str(v):
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            return None
-        return str(v).strip().upper()
-
-    for col in ['ativo', 'atividade', 'tipo', 'gerência_da_via']:
+    # 🚨 PONTO DE ALTERAÇÃO 2: Normalização de 'gerencia_da_via'
+    cols_to_normalize = ['ativo', 'atividade', 'tipo', 'gerencia_da_via'] # Usando 'gerencia_da_via' (sem acento)
+    for col in cols_to_normalize:
         if col in df_filtrado.columns:
             df_filtrado[col] = df_filtrado[col].apply(normalize_str)
-
-    dup_subset = ['ativo', 'atividade', 'data', 'inicio_real', 'gerência_da_via']
+    print("  -> Colunas de texto (incluindo Gerência) normalizadas (UPPERCASE/strip).")
+    
+    # 🚨 PONTO DE ALTERAÇÃO 3: Inclusão de Gerência no Subset de Duplicatas
+    dup_subset = ['ativo', 'atividade', 'data', 'inicio_real', 'gerencia_da_via'] 
+    
     if all(col in df_filtrado.columns for col in dup_subset):
+        initial_count = len(df_filtrado)
         df_filtrado = df_filtrado.drop_duplicates(subset=dup_subset, keep='first')
+        print(f"  -> Linhas após remoção de duplicatas (subset com Gerência): {len(df_filtrado)}. Removidas: {initial_count - len(df_filtrado)}")
 
-    def make_row_id(row):
-        key = f"{row.get('ativo','')}|{row.get('atividade','')}|{row.get('data','')}|{row.get('inicio_real','')}"
-        return hashlib.sha1(key.encode('utf-8')).hexdigest()
-
+    # Geração do Hash de linha
     df_filtrado['row_hash'] = df_filtrado.apply(make_row_id, axis=1)
     
-    try:
-        engine = create_engine(DATABASE_URL)
-    except Exception as e:
-        print(f"Erro ao criar engine do SQLAlchemy: {e}")
-        return
-
-    final_columns = [
+    # 🚨 PONTO DE ALTERAÇÃO 4: Tratamento de acentos na seleção final
+    
+    # Nomes das colunas no DB (com acento)
+    final_columns_db = [
         'row_hash', 'status', 'operational_status', 'gerência_da_via', 'coordenação_da_via', 'trecho', 'sub', 'ativo',
         'atividade', 'tipo', 'data', 'inicio_prog', 'inicio_real', 'tempo_prog', 'tempo_real',
         'local_prog', 'local_real', 'quantidade_prog', 'quantidade_real', 'detalhamento', 'timer_start_timestamp',
         'timer_end_timestamp', 'tempo_real_override'
     ]
     
+    # Mapeamento do nome limpo (DF) para o nome no DB (final_columns_db)
+    # Isso resolve a inconsistência de acento introduzida por clean_column_names
+    col_mapping = {
+        'gerencia_da_via': 'gerência_da_via',
+        'coordenacao_da_via': 'coordenação_da_via',
+        # Inclua outros mapeamentos (atividade, duracao) se houver problemas de acento
+    }
 
-    cols_to_select = [col for col in final_columns if col in df_filtrado.columns]
+    df_final = df_filtrado.copy()
+    
+    # Renomeia colunas no DF para que correspondam aos nomes do DB (com acento)
+    for clean_name, db_name in col_mapping.items():
+        if clean_name in df_final.columns:
+            df_final.rename(columns={clean_name: db_name}, inplace=True)
+            
+    # Garante que todas as colunas de destino existam (se não existirem, são preenchidas com None)
+    for col in final_columns_db:
+        if col not in df_final.columns:
+            df_final[col] = None
 
-    for col in final_columns:
-        if col not in cols_to_select:
-            df_filtrado[col] = None
-
-    df_final = df_filtrado[final_columns].copy()
+    # Seleciona e reordena as colunas para o formato final do DB
+    df_final = df_final[final_columns_db].copy()
+    print(f"  -> DataFrame final pronto para o DB com {len(df_final)} linhas.")
 
     try:
+        engine = create_engine(DATABASE_URL)
+    except Exception as e:
+        print(f"🔴 ERRO ao criar engine do SQLAlchemy: {e}")
+        return
+
+    print("\n💾 Iniciando Persistência no Banco de Dados...")
+    try:
         df_final.to_sql('atividades', engine, if_exists='replace', index=False)
-        print(f"Migração da tabela 'atividades' concluída. {len(df_final)} linhas salvas.")
+        print(f"🟢 SUCESSO: Migração da tabela 'atividades' concluída. {len(df_final)} linhas salvas.")
 
- 
+        # Atualização do timestamp de migração
         with engine.connect() as conn:
-
             conn.execute(
                 text(
                     """
@@ -360,11 +436,12 @@ def run_migration():
                 )
 
             conn.commit()
-
-        print("Timestamp da migração salvo com sucesso.")
+            print("🟢 SUCESSO: Timestamp da migração salvo.")
 
     except Exception as e:
-        print(f"Erro durante a migração ou ao salvar o timestamp: {e}")
+        print(f"🔴 ERRO durante a migração ou ao salvar o timestamp: {e}")
+
+    print("\n--- ✅ MIGRAÇÃO CONCLUÍDA ---")
 
 
 if __name__ == "__main__":
