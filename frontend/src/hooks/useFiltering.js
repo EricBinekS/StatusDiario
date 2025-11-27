@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { getTodaysDateStringForReact } from "../utils/dateUtils";
-import { getUniqueOptions, calculateAdherence } from "../utils/dataUtils"; 
+import { getUniqueOptions } from "../utils/dataUtils"; 
+import { calculateAdherence } from "../utils/calcUtils";
 
 export const useFiltering = (rawData, now) => {
   const [filters, setFilters] = useState({
@@ -16,7 +17,6 @@ export const useFiltering = (rawData, now) => {
   const handleFilterChange = (filterName, value) => {
     const newFilters = { ...filters, [filterName]: value };
     
-    // Lógica de cascata para limpar filtros 'filhos'
     if (filterName === "gerencia") {
       newFilters.trecho = [];
       newFilters.sub = [];
@@ -35,7 +35,6 @@ export const useFiltering = (rawData, now) => {
     setFilters(newFilters);
   };
 
-  // --- 1. Lógica de Filtragem de Dados (Business Logic) ---
   const sortedAndFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
@@ -44,7 +43,6 @@ export const useFiltering = (rawData, now) => {
       if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
         return false;
 
-      // Filtro de Texto (Ativo)
       if (
         filters.ativo &&
         (!row.ativo ||
@@ -54,7 +52,6 @@ export const useFiltering = (rawData, now) => {
       )
         return false;
 
-      // Filtros Multi-Seleção (Gerência, Trecho, Sub, Atividade, Tipo)
       if (filters.gerencia.length > 0 && !filters.gerencia.includes(String(row.gerência_da_via)))
         return false;
       if (filters.trecho.length > 0 && !filters.trecho.includes(String(row.coordenação_da_via)))
@@ -72,8 +69,6 @@ export const useFiltering = (rawData, now) => {
     return filterableData;
   }, [rawData, filters]);
 
-
-  // --- 2. Lógica para as Opções de Filtro (Cascata) ---
   const gerenciaOptions = useMemo(
     () => getUniqueOptions(rawData, "gerência_da_via"),
     [rawData]
@@ -118,7 +113,6 @@ export const useFiltering = (rawData, now) => {
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
 
-  // --- 3. Lógica de Aderência e Status de Filtro ---
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
     return Object.entries(filters).some(([key, v]) => {
