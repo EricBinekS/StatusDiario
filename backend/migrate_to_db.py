@@ -104,7 +104,7 @@ def calculate_end_datetime(row):
     if pd.isna(start_dt):
         return None
     end_time_cols = ['fim', 'fim_8', 'fim_10']
-    end_time_val = None
+    end_time_val = None 
     for col in end_time_cols:
         val = row.get(col)
         if pd.notna(val) and val != '':
@@ -296,11 +296,11 @@ def run_migration():
             return None
         return str(v).strip().upper()
 
-    for col in ['ativo', 'atividade', 'tipo']:
+    for col in ['ativo', 'atividade', 'tipo', 'gerência_da_via']:
         if col in df_filtrado.columns:
             df_filtrado[col] = df_filtrado[col].apply(normalize_str)
 
-    dup_subset = ['ativo', 'atividade', 'data', 'inicio_real']
+    dup_subset = ['ativo', 'atividade', 'data', 'inicio_real', 'gerência_da_via']
     if all(col in df_filtrado.columns for col in dup_subset):
         df_filtrado = df_filtrado.drop_duplicates(subset=dup_subset, keep='first')
 
