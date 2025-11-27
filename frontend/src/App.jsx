@@ -13,6 +13,19 @@ import { AtividadesTable } from "./components/Table/AtividadesTable";
 import { FiltersSection } from "./components/Filters/FiltersSection";
 
 function App() {
+
+  //REMOVER DEPOIS 
+  const MODO_MANUTENCAO = true; 
+
+    if (MODO_MANUTENCAO) {
+        return (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#062e4e' }}>
+            <h1>🚧 EM MANUTENÇÃO 🚧</h1>
+            <p>O sistema está passando por atualizações. Voltaremos em breve.</p>
+          </div>
+        );
+    }
+
   // 1. LÓGICA DE BUSCA DE DADOS E ESTADO BRUTO
   const { rawData, updatedRows, loading, lastUpdatedTimestamp, error } = useFetchData();
 
