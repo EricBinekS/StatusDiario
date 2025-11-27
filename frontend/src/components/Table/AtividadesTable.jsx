@@ -6,7 +6,14 @@ export const AtividadesTable = ({ data, now, updatedRows, requestSort, getSortDi
     if (row.tempo_real_override) {
       return row.tempo_real_override;
     }
-    return calculateRealTimeDisplay(row, now) || "--:--";
+    
+    const realTime = calculateRealTimeDisplay(row, now); 
+    
+    if (realTime.isRunning) {
+        return <span className="timer-running">{realTime.time}</span>;
+    }
+    
+    return realTime.time || "--:--";
   };
 
   if (loading) {

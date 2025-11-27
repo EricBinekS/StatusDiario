@@ -66,38 +66,47 @@ export const calculateStatusDisplay = (row) => {
 export const calculateRealTimeDisplay = (row, now) => {
     const startISO = row.timer_start_timestamp;
     const endISO = row.timer_end_timestamp;
-  
+
     if (endISO) {
       const start = new Date(startISO);
       const end = new Date(endISO);
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) return "00:00";
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) 
+          return { time: "00:00", isRunning: false };
+      
       let effectiveEnd = end;
       if (end < start)
         effectiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+      
       const diffMs = effectiveEnd - start;
-      if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) return "--:--";
+      if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) 
+          return { time: "--:--", isRunning: false };
+      
       const hours = Math.floor(diffMs / 3600000);
       const minutes = Math.floor((diffMs % 3600000) / 60000);
-      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-        2,
-        "0"
-      )}`;
+      return {
+          time: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+          isRunning: false
+      };
     }
-  
+
     if (startISO) {
       const start = new Date(startISO);
-      if (isNaN(start.getTime())) return "";
+      if (isNaN(start.getTime())) 
+          return { time: "", isRunning: false };
+      
       const diffMs = now - start;
-      if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) return "--:--";
+      if (diffMs < 0 || diffMs > 36 * 60 * 60 * 1000) 
+          return { time: "--:--", isRunning: false };
+      
       const hours = Math.floor(diffMs / 3600000);
       const minutes = Math.floor((diffMs % 3600000) / 60000);
-      return (
-        <span className="timer-running">{`${String(hours).padStart(
-          2,
-          "0"
-        )}:${String(minutes).padStart(2, "0")}`}</span>
-      );
+      
+      // Retorna o tempo e o flag isRunning
+      return {
+          time: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+          isRunning: true
+      };
     }
-  
-    return "--:--";
-  };
+
+    return { time: "--:--", isRunning: false };
+};
