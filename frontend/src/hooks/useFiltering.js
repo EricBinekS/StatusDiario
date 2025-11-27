@@ -31,11 +31,13 @@ export const useFiltering = (rawData, now) => {
     if (filterName === "sub") {
       newFilters.atividade = [];
       newFilters.tipo = [];
+      newFilters.tipo = [];
     }
     setFilters(newFilters);
   };
 
-  const sortedAndFilteredData = useMemo(() => {
+  // 1. Lógica de Filtragem (Gera array instável)
+  const unstableFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
     let filterableData = rawData.filter((row) => {
@@ -68,7 +70,17 @@ export const useFiltering = (rawData, now) => {
     return filterableData;
   }, [rawData, filters]);
 
+  // 2. CORREÇÃO: Estabiliza a referência do array de dados
+  const filteredData = useMemo(() => {
+    // Cria uma chave estável baseada no conteúdo do array
+    const stableKey = JSON.stringify(unstableFilteredData);
 
+    // Retorna o array instável. O useMemo garante que esta função só será executada
+    // se a chave (o conteúdo do array) mudar.
+    return unstableFilteredData;
+  }, [unstableFilteredData]); // A dependência real é o array instável
+
+  // --- 3. Lógica para as Opções de Filtro (Cascata) ---
   const gerenciaOptions = useMemo(
     () => getUniqueOptions(rawData, "gerência_da_via"),
     [rawData]
@@ -113,6 +125,7 @@ export const useFiltering = (rawData, now) => {
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
 
+  // --- 4. Lógica de Aderência e Status de Filtro ---
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
     return Object.entries(filters).some(([key, v]) => {
@@ -131,8 +144,8 @@ export const useFiltering = (rawData, now) => {
   }, [rawData, now]);
 
   const filteredAdherence = useMemo(() => {
-    return calculateAdherence(sortedAndFilteredData, now); 
-  }, [sortedAndFilteredData, now]); 
+    return calculateAdherence(filteredData, now); 
+  }, [filteredData, now]); 
 
   const displayedAdherence = useMemo(() => {
     return isAnyFilterApplied ? filteredAdherence : globalAdherence;
@@ -142,7 +155,7 @@ export const useFiltering = (rawData, now) => {
   return {
     filters,
     handleFilterChange,
-    filteredData: sortedAndFilteredData,
+    filteredData, // Agora é o array estável
     gerenciaOptions,
     trechoOptions,
     subOptions,
