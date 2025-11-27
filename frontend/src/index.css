@@ -637,3 +637,111 @@ th.col-detalhamento {
     font-size: 11px;
   }
 }
+
+.filter-item-trigger {
+  border: 1px solid var(--cor-cinza-claro);
+  border-radius: 4px;
+  padding: 5px 7px;
+  background-color: var(--cor-fundo-pagina);
+  font-size: 12px;
+  min-height: 32px;
+  box-sizing: border-box;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--cor-texto-principal);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-item-trigger::after {
+    content: '▼';
+    font-size: 8px;
+    margin-left: 8px;
+    color: var(--cor-texto-secundario);
+}
+
+.multiselect-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100; /* Alto z-index para garantir que ele apareça sobre outros elementos */
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    width: 100%;
+    min-width: 200px;
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 4px;
+    font-size: 12px;
+    display: flex; /* Usar flexbox para organizar a ordem */
+    flex-direction: column;
+}
+
+.search-input-container {
+    padding: 5px 7px; 
+    border-bottom: 1px solid #eee;
+    order: 1; /* Campo de Pesquisa em primeiro */
+    flex-shrink: 0;
+    background-color: #f7f7f7;
+}
+
+.multiselect-dropdown .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ddd;
+    padding: 4px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.header-all {
+    padding: 5px 7px; 
+    border-bottom: 1px solid #eee; 
+    font-weight: bold;
+    order: 2; /* Selecionar Todos em segundo */
+    flex-shrink: 0;
+    background-color: white;
+}
+
+.option-list {
+    padding: 5px 0;
+    order: 3; /* Opções em terceiro */
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+    gap: 8px; 
+    padding: 2px 7px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.checkbox-container:hover {
+    background-color: #f0f0f0;
+}
+
+/* Ajuste a mídia query para dispositivos móveis */
+@media (max-width: 768px) {
+    .multiselect-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 70vh;
+        border-radius: 8px 8px 0 0;
+    }
+}

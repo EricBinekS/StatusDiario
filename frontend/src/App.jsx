@@ -172,7 +172,7 @@ const calculateAdherence = (data, now) => {
   data.forEach((row) => {
     totalProgMinutes += parseHHMMtoMinutes(row.tempo_prog);
     totalRealMinutes += calculateRealizedMinutes(row, now);
-  }); // Evita divisão por zero
+  });
 
   const adherence =
     totalProgMinutes > 0 ? (totalRealMinutes / totalProgMinutes) * 100 : 0;
@@ -180,6 +180,113 @@ const calculateAdherence = (data, now) => {
   return {
     adherence: adherence.toFixed(1),
   };
+};
+
+const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+    return options.filter(option =>
+      String(option).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [options, searchTerm]);
+
+  const handleSelectToggle = (value) => {
+    let newValues;
+    if (selectedValues.includes(value)) {
+      newValues = selectedValues.filter(v => v !== value);
+    } else {
+      newValues = [...selectedValues, value];
+    }
+    onChange(newValues);
+  };
+
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      onChange(options);
+    } else {
+      onChange([]);
+    }
+  };
+  
+  const displayLabel = selectedValues.length === options.length && options.length > 0
+    ? "Todos"
+    : selectedValues.length > 0
+    ? `${selectedValues.length} Selecionados`
+    : "Todos";
+
+  const allSelected = options.length > 0 && selectedValues.length === options.length;
+
+  return (
+    <div className="filter-item" ref={ref}>
+      <label htmlFor={label}>{label}:</label>
+      <div className="multiselect-container" style={{ position: 'relative' }}>
+        <button
+          id={label}
+          className="filter-item-trigger"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <span>{displayLabel}</span>
+        </button>
+        
+        {isOpen && (
+          <div className="multiselect-dropdown">
+            
+            <div className="search-input-container">
+              <input 
+                type="text" 
+                placeholder="Pesquisar" 
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="header-all">
+              <label className="checkbox-container">
+                <input 
+                  type="checkbox" 
+                  checked={allSelected} 
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                />
+                <span>Todos</span>
+              </label>
+            </div>
+
+            <div className="option-list">
+              {filteredOptions.length === 0 ? (
+                <div style={{ padding: '4px 7px', color: 'var(--cor-texto-secundario)' }}>Nenhuma opção encontrada.</div>
+              ) : (
+                filteredOptions.map((option) => (
+                  <label key={option} className="checkbox-container">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedValues.includes(option)} 
+                      onChange={() => handleSelectToggle(option)}
+                    />
+                    <span>{option}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 function App() {
@@ -191,17 +298,17 @@ function App() {
   const [sortConfig, setSortConfig] = useState({
     key: "status",
     direction: "descending",
-  }); // const [showESP, setShowESP] = useState(false); // <-- REMOVIDO
+  });
   const [error, setError] = useState(null);
   const previousDataRef = useRef([]);
   const [filters, setFilters] = useState({
     data: getTodaysDateStringForReact(),
-    gerencia: "",
-    trecho: "",
-    sub: "",
+    gerencia: [],
+    trecho: [],
+    sub: [],
     ativo: "",
-    atividade: "",
-    tipo: "",
+    atividade: [],
+    tipo: [],
   });
   const [nextUpdateIn, setNextUpdateIn] = useState("Calculando...");
 
@@ -280,62 +387,66 @@ function App() {
 
   const trechoOptions = useMemo(() => {
     let d = rawData;
-    if (filters.gerencia)
-      d = d.filter((r) => String(r.gerência_da_via) === filters.gerencia);
+    if (filters.gerencia.length > 0)
+      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
     return getUniqueOptions(d, "coordenação_da_via");
   }, [rawData, filters.gerencia]);
 
   const subOptions = useMemo(() => {
     let d = rawData;
-    if (filters.gerencia)
-      d = d.filter((r) => String(r.gerência_da_via) === filters.gerencia);
-    if (filters.trecho)
-      d = d.filter((r) => String(r.coordenação_da_via) === filters.trecho);
+    if (filters.gerencia.length > 0)
+      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
+    if (filters.trecho.length > 0)
+      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
     return getUniqueOptions(d, "sub");
   }, [rawData, filters.gerencia, filters.trecho]);
 
   const atividadeOptions = useMemo(() => {
     let d = rawData;
-    if (filters.gerencia)
-      d = d.filter((r) => String(r.gerência_da_via) === filters.gerencia);
-    if (filters.trecho)
-      d = d.filter((r) => String(r.coordenação_da_via) === filters.trecho);
-    if (filters.sub) d = d.filter((r) => String(r.sub) === filters.sub);
+    if (filters.gerencia.length > 0)
+      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
+    if (filters.trecho.length > 0)
+      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
+    if (filters.sub.length > 0) 
+      d = d.filter((r) => filters.sub.includes(String(r.sub)));
     return getUniqueOptions(d, "atividade");
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
   const tipoOptions = useMemo(() => {
     let d = rawData;
-    if (filters.gerencia)
-      d = d.filter((r) => String(r.gerência_da_via) === filters.gerencia);
-    if (filters.trecho)
-      d = d.filter((r) => String(r.coordenação_da_via) === filters.trecho);
-    if (filters.sub) d = d.filter((r) => String(r.sub) === filters.sub);
+    if (filters.gerencia.length > 0)
+      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
+    if (filters.trecho.length > 0)
+      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
+    if (filters.sub.length > 0) 
+      d = d.filter((r) => filters.sub.includes(String(r.sub)));
     return getUniqueOptions(d, "tipo");
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
   const handleFilterChange = (filterName, value) => {
     const newFilters = { ...filters, [filterName]: value };
-    if (filterName === "gerencia")
-      newFilters.trecho =
-        newFilters.sub =
-        newFilters.atividade =
-        newFilters.tipo =
-          "";
-    if (filterName === "trecho")
-      newFilters.sub = newFilters.atividade = newFilters.tipo = "";
-    if (filterName === "sub") newFilters.atividade = newFilters.tipo = "";
+    if (filterName === "gerencia") {
+      newFilters.trecho = [];
+      newFilters.sub = [];
+      newFilters.atividade = [];
+      newFilters.tipo = [];
+    }
+    if (filterName === "trecho") {
+      newFilters.sub = [];
+      newFilters.atividade = [];
+      newFilters.tipo = [];
+    }
+    if (filterName === "sub") {
+      newFilters.atividade = [];
+      newFilters.tipo = [];
+    }
     setFilters(newFilters);
-  }; // ESTE É O ÚNICO BLOCO sortedAndFilteredData. O DUPLICADO FOI REMOVIDO.
+  }; 
 
   const sortedAndFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
     let filterableData = rawData.filter((row) => {
-      // LÓGICA DO 'showESP' REMOVIDA
-      // if (!showESP && row.tempo_real_override === "Esp") return false;
-
-      // CORREÇÃO DO FILTRO DE DATA
       if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
         return false;
 
@@ -348,14 +459,16 @@ function App() {
       )
         return false;
 
-      if (filters.gerencia && String(row.gerência_da_via) !== filters.gerencia)
+      if (filters.gerencia.length > 0 && !filters.gerencia.includes(String(row.gerência_da_via)))
         return false;
-      if (filters.trecho && String(row.coordenação_da_via) !== filters.trecho)
+      if (filters.trecho.length > 0 && !filters.trecho.includes(String(row.coordenação_da_via)))
         return false;
-      if (filters.sub && String(row.sub) !== filters.sub) return false;
-      if (filters.atividade && String(row.atividade) !== filters.atividade)
+      if (filters.sub.length > 0 && !filters.sub.includes(String(row.sub)))
         return false;
-      if (filters.tipo && String(row.tipo) !== filters.tipo) return false;
+      if (filters.atividade.length > 0 && !filters.atividade.includes(String(row.atividade)))
+        return false;
+      if (filters.tipo.length > 0 && !filters.tipo.includes(String(row.tipo)))
+        return false;
 
       return true;
     });
@@ -391,7 +504,7 @@ function App() {
     }
 
     return filterableData;
-  }, [rawData, filters, sortConfig]); // 'showESP' REMOVIDO DAS DEPENDÊNCIAS
+  }, [rawData, filters, sortConfig]);
 
   const requestSort = (key) => {
     let direction = "ascending";
@@ -420,9 +533,15 @@ function App() {
 
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
-    return Object.values(filters).some(
-      (v) => v !== null && v !== undefined && String(v).trim() !== ""
-    );
+    return Object.entries(filters).some(([key, v]) => {
+      if (key === 'data') {
+        return v !== getTodaysDateStringForReact();
+      }
+      if (key === 'ativo') {
+        return String(v).trim() !== "";
+      }
+      return Array.isArray(v) && v.length > 0;
+    });
   }, [filters]);
 
   const globalAdherence = useMemo(() => {
@@ -453,13 +572,13 @@ return (
       </div>
 
       <div className="header-right-group">
-        {/* */}
+        
         <img src="/rumo-logo.svg" alt="Rumo Logo" className="logo" />
       </div>
     </header>
 
     <main>
-      {/* */}
+      
       <div className="filters-and-adherence-wrapper">
         
         <section className="filters">
@@ -473,53 +592,26 @@ return (
             />
           </div>
 
-          <div className="filter-item">
-            <label htmlFor="gerencia">Gerência:</label>
-            <select
-              id="gerencia"
-              value={filters.gerencia}
-              onChange={(e) => handleFilterChange("gerencia", e.target.value)}
-            >
-              <option value="">Todas</option>
-              {gerenciaOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilterPlaceholder
+            label="Gerência"
+            options={gerenciaOptions}
+            selectedValues={filters.gerencia}
+            onChange={(v) => handleFilterChange("gerencia", v)}
+          />
 
-          <div className="filter-item">
-            <label htmlFor="trecho">Trecho:</label>
-            <select
-              id="trecho"
-              value={filters.trecho}
-              onChange={(e) => handleFilterChange("trecho", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {trechoOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilterPlaceholder
+            label="Trecho"
+            options={trechoOptions}
+            selectedValues={filters.trecho}
+            onChange={(v) => handleFilterChange("trecho", v)}
+          />
 
-          <div className="filter-item">
-            <label htmlFor="sub">Sub:</label>
-            <select
-              id="sub"
-              value={filters.sub}
-              onChange={(e) => handleFilterChange("sub", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {subOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilterPlaceholder
+            label="Sub"
+            options={subOptions}
+            selectedValues={filters.sub}
+            onChange={(v) => handleFilterChange("sub", v)}
+          />
 
           <div className="filter-item">
             <label htmlFor="ativo">Ativo:</label>
@@ -531,37 +623,19 @@ return (
             />
           </div>
 
-          <div className="filter-item">
-            <label htmlFor="atividade">Atividade:</label>
-            <select
-              id="atividade"
-              value={filters.atividade}
-              onChange={(e) => handleFilterChange("atividade", e.target.value)}
-            >
-              <option value="">Todas</option>
-              {atividadeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilterPlaceholder
+            label="Atividade"
+            options={atividadeOptions}
+            selectedValues={filters.atividade}
+            onChange={(v) => handleFilterChange("atividade", v)}
+          />
 
-          <div className="filter-item">
-            <label htmlFor="tipo">Tipo:</label>
-            <select
-              id="tipo"
-              value={filters.tipo}
-              onChange={(e) => handleFilterChange("tipo", e.target.value)}
-            >
-              <option value="">Todos</option>
-              {tipoOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilterPlaceholder
+            label="Tipo"
+            options={tipoOptions}
+            selectedValues={filters.tipo}
+            onChange={(v) => handleFilterChange("tipo", v)}
+          />
         </section>
         <div
           className="adherence-container"
