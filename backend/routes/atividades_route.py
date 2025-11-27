@@ -13,6 +13,14 @@ BR_TZ = ZoneInfo("America/Sao_Paulo")
 
 @atividades_bp.route("/atividades", methods=["GET"])
 def get_atividades():
+
+    return jsonify({
+        "error": "EM MANUTENÇÃO", 
+        "data": [], 
+        "last_updated": None
+    }), 503
+    # ------------------------------------
+
     engine = get_db_engine()
     if engine is None:
         return jsonify({"error": "Configuração do Banco de Dados falhou.", "data": [], "last_updated": None}), 503
@@ -42,7 +50,6 @@ def get_atividades():
                 if timestamp_row and timestamp_row[0]:
                     db_timestamp = timestamp_row[0] 
                     if db_timestamp.tzinfo is None:
-                        # Trata timestamps sem fuso horário (naive) forçando UTC para consistência
                         db_timestamp = db_timestamp.replace(tzinfo=datetime.timezone.utc)
                     last_updated = db_timestamp.isoformat()
                 else:
