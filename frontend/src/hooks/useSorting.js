@@ -23,7 +23,8 @@ export const useSorting = (data) => {
     
     if (!sortConfig.key) return data;
 
-    const sortableData = [...data];
+    // A CORREÇÃO: Cria uma cópia rasa do array antes de ordenar (evita mutação)
+    const sortableData = [...data]; 
 
     sortableData.sort((a, b) => {
       const valA = a[sortConfig.key];
@@ -45,7 +46,8 @@ export const useSorting = (data) => {
       return sortConfig.direction === "ascending" ? comparison : comparison * -1;
     });
 
-    return sortableData;
+    // Retorna o array copiado e ordenado, que é o estado limpo
+    return sortableData; 
   }, [data, sortConfig]);
 
   return { sortedData, requestSort, getSortDirectionClass };
