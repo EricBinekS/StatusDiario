@@ -104,7 +104,7 @@ export const AtividadesTable = ({ data, now, updatedRows, requestSort, getSortDi
               <tr
                 key={uniqueKey} 
                 className={isUpdated ? "linha-atualizada" : ""}
-              >}
+              >
                  <td data-label="Data / Status">
                   <div className="cell-status-container">
                     <span className="status-date">
