@@ -13,6 +13,11 @@ BR_TZ = ZoneInfo("America/Sao_Paulo")
 
 @atividades_bp.route("/atividades", methods=["GET"])
 def get_atividades():
+    # ------------------------------------
+    # CORREÇÃO: Removido o bloco "return jsonify(...)" que forçava o modo manutenção.
+    # Agora o código segue para conectar ao banco de dados.
+    # ------------------------------------
+
     engine = get_db_engine()
     if engine is None:
         return jsonify({"error": "Configuração do Banco de Dados falhou.", "data": [], "last_updated": None}), 503
@@ -25,8 +30,11 @@ def get_atividades():
             # 1. Consulta Principal
             print("Consultando tabela 'atividades'...")
             df = pd.read_sql('SELECT * FROM atividades', conn) 
+            
+            # Limpeza de NaNs para JSON válido
             df = df.where(pd.notna(df), None)
             
+            # Converte para JSON string e volta para objeto Python para garantir serialização correta de datas
             json_string = df.to_json(orient="records", date_format="iso")
             data_list = json.loads(json_string)
             print(f"Consulta 'atividades' concluída. {len(data_list)} registros.")
@@ -41,8 +49,8 @@ def get_atividades():
                 
                 if timestamp_row and timestamp_row[0]:
                     db_timestamp = timestamp_row[0] 
+                    # Garante timezone
                     if db_timestamp.tzinfo is None:
-                        # Trata timestamps sem fuso horário (naive) forçando UTC para consistência
                         db_timestamp = db_timestamp.replace(tzinfo=datetime.timezone.utc)
                     last_updated = db_timestamp.isoformat()
                 else:
