@@ -28,11 +28,13 @@ export const FiltersSection = ({ filters, handleFilterChange, options, adherence
           onChange={(v) => handleFilterChange("trecho", v)}
         />
 
+        {/* CORREÇÃO: "Sub" agora tem tamanho controlado para não sobrar espaço */}
         <MultiSelectFilterPlaceholder
           label="Sub"
           options={options.subOptions}
           selectedValues={filters.sub}
           onChange={(v) => handleFilterChange("sub", v)}
+          containerStyle={{ flexGrow: 0, flexBasis: '90px', minWidth: '80px' }}
         />
 
         <div className="filter-item">
@@ -52,6 +54,7 @@ export const FiltersSection = ({ filters, handleFilterChange, options, adherence
           onChange={(v) => handleFilterChange("atividade", v)}
         />
 
+        {/* "Tipo" agora vai expandir o dropdown se necessário graças à mudança no componente */}
         <MultiSelectFilterPlaceholder
           label="Tipo"
           options={options.tipoOptions}
