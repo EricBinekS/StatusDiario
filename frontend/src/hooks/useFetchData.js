@@ -15,7 +15,7 @@ export const useFetchData = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Busca dados do dia atual (ex: /api/atividades?data=2023-10-27)
+        // Busca dados do dia atual
         const dateStr = getTodaysDateStringForApi();
         const response = await fetch(`${API_URL}/api/atividades?data=${dateStr}`);
         
@@ -23,11 +23,14 @@ export const useFetchData = () => {
           throw new Error(`Erro na API: ${response.status}`);
         }
 
-        const jsonData = await response.json();
+        const jsonResponse = await response.json();
 
-
-        const dataWithUniqueIds = Array.isArray(jsonData) 
-          ? jsonData.map((row, index) => ({
+        // CORREÇÃO AQUI: Acessamos jsonResponse.data, pois a API retorna { data: [...], last_updated: ... }
+        const dataList = jsonResponse.data || []; 
+        
+        // CORREÇÃO CRÍTICA DE DUPLICIDADE (UID)
+        const dataWithUniqueIds = Array.isArray(dataList) 
+          ? dataList.map((row, index) => ({
               ...row,
               // Se houver colisão de hash, o index garante a unicidade
               frontend_uid: `${row.row_hash || 'unknown'}-${index}`
@@ -35,7 +38,11 @@ export const useFetchData = () => {
           : [];
 
         setRawData(dataWithUniqueIds);
-        setLastUpdatedTimestamp(new Date());
+        
+        // Atualiza o timestamp com o que veio da API ou usa o momento atual
+        const apiTimestamp = jsonResponse.last_updated ? new Date(jsonResponse.last_updated) : new Date();
+        setLastUpdatedTimestamp(apiTimestamp);
+        
         setError(null);
         
       } catch (err) {
@@ -49,7 +56,7 @@ export const useFetchData = () => {
     // Busca inicial
     fetchData();
 
-    // Polling a cada 30 segundos (opcional, ajuste conforme necessidade)
+    // Polling a cada 30 segundos
     const intervalId = setInterval(fetchData, 30000);
 
     return () => clearInterval(intervalId);
