@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { getTodaysDateStringForReact } from "../utils/dateUtils";
 import { getUniqueOptions } from "../utils/dataUtils"; 
 import { calculateAdherence } from "../utils/calcUtils"; 
-import { useStableArray } from "./useStableArray"; // IMPORTAÇÃO CHAVE
+import { useStableArray } from "./useStableArray"; 
 
 export const useFiltering = (rawData, now) => {
   const [filters, setFilters] = useState({
@@ -15,28 +15,32 @@ export const useFiltering = (rawData, now) => {
     tipo: [],
   });
 
-  const handleFilterChange = (filterName, value) => {
-    const newFilters = { ...filters, [filterName]: value };
-    
-    if (filterName === "gerencia") {
-      newFilters.trecho = [];
-      newFilters.sub = [];
-      newFilters.atividade = [];
-      newFilters.tipo = [];
-    }
-    if (filterName === "trecho") {
-      newFilters.sub = [];
-      newFilters.atividade = [];
-      newFilters.tipo = [];
-    }
-    if (filterName === "sub") {
-      newFilters.atividade = [];
-      newFilters.tipo = [];
-    }
-    setFilters(newFilters);
-  };
+  // CORREÇÃO: Uso de useCallback e Functional State Update para garantir referência estável
+  const handleFilterChange = useCallback((filterName, value) => {
+    setFilters((prevFilters) => {
+      const newFilters = { ...prevFilters, [filterName]: value };
+      
+      // Lógica de reset em cascata
+      if (filterName === "gerencia") {
+        newFilters.trecho = [];
+        newFilters.sub = [];
+        newFilters.atividade = [];
+        newFilters.tipo = [];
+      }
+      if (filterName === "trecho") {
+        newFilters.sub = [];
+        newFilters.atividade = [];
+        newFilters.tipo = [];
+      }
+      if (filterName === "sub") {
+        newFilters.atividade = [];
+        newFilters.tipo = [];
+      }
+      return newFilters;
+    });
+  }, []); // Dependências vazias garantem que a função nunca mude de referência
 
-  // 1. Array filtrado "instável" (cria nova referência a cada mudança)
+  // 1. Array filtrado "instável"
   const unstableFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
@@ -72,7 +76,6 @@ export const useFiltering = (rawData, now) => {
 
   // 2. APLICAÇÃO DA CORREÇÃO: Estabiliza a referência
   const filteredData = useStableArray(unstableFilteredData);
-
 
   const gerenciaOptions = useMemo(
     () => getUniqueOptions(rawData, "gerência_da_via"),
@@ -117,7 +120,6 @@ export const useFiltering = (rawData, now) => {
     return getUniqueOptions(d, "tipo");
   }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
-
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
     return Object.entries(filters).some(([key, v]) => {
@@ -142,7 +144,6 @@ export const useFiltering = (rawData, now) => {
   const displayedAdherence = useMemo(() => {
     return isAnyFilterApplied ? filteredAdherence : globalAdherence;
   }, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
-
 
   return {
     filters,

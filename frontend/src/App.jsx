@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./index.css";
 
 // Importando Hooks
@@ -13,18 +13,38 @@ import { AtividadesTable } from "./components/Table/AtividadesTable";
 import { FiltersSection } from "./components/Filters/FiltersSection";
 
 function App() {
+  // =========================================================================
+  // 0. LÓGICA DE MANUTENÇÃO (MODO DE SEGURANÇA)
+  // =========================================================================
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  
+  // ---> MUDE AQUI PARA LIGAR/DESLIGAR <---
+  const MAINTENANCE_MODE = true; 
+  const SECRET_PASS = 'pcm123'; // Para acessar use: /?admin=pcm123
 
-  //REMOVER DEPOIS 
-  const MODO_MANUTENCAO = true; 
+  useEffect(() => {
+    // 1. Verifica se já tem a permissão salva
+    const hasAccess = localStorage.getItem('maintenance_bypass');
+    
+    // 2. Verifica se a URL tem a senha
+    const params = new URLSearchParams(window.location.search);
+    const secretKey = params.get('admin');
 
-    if (MODO_MANUTENCAO) {
-        return (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#062e4e' }}>
-            <h1>🚧 EM MANUTENÇÃO 🚧</h1>
-            <p>O sistema está passando por atualizações. Voltaremos em breve.</p>
-          </div>
-        );
+    if (hasAccess === 'true' || secretKey === SECRET_PASS) {
+      setIsAuthorized(true);
+      
+      // Se entrou pela URL, salva o cookie eterno no navegador
+      if (secretKey === SECRET_PASS) {
+        localStorage.setItem('maintenance_bypass', 'true');
+        // Limpa a URL para ficar limpa visualmente
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
+  }, []);
+
+  // =========================================================================
+  // LOGICA DO APLICATIVO (Hooks continuam rodando em background)
+  // =========================================================================
 
   // 1. LÓGICA DE BUSCA DE DADOS E ESTADO BRUTO
   const { rawData, updatedRows, loading, lastUpdatedTimestamp, error } = useFetchData();
@@ -32,7 +52,7 @@ function App() {
   // 2. LÓGICA DE TEMPO
   const { now, nextUpdateIn } = useTimer(lastUpdatedTimestamp);
 
-  // 3. LÓGICA DE FILTRAGEM (inclui options, filteredData e adherence)
+  // 3. LÓGICA DE FILTRAGEM
   const {
     filters,
     handleFilterChange,
@@ -49,20 +69,47 @@ function App() {
   // 4. LÓGICA DE ORDENAÇÃO
   const { sortedData, requestSort, getSortDirectionClass } = useSorting(filteredData);
   
-  const adherenceProps = {
+  // Memoização para performance (Correção anterior mantida)
+  const adherenceProps = useMemo(() => ({
     isAnyFilterApplied,
     displayedAdherence,
-  };
+  }), [isAnyFilterApplied, displayedAdherence]);
 
-  const optionsProps = {
+  const optionsProps = useMemo(() => ({
     gerenciaOptions,
     trechoOptions,
     subOptions,
     atividadeOptions,
     tipoOptions,
-  };
+  }), [gerenciaOptions, trechoOptions, subOptions, atividadeOptions, tipoOptions]);
 
-  // Se houver um erro de API, exibe-o.
+
+  // =========================================================================
+  // RENDERIZAÇÃO CONDICIONAL (MANUTENÇÃO / ERRO / APP)
+  // =========================================================================
+
+  // A. TELA DE MANUTENÇÃO
+  if (MAINTENANCE_MODE && !isAuthorized) {
+    return (
+      <div style={{
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center',
+        backgroundColor: '#f4f4f9',
+        color: '#333',
+        fontFamily: 'sans-serif'
+      }}>
+        <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>🚧</h1>
+        <h2 style={{ fontSize: '2rem', marginBottom: '10px' }}>Sistema em Atualização</h2>
+        <p style={{ fontSize: '1.2rem', color: '#666' }}>Estamos implementando melhorias no Painel de Intervalos.</p>
+        <p style={{ marginTop: '20px', fontSize: '0.9rem', color: '#999' }}>Equipe PCM</p>
+      </div>
+    );
+  }
+
+  // B. TELA DE ERRO DE API
   if (error) {
     return (
       <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>
@@ -73,6 +120,7 @@ function App() {
     );
   }
 
+  // C. APLICATIVO NORMAL
   return (
     <>
       <AppHeader
