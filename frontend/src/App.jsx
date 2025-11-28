@@ -42,10 +42,6 @@ function App() {
     }
   }, []);
 
-  // =========================================================================
-  // LOGICA DO APLICATIVO (Hooks continuam rodando em background)
-  // =========================================================================
-
   // 1. LÓGICA DE BUSCA DE DADOS E ESTADO BRUTO
   const { rawData, updatedRows, loading, lastUpdatedTimestamp, error } = useFetchData();
 
@@ -83,10 +79,6 @@ function App() {
     tipoOptions,
   }), [gerenciaOptions, trechoOptions, subOptions, atividadeOptions, tipoOptions]);
 
-
-  // =========================================================================
-  // RENDERIZAÇÃO CONDICIONAL (MANUTENÇÃO / ERRO / APP)
-  // =========================================================================
 
   // A. TELA DE MANUTENÇÃO
   if (MAINTENANCE_MODE && !isAuthorized) {

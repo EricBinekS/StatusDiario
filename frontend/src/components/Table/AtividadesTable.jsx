@@ -95,15 +95,17 @@ export const AtividadesTable = ({ data, now, updatedRows, requestSort, getSortDi
 
         <tbody>
           {data.map((row) => {
+            const uniqueKey = row.frontend_uid; 
+            
             const isUpdated = updatedRows.has(row.row_hash);
             const statusDisplay = calculateStatusDisplay(row);
 
             return (
               <tr
-                key={row.row_hash}
+                key={uniqueKey} 
                 className={isUpdated ? "linha-atualizada" : ""}
-              >
-                <td data-label="Data / Status">
+              >}
+                 <td data-label="Data / Status">
                   <div className="cell-status-container">
                     <span className="status-date">
                       {statusDisplay.date}
