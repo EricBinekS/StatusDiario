@@ -8,6 +8,12 @@ export const getTodaysDateStringForReact = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+// CORREÇÃO: Adicionando a função exportada que o useFetchData espera
+export const getTodaysDateStringForApi = () => {
+  // Reutiliza a mesma lógica pois a API também espera YYYY-MM-DD
+  return getTodaysDateStringForReact();
+};
+
 export const formatLastUpdated = (timestamp, loading) => {
   if (loading && !timestamp) return "Carregando...";
   if (!timestamp) return "N/D";
