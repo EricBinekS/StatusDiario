@@ -12,6 +12,44 @@ const GERENCIAS_ALVO = [
     "MALHA CENTRAL"
 ]; 
 
+async function selectReactOption(page, labelId, optionText) {
+    console.log(`\n--- Tentando selecionar "${optionText}" em "${labelId}" ---`);
+
+    const buttonSelector = `button[id="${labelId}"]`;
+    console.log(`Aguardando botão: ${buttonSelector}`);
+    await page.waitForSelector(buttonSelector, { visible: true, timeout: 10000 });
+    await page.click(buttonSelector);
+    console.log('Aguardando dropdown abrir...');
+    await page.waitForSelector('.multiselect-dropdown', { visible: true, timeout: 5000 });
+    const todosCheckbox = await page.$('.multiselect-dropdown .header-all input[type="checkbox"]');
+    const isTodosChecked = await (await todosCheckbox.getProperty('checked')).jsonValue();
+    
+    if (isTodosChecked) {
+        console.log('Desmarcando "Todos"...');
+        await page.click('.multiselect-dropdown .header-all label'); 
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    console.log(`Procurando opção: ${optionText}`);
+    const optionFound = await page.evaluate((text) => {
+        const spans = Array.from(document.querySelectorAll('.multiselect-dropdown .option-list span'));
+        const target = spans.find(s => s.innerText.trim() === text);
+        if (target) {
+            target.click();
+            return true;
+        }
+        return false;
+    }, optionText);
+
+    if (!optionFound) {
+        throw new Error(`Opção "${optionText}" não encontrada no dropdown.`);
+    }
+
+    await page.click(buttonSelector);
+    await new Promise(r => setTimeout(r, 1000))
+    console.log('Filtro aplicado com sucesso.');
+}
+
 async function run() {
     if (!DASHBOARD_URL || !POWER_AUTOMATE_URL || !RECIPIENT_EMAIL) {
         console.error("ERRO: Variáveis de ambiente faltando.");
@@ -31,17 +69,13 @@ async function run() {
         console.log('Acessando Painel...');
         await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle2', timeout: 90000 });
 
-        console.log(`URL atual após carregamento: ${page.url()}`);
-
         try {
-            await page.waitForSelector('#gerencia', { timeout: 60000 });
-        } catch (selectorError) {
-            console.error('ERRO CRÍTICO: O seletor #gerencia não apareceu.');
-            console.log('Tirando print da tela de erro...');
-            
-            await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
-
-            throw selectorError;
+            await page.waitForFunction(
+                () => !document.body.innerText.includes('Carregando dados...'),
+                { timeout: 30000 }
+            );
+        } catch (e) {
+            console.log("Aviso: Loading demorou a sair ou não apareceu.");
         }
 
         let htmlEmailBody = `
@@ -53,10 +87,10 @@ async function run() {
         `;
 
         for (const gerencia of GERENCIAS_ALVO) {
-            console.log(`>> Processando: ${gerencia}`);
             try {
-                await page.select('#gerencia', gerencia);
-                await new Promise(r => setTimeout(r, 2000));
+                await selectReactOption(page, "Gerência", gerencia);
+
+                await new Promise(r => setTimeout(r, 3000));
 
                 const mainElement = await page.$('main');
                 if (!mainElement) throw new Error("Tag <main> não encontrada");
@@ -71,7 +105,12 @@ async function run() {
                 `;
             } catch (e) {
                 console.error(`Erro em ${gerencia}:`, e.message);
-                htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia}</p>`;
+                
+                await page.screenshot({ path: `erro-${gerencia.replace(/\s+/g, '_')}.png` });
+                
+                htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia} (Ver logs)</p>`;
+                
+                try { await page.click('body'); } catch(ex) {}
             }
         }
 
@@ -85,6 +124,7 @@ async function run() {
         console.log('Sucesso!');
     } catch (error) {
         console.error("Erro fatal:", error.message);
+        await page.screenshot({ path: 'erro-fatal.png', fullPage: true });
         process.exit(1);
     } finally {
         await browser.close();
