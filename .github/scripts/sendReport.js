@@ -29,8 +29,20 @@ async function run() {
 
     try {
         console.log('Acessando Painel...');
-        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle0', timeout: 90000 });
-        await page.waitForSelector('#gerencia', { timeout: 15000 });
+        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+
+        console.log(`URL atual após carregamento: ${page.url()}`);
+
+        try {
+            await page.waitForSelector('#gerencia', { timeout: 60000 });
+        } catch (selectorError) {
+            console.error('ERRO CRÍTICO: O seletor #gerencia não apareceu.');
+            console.log('Tirando print da tela de erro...');
+            
+            await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
+
+            throw selectorError;
+        }
 
         let htmlEmailBody = `
             <div style="font-family: Arial, sans-serif; color: #333;">

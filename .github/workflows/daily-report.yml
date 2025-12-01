@@ -42,3 +42,10 @@ jobs:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
           POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
+
+      - name: 6. Upload do Print de Erro (Debug)
+        if: failure() # Só roda se o script falhar
+        uses: actions/upload-artifact@v4
+        with:
+          name: erro-screenshot
+          path: frontend/error-screenshot.png
