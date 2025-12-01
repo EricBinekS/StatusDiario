@@ -14,20 +14,30 @@ const GERENCIAS_ALVO = [
 
 async function selectReactOption(page, labelId, optionText) {
     console.log(`\n--- Tentando selecionar "${optionText}" em "${labelId}" ---`);
-
+    
     const buttonSelector = `button[id="${labelId}"]`;
-    console.log(`Aguardando botão: ${buttonSelector}`);
     await page.waitForSelector(buttonSelector, { visible: true, timeout: 10000 });
     await page.click(buttonSelector);
+    
     console.log('Aguardando dropdown abrir...');
     await page.waitForSelector('.multiselect-dropdown', { visible: true, timeout: 5000 });
+
     const todosCheckbox = await page.$('.multiselect-dropdown .header-all input[type="checkbox"]');
     const isTodosChecked = await (await todosCheckbox.getProperty('checked')).jsonValue();
     
     if (isTodosChecked) {
-        console.log('Desmarcando "Todos"...');
-        await page.click('.multiselect-dropdown .header-all label'); 
-        await new Promise(r => setTimeout(r, 500));
+        console.log('Limpando seleção: Desmarcando "Todos"...');
+        await page.click('.multiselect-dropdown .header-all label');
+        await new Promise(r => setTimeout(r, 500)); // Espera o React atualizar
+    } else {
+        const checkedOptions = await page.$$('.multiselect-dropdown .option-list input[type="checkbox"]:checked');
+        if (checkedOptions.length > 0) {
+            console.log(`Limpando seleção: Desmarcando ${checkedOptions.length} itens anteriores...`);
+            for (const el of checkedOptions) {
+                await el.click();
+                await new Promise(r => setTimeout(r, 100)); 
+            }
+        }
     }
 
     console.log(`Procurando opção: ${optionText}`);
@@ -46,7 +56,7 @@ async function selectReactOption(page, labelId, optionText) {
     }
 
     await page.click(buttonSelector);
-    await new Promise(r => setTimeout(r, 1000))
+    await new Promise(r => setTimeout(r, 1500)); 
     console.log('Filtro aplicado com sucesso.');
 }
 
@@ -105,11 +115,8 @@ async function run() {
                 `;
             } catch (e) {
                 console.error(`Erro em ${gerencia}:`, e.message);
-                
                 await page.screenshot({ path: `erro-${gerencia.replace(/\s+/g, '_')}.png` });
-                
                 htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia} (Ver logs)</p>`;
-                
                 try { await page.click('body'); } catch(ex) {}
             }
         }
