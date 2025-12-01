@@ -35,7 +35,9 @@ jobs:
 
       - name: 5. Rodar o script
         working-directory: frontend
-        run: node ../.github/scripts/sendReport.js
+        run: |
+          export NODE_PATH=$(pwd)/node_modules
+          node ../.github/scripts/sendReport.js
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
