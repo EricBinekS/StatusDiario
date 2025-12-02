@@ -1,21 +1,30 @@
 import { useState, useEffect } from "react";
 import { getTodaysDateStringForApi } from "../utils/dateUtils";
 
-// URL da API (Ajuste se necessário para o seu ambiente)
+// CUIDADO COM ALTERAÇÕES NESSE CÓDIGO PARA MANTER A ATUALIZAÇÃO INVISIVEL, EXECUTIVOS NÃO GOSTAM DA TELA PISCANTE!!!
+
+// URL da API
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const useFetchData = () => {
   const [rawData, setRawData] = useState([]);
   const [updatedRows, setUpdatedRows] = useState(new Set());
-  const [loading, setLoading] = useState(true);
+  // Começa como true para mostrar o loading na primeira carga da página
+  const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
   const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    // Variável para evitar atualização de estado se o componente desmontar
+    let isMounted = true;
+
+    const fetchData = async (isBackgroundUpdate = false) => {
       try {
-        setLoading(true);
-        // Busca dados do dia atual
+        // Só ativamos o loading visual se NÃO for uma atualização de fundo
+        if (!isBackgroundUpdate) {
+          setLoading(true);
+        }
+
         const dateStr = getTodaysDateStringForApi();
         const response = await fetch(`${API_URL}/api/atividades?data=${dateStr}`);
         
@@ -24,42 +33,47 @@ export const useFetchData = () => {
         }
 
         const jsonResponse = await response.json();
-
-        // CORREÇÃO AQUI: Acessamos jsonResponse.data, pois a API retorna { data: [...], last_updated: ... }
         const dataList = jsonResponse.data || []; 
         
-        // CORREÇÃO CRÍTICA DE DUPLICIDADE (UID)
+        // Geração de ID único
         const dataWithUniqueIds = Array.isArray(dataList) 
           ? dataList.map((row, index) => ({
               ...row,
-              // Se houver colisão de hash, o index garante a unicidade
               frontend_uid: `${row.row_hash || 'unknown'}-${index}`
             }))
           : [];
 
-        setRawData(dataWithUniqueIds);
-        
-        // Atualiza o timestamp com o que veio da API ou usa o momento atual
-        const apiTimestamp = jsonResponse.last_updated ? new Date(jsonResponse.last_updated) : new Date();
-        setLastUpdatedTimestamp(apiTimestamp);
-        
-        setError(null);
+        if (isMounted) {
+          setRawData(dataWithUniqueIds);
+          
+          const apiTimestamp = jsonResponse.last_updated ? new Date(jsonResponse.last_updated) : new Date();
+          setLastUpdatedTimestamp(apiTimestamp);
+          setError(null);
+        }
         
       } catch (err) {
         console.error("Erro ao buscar dados:", err);
-        setError(err.message);
+        if (isMounted) setError(err.message);
       } finally {
-        setLoading(false);
+        // Sempre desliga o loading, independente se foi background ou não
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    // Busca inicial
-    fetchData();
+    // 1. Busca inicial (Mostra Loading)
+    fetchData(false);
 
-    // Polling a cada 30 segundos
-    const intervalId = setInterval(fetchData, 30000);
+    // 2. Polling a cada 30 segundos (NÃO mostra Loading, atualização silenciosa)
+    const intervalId = setInterval(() => {
+        fetchData(true); 
+    }, 30000);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   return { rawData, updatedRows, loading, lastUpdatedTimestamp, error };
