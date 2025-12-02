@@ -22,27 +22,38 @@ async function selectReactOption(page, labelId, optionText) {
     console.log('Aguardando dropdown abrir...');
     await page.waitForSelector('.multiselect-dropdown', { visible: true, timeout: 5000 });
 
+    // --- DEBUG: Listar o que o robô está vendo dentro do menu ---
+    const availableOptions = await page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll('.multiselect-dropdown .option-list span'));
+        return items.map(i => i.innerText);
+    });
+    console.log(`Opções encontradas no menu: [${availableOptions.join(', ')}]`);
+    // -----------------------------------------------------------
+
+    // Limpeza: Desmarcar anteriores
     const todosCheckbox = await page.$('.multiselect-dropdown .header-all input[type="checkbox"]');
     const isTodosChecked = await (await todosCheckbox.getProperty('checked')).jsonValue();
     
     if (isTodosChecked) {
         console.log('Limpando seleção: Desmarcando "Todos"...');
         await page.click('.multiselect-dropdown .header-all label');
-        await new Promise(r => setTimeout(r, 500)); // Espera o React atualizar
+        await new Promise(r => setTimeout(r, 500));
     } else {
         const checkedOptions = await page.$$('.multiselect-dropdown .option-list input[type="checkbox"]:checked');
         if (checkedOptions.length > 0) {
             console.log(`Limpando seleção: Desmarcando ${checkedOptions.length} itens anteriores...`);
             for (const el of checkedOptions) {
                 await el.click();
-                await new Promise(r => setTimeout(r, 100)); 
+                await new Promise(r => setTimeout(r, 100));
             }
         }
     }
 
-    console.log(`Procurando opção: ${optionText}`);
+    // Seleção
+    console.log(`Procurando opção exata: "${optionText}"`);
     const optionFound = await page.evaluate((text) => {
         const spans = Array.from(document.querySelectorAll('.multiselect-dropdown .option-list span'));
+        // Usa includes para ser mais flexível com espaços extras, mas ainda preciso
         const target = spans.find(s => s.innerText.trim() === text);
         if (target) {
             target.click();
@@ -52,12 +63,15 @@ async function selectReactOption(page, labelId, optionText) {
     }, optionText);
 
     if (!optionFound) {
-        throw new Error(`Opção "${optionText}" não encontrada no dropdown.`);
+        // Fecha o dropdown para não atrapalhar o print de erro
+        await page.click(buttonSelector); 
+        throw new Error(`Opção "${optionText}" não existe na lista carregada.`);
     }
 
+    // Fechar dropdown
     await page.click(buttonSelector);
-    await new Promise(r => setTimeout(r, 1500)); 
-    console.log('Filtro aplicado com sucesso.');
+    await new Promise(r => setTimeout(r, 1500)); // Espera tabela atualizar
+    console.log('Filtro aplicado.');
 }
 
 async function run() {
@@ -77,15 +91,28 @@ async function run() {
 
     try {
         console.log('Acessando Painel...');
-        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+        // Aumentei o timeout de carga inicial para 2 minutos (rede lenta)
+        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle2', timeout: 120000 });
 
+        // 1. VERIFICAR SE DEU ERRO NA TELA (Baseado no seu App.jsx)
+        const hasError = await page.evaluate(() => {
+            return document.body.innerText.includes('Erro ao carregar o painel');
+        });
+
+        if (hasError) {
+            throw new Error("A página exibiu 'Erro ao carregar o painel'. A API do backend falhou.");
+        }
+
+        // 2. ESPERAR CARREGAMENTO COM MAIS PACIÊNCIA (60s)
+        console.log('Aguardando fim do loading...');
         try {
             await page.waitForFunction(
                 () => !document.body.innerText.includes('Carregando dados...'),
-                { timeout: 30000 }
+                { timeout: 60000 }
             );
+            console.log('Loading finalizado.');
         } catch (e) {
-            console.log("Aviso: Loading demorou a sair ou não apareceu.");
+            console.warn("Aviso: Timeout aguardando loading sumir. Tentando continuar mesmo assim...");
         }
 
         let htmlEmailBody = `
@@ -115,8 +142,13 @@ async function run() {
                 `;
             } catch (e) {
                 console.error(`Erro em ${gerencia}:`, e.message);
+                
+                // Tira print para ver o estado do menu
                 await page.screenshot({ path: `erro-${gerencia.replace(/\s+/g, '_')}.png` });
-                htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia} (Ver logs)</p>`;
+                
+                htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia}. (Verificar se dados carregaram)</p>`;
+                
+                // Tenta fechar menus abertos
                 try { await page.click('body'); } catch(ex) {}
             }
         }
