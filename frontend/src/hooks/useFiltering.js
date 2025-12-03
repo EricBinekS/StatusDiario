@@ -10,37 +10,37 @@ export const useFiltering = (rawData, now) => {
     gerencia: [],
     trecho: [],
     sub: [],
-    ativo: "",
+    ativo: [], 
     atividade: [],
     tipo: [],
   });
 
-  // CORREÇÃO: Uso de useCallback e Functional State Update para garantir referência estável
   const handleFilterChange = useCallback((filterName, value) => {
     setFilters((prevFilters) => {
       const newFilters = { ...prevFilters, [filterName]: value };
       
-      // Lógica de reset em cascata
       if (filterName === "gerencia") {
         newFilters.trecho = [];
         newFilters.sub = [];
+        newFilters.ativo = [];
         newFilters.atividade = [];
         newFilters.tipo = [];
       }
       if (filterName === "trecho") {
         newFilters.sub = [];
+        newFilters.ativo = [];
         newFilters.atividade = [];
         newFilters.tipo = [];
       }
       if (filterName === "sub") {
+        newFilters.ativo = [];
         newFilters.atividade = [];
         newFilters.tipo = [];
       }
       return newFilters;
     });
-  }, []); // Dependências vazias garantem que a função nunca mude de referência
+  }, []);
 
-  // 1. Array filtrado "instável"
   const unstableFilteredData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
@@ -48,13 +48,7 @@ export const useFiltering = (rawData, now) => {
       if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
         return false;
 
-      if (
-        filters.ativo &&
-        (!row.ativo ||
-          !String(row.ativo)
-            .toLowerCase()
-            .includes(filters.ativo.toLowerCase()))
-      )
+      if (filters.ativo.length > 0 && !filters.ativo.includes(String(row.ativo)))
         return false;
 
       if (filters.gerencia.length > 0 && !filters.gerencia.includes(String(row.gerência_da_via)))
@@ -74,7 +68,6 @@ export const useFiltering = (rawData, now) => {
     return filterableData;
   }, [rawData, filters]);
 
-  // 2. APLICAÇÃO DA CORREÇÃO: Estabiliza a referência
   const filteredData = useStableArray(unstableFilteredData);
 
   const gerenciaOptions = useMemo(
@@ -97,6 +90,17 @@ export const useFiltering = (rawData, now) => {
       d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
     return getUniqueOptions(d, "sub");
   }, [rawData, filters.gerencia, filters.trecho]);
+
+  const ativoOptions = useMemo(() => {
+    let d = rawData;
+    if (filters.gerencia.length > 0)
+      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
+    if (filters.trecho.length > 0)
+      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
+    if (filters.sub.length > 0) 
+      d = d.filter((r) => filters.sub.includes(String(r.sub)));
+    return getUniqueOptions(d, "ativo");
+  }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
 
   const atividadeOptions = useMemo(() => {
     let d = rawData;
@@ -123,27 +127,15 @@ export const useFiltering = (rawData, now) => {
   const isAnyFilterApplied = useMemo(() => {
     if (!filters) return false;
     return Object.entries(filters).some(([key, v]) => {
-      if (key === 'data') {
-        return v !== getTodaysDateStringForReact();
-      }
-      if (key === 'ativo') {
-        return String(v).trim() !== "";
-      }
+      if (key === 'data') return v !== getTodaysDateStringForReact();
+      // Verificação para Arrays (agora inclui 'ativo')
       return Array.isArray(v) && v.length > 0;
     });
   }, [filters]);
 
-  const globalAdherence = useMemo(() => {
-    return calculateAdherence(rawData, now);
-  }, [rawData, now]);
-
-  const filteredAdherence = useMemo(() => {
-    return calculateAdherence(filteredData, now); 
-  }, [filteredData, now]); 
-
-  const displayedAdherence = useMemo(() => {
-    return isAnyFilterApplied ? filteredAdherence : globalAdherence;
-  }, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
+  const globalAdherence = useMemo(() => calculateAdherence(rawData, now), [rawData, now]);
+  const filteredAdherence = useMemo(() => calculateAdherence(filteredData, now), [filteredData, now]); 
+  const displayedAdherence = useMemo(() => isAnyFilterApplied ? filteredAdherence : globalAdherence, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
 
   return {
     filters,
@@ -152,6 +144,7 @@ export const useFiltering = (rawData, now) => {
     gerenciaOptions,
     trechoOptions,
     subOptions,
+    ativoOptions, 
     atividadeOptions,
     tipoOptions,
     isAnyFilterApplied,

@@ -28,7 +28,6 @@ export const FiltersSection = ({ filters, handleFilterChange, options, adherence
           onChange={(v) => handleFilterChange("trecho", v)}
         />
 
-        {/* CORREÇÃO: "Sub" agora tem tamanho controlado para não sobrar espaço */}
         <MultiSelectFilterPlaceholder
           label="Sub"
           options={options.subOptions}
@@ -37,15 +36,12 @@ export const FiltersSection = ({ filters, handleFilterChange, options, adherence
           containerStyle={{ flexGrow: 0, flexBasis: '90px', minWidth: '80px' }}
         />
 
-        <div className="filter-item">
-          <label htmlFor="ativo">Ativo:</label>
-          <input
-            type="text"
-            id="ativo"
-            value={filters.ativo}
-            onChange={(e) => handleFilterChange("ativo", e.target.value)}
-          />
-        </div>
+        <MultiSelectFilterPlaceholder
+          label="Ativo"
+          options={options.ativoOptions}
+          selectedValues={filters.ativo}
+          onChange={(v) => handleFilterChange("ativo", v)}
+        />
 
         <MultiSelectFilterPlaceholder
           label="Atividade"

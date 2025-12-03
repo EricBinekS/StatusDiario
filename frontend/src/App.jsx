@@ -55,6 +55,7 @@ function App() {
     filteredData,
     gerenciaOptions,
     trechoOptions,
+    ativoOptions,
     subOptions,
     atividadeOptions,
     tipoOptions,
@@ -74,10 +75,11 @@ function App() {
   const optionsProps = useMemo(() => ({
     gerenciaOptions,
     trechoOptions,
+    ativoOptions,
     subOptions,
     atividadeOptions,
     tipoOptions,
-  }), [gerenciaOptions, trechoOptions, subOptions, atividadeOptions, tipoOptions]);
+  }), [gerenciaOptions, trechoOptions, ativoOptions, subOptions, atividadeOptions, tipoOptions]);
 
 
   // A. TELA DE MANUTENÇÃO
