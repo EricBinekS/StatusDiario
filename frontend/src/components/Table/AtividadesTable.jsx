@@ -1,6 +1,6 @@
 import React from 'react';
 
-const AtividadesTable = ({ data }) => {
+export const AtividadesTable = ({ data }) => {
   const styles = {
     tableContainer: {
       overflowX: 'auto',
@@ -12,9 +12,9 @@ const AtividadesTable = ({ data }) => {
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-      tableLayout: 'fixed', // Garante que as larguras das colunas sejam respeitadas
+      tableLayout: 'fixed',
       backgroundColor: 'white',
-      fontSize: '0.875rem', // Tamanho base (14px)
+      fontSize: '0.875rem',
     },
     th: {
       padding: '12px 16px',
@@ -33,26 +33,24 @@ const AtividadesTable = ({ data }) => {
       color: '#1f2937',
       verticalAlign: 'middle',
     },
-    // Definições de largura das colunas
     colAtivo: {
       width: '110px',
       fontWeight: '600',
       color: '#2563eb',
     },
     colAtividade: {
-      width: 'auto', // Ocupa o espaço restante
-      // Aqui aplicamos a redução para TODAS as linhas dessa coluna
-      fontSize: '0.75rem', // 12px (menor que o padrão 14px)
-      lineHeight: '1.4',   // Espaçamento confortável para leitura
+      width: 'auto',
+      fontSize: '0.75rem',
+      lineHeight: '1.4',
       whiteSpace: 'normal',
-      wordBreak: 'break-word', // Quebra palavras longas se necessário
+      wordBreak: 'break-word',
     },
     colStatus: {
       width: '110px',
     },
     colData: {
       width: '140px',
-      fontSize: '0.75rem', // Datas também ficam melhores menores
+      fontSize: '0.75rem',
     }
   };
 
@@ -79,27 +77,24 @@ const AtividadesTable = ({ data }) => {
         <tbody>
           {data.map((row, index) => (
             <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#fff' : '#f9fafb' }}>
-              {/* Coluna Ativo */}
               <td style={{ ...styles.td, ...styles.colAtivo }}>
                 {row.ativo || row.equipamento || '-'}
               </td>
               
-              {/* Coluna Atividade (Uniformemente menor para todas) */}
               <td 
                 style={{ ...styles.td, ...styles.colAtividade }} 
-                title={row.atividade || row.descricao} // Tooltip nativo para ler texto completo se cortar
+                title={row.atividade || row.descricao}
               >
                 {row.atividade || row.descricao || '-'}
               </td>
 
-              {/* Coluna Status */}
               <td style={styles.td}>
                 <span
                   style={{
                     display: 'inline-block',
                     padding: '2px 8px',
                     borderRadius: '9999px',
-                    fontSize: '0.70rem', // Status um pouco menor
+                    fontSize: '0.70rem',
                     fontWeight: '600',
                     backgroundColor: row.status === 'Concluído' ? '#d1fae5' : '#fee2e2',
                     color: row.status === 'Concluído' ? '#065f46' : '#991b1b',
@@ -110,7 +105,6 @@ const AtividadesTable = ({ data }) => {
                 </span>
               </td>
 
-              {/* Colunas de Data */}
               <td style={{ ...styles.td, ...styles.colData }}>
                 {row.data_inicio ? new Date(row.data_inicio).toLocaleString() : '-'}
               </td>
@@ -124,5 +118,3 @@ const AtividadesTable = ({ data }) => {
     </div>
   );
 };
-
-export default AtividadesTable;
