@@ -219,7 +219,7 @@ header {
 }
 
 /* ========================================================================= */
-/* 4. MULTI-SELECT CUSTOM (NOVO) */
+/* 4. MULTI-SELECT CUSTOM */
 /* ========================================================================= */
 
 .filter-item-trigger {
@@ -314,7 +314,7 @@ header {
 
 
 /* ========================================================================= */
-/* 5. ESTRUTURA E ESTILOS DA TABELA (DESKTOP) */
+/* 5. ESTRUTURA E ESTILOS DA TABELA */
 /* ========================================================================= */
 
 .tabela-wrapper {
@@ -405,28 +405,6 @@ th.col-detalhamento { width: 35%; }
   background-color: #e0e0e0;
 }
 
-/* ============================================================ */
-/* CORREÇÃO DE QUEBRA DE LINHA (IDENTIFICADOR E DETALHAMENTO)   */
-/* ============================================================ */
-
-/* 1. Detalhamento: Permite quebra de linha normal */
-.grid-table td.cell-detalhamento,
-.grid-table td[data-label="Detalhamento"] {
-  white-space: normal !important;
-  text-align: left;
-  hyphens: auto;
-  font-size: 9px;
-  word-break: break-word;
-}
-
-/* 2. Identificador: Permite quebra de linha para Ativo e Atividade */
-.grid-table td[data-label="Identificador"] .cell-prog-real span {
-  white-space: normal !important; /* Força a quebra de linha */
-  word-break: break-word;        /* Quebra palavras longas */
-  text-align: center;            /* Centraliza o texto quebrado (opcional) */
-  line-height: 1.3;
-}
-
 
 /* ========================================================================= */
 /* 6. DETALHES VISUAIS E ANIMAÇÕES */
@@ -474,7 +452,6 @@ th.col-detalhamento { width: 35%; }
   font-weight: normal;
 }
 
-/* PADRÃO GERAL: Não quebrar texto (Datas, Horas, etc) */
 .cell-prog-real span {
   white-space: nowrap;
   flex-shrink: 0;
@@ -524,6 +501,29 @@ th.col-detalhamento { width: 35%; }
   margin-top: 2px;
 }
 
+/* ========================================================================= */
+/* CORREÇÃO CRÍTICA: QUEBRA DE LINHA E EMPILHAMENTO NO IDENTIFICADOR */
+/* ========================================================================= */
+
+/* 1. Força empilhar vertical (column) SÓ no Identificador */
+.grid-table td[data-label="Identificador"] .cell-prog-real {
+    flex-direction: column !important; /* Isso garante Ativo em cima e Atividade embaixo */
+    gap: 2px;
+}
+
+/* 2. Remove o divisor "|" SÓ no Identificador, já que agora é um em cima do outro */
+.grid-table td[data-label="Identificador"] .cell-prog-real span:first-of-type::after {
+    content: none !important; 
+}
+
+/* 3. Força quebra de linha SÓ no texto do Identificador e Detalhamento */
+.grid-table td[data-label="Identificador"] .cell-prog-real span,
+.grid-table td.cell-detalhamento span,
+.grid-table td.cell-detalhamento {
+    white-space: normal !important; /* Obriga a quebrar linha se não couber */
+    word-break: break-word !important; /* Quebra palavras gigantes */
+    text-align: center;
+}
 
 /* ========================================================================= */
 /* 7. MEDIA QUERIES (RESPONSIVIDADE) */

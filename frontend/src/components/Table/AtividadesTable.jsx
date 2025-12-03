@@ -123,7 +123,8 @@ export const AtividadesTable = ({ data, now, updatedRows, requestSort, getSortDi
                       <strong>{row.ativo || "N/A"}</strong>
                     </span>
                     <span>
-                      <strong>{row.atividade || "N/A"}</strong>
+                      {/* Removido o strong para tirar o negrito */}
+                      {row.atividade || "N/A"}
                     </span>
                   </div>
                 </td>
