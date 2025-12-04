@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { FilterPortal } from "./FilterPortal"; 
 
-export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, onChange }) => {
+// Adicionado prop containerStyle para customização externa
+export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, onChange, containerStyle = {} }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dropdownPosition, setDropdownPosition] = useState(null);
   
-  const ref = useRef(null);
-  const triggerRef = useRef(null);
-  const dropdownRef = useRef(null);
+  const ref = useRef(null); 
+  const triggerRef = useRef(null); 
+  const dropdownRef = useRef(null); 
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
@@ -17,13 +18,16 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
         const dropdownHeight = 250; 
         const spaceBelow = viewportHeight - triggerRect.bottom;
         
+        // CORREÇÃO: Usar minWidth e max-content para permitir expansão
         let position = {
-            width: triggerRect.width,
+            minWidth: triggerRect.width,  // Garante que não fique menor que o botão
+            width: 'max-content',         // Permite crescer se o texto for longo (Resolve o caso do "Tipo")
+            maxWidth: '90vw',             // Segurança para não estourar a tela
             left: triggerRect.left,
         };
         
         if (spaceBelow < dropdownHeight && triggerRect.top > dropdownHeight) {
-            position.bottom = viewportHeight - triggerRect.top;
+            position.bottom = viewportHeight - triggerRect.top; 
             position.top = 'auto';
         } else {
             position.top = triggerRect.bottom;
@@ -40,18 +44,14 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
         if (!isOpen) return;
         const clickedOnTriggerArea = ref.current && ref.current.contains(event.target);
         const clickedInsideDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+
         if (!clickedOnTriggerArea && !clickedInsideDropdown) {
             setIsOpen(false);
         }
     };
     
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-
-    return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-        document.removeEventListener("touchstart", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   const filteredOptions = useMemo(() => {
@@ -133,19 +133,16 @@ export const MultiSelectFilterPlaceholder = ({ label, options, selectedValues, o
     </div>
   );
 
+  // Aplica containerStyle aqui
   return (
-    <div className="filter-item" ref={ref}>
-      <label>{label}:</label>
+    <div className="filter-item" ref={ref} style={containerStyle}>
+      <label htmlFor={label}>{label}:</label>
       <div className="multiselect-container" style={{ position: 'relative' }}>
         <button
           id={label}
           className="filter-item-trigger"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(!isOpen);
-          }}
+          onClick={() => setIsOpen(!isOpen)}
           ref={triggerRef}
-          type="button"
         >
           <span>{displayLabel}</span>
         </button>
