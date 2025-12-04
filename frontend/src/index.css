@@ -564,25 +564,70 @@ th.col-detalhamento { width: 35%; }
     padding: 8px;
   }
 
-  /* Header */
+  /* --- HEADER CORRIGIDO --- */
   header {
     margin-bottom: 10px;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: column !important;
+    gap: 12px;
     align-items: center;
+    position: relative;
+    padding: 10px 10px;
   }
-  .title-container, .update-info {
-    align-items: center;
-  }
+
+  /* Força a Logo para o TOPO usando Order */
   .header-right-group {
-    order: -1; 
-    justify-content: space-between;
+    order: -1 !important; /* Joga para o topo */
     width: 100%;
-    padding: 0 8px;
-    box-sizing: border-box;
+    display: flex;
+    justify-content: center !important; /* Centraliza a logo */
+    padding: 0;
+    margin-bottom: 5px;
   }
   
-  /* Multi-Select Dropdown Mobile */
+  .logo {
+    height: 50px; /* Tamanho fixo razoável para mobile */
+    margin: 0 !important;
+  }
+
+  .title-container, .update-info {
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* --- FILTROS E ADERÊNCIA CORRIGIDOS --- */
+  .filters-and-adherence-wrapper {
+    display: flex !important;
+    flex-direction: column !important; /* Um abaixo do outro */
+    width: 100% !important;
+    gap: 20px !important;
+    align-items: stretch !important;
+    margin-top: 5px;
+  }
+  
+  /* Filtros empilhados */
+  .filters {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 12px !important;
+    padding-bottom: 0;
+    overflow-x: visible;
+  }
+
+  .filter-item {
+    width: 100% !important;
+    min-width: unset;
+    flex-basis: auto;
+  }
+  
+  .filters-and-adherence-wrapper .adherence-container {
+    width: 100% !important;
+    justify-content: center;
+    margin-top: 10px;
+    box-sizing: border-box;
+  }
+
+  /* --- MULTI-SELECT --- */
   .multiselect-dropdown {
     position: fixed;
     top: auto !important; 
@@ -593,23 +638,10 @@ th.col-detalhamento { width: 35%; }
     max-height: 70vh;
     border-radius: 8px 8px 0 0;
     z-index: 9999; 
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
   }
 
-  /* Filtros */
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-    flex-wrap: nowrap; 
-    overflow-x: visible;
-  }
-  .filter-item {
-    min-width: unset;
-    flex-basis: auto;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Tabela em "Cards" (Lógica Mobile) */
+  /* --- CARDS (TABELA MOBILE) --- */
   .tabela-wrapper {
     overflow-x: hidden; 
   }
@@ -697,7 +729,6 @@ th.col-detalhamento { width: 35%; }
   .grid-table td[data-label="Identificador"] .cell-prog-real span:first-of-type::after {
       content: none;
   }
-
 
   /* Detalhamento */
   .grid-table td[data-label="Detalhamento"] {
