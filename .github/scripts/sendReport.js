@@ -5,74 +5,9 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL;
 const POWER_AUTOMATE_URL = process.env.POWER_AUTOMATE_URL;
 const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL;
 
-const GERENCIAS_ALVO = [
-    "SP SUL", 
-    "SP NORTE", 
-    "FERRONORTE", 
-    "MALHA CENTRAL"
-]; 
-
-async function selectReactOption(page, labelId, optionText) {
-    console.log(`\n--- Tentando selecionar "${optionText}" em "${labelId}" ---`);
-    
-    const buttonSelector = `button[id="${labelId}"]`;
-    await page.waitForSelector(buttonSelector, { visible: true, timeout: 10000 });
-    await page.click(buttonSelector);
-    
-    console.log('Aguardando dropdown abrir...');
-    await page.waitForSelector('.multiselect-dropdown', { visible: true, timeout: 5000 });
-
-    // --- DEBUG: Listar o que o robô está vendo dentro do menu ---
-    const availableOptions = await page.evaluate(() => {
-        const items = Array.from(document.querySelectorAll('.multiselect-dropdown .option-list span'));
-        return items.map(i => i.innerText);
-    });
-    console.log(`Opções encontradas no menu: [${availableOptions.join(', ')}]`);
-    // -----------------------------------------------------------
-
-    // Limpeza: Desmarcar anteriores
-    const todosCheckbox = await page.$('.multiselect-dropdown .header-all input[type="checkbox"]');
-    const isTodosChecked = await (await todosCheckbox.getProperty('checked')).jsonValue();
-    
-    if (isTodosChecked) {
-        console.log('Limpando seleção: Desmarcando "Todos"...');
-        await page.click('.multiselect-dropdown .header-all label');
-        await new Promise(r => setTimeout(r, 500));
-    } else {
-        const checkedOptions = await page.$$('.multiselect-dropdown .option-list input[type="checkbox"]:checked');
-        if (checkedOptions.length > 0) {
-            console.log(`Limpando seleção: Desmarcando ${checkedOptions.length} itens anteriores...`);
-            for (const el of checkedOptions) {
-                await el.click();
-                await new Promise(r => setTimeout(r, 100));
-            }
-        }
-    }
-
-    // Seleção
-    console.log(`Procurando opção exata: "${optionText}"`);
-    const optionFound = await page.evaluate((text) => {
-        const spans = Array.from(document.querySelectorAll('.multiselect-dropdown .option-list span'));
-        // Usa includes para ser mais flexível com espaços extras, mas ainda preciso
-        const target = spans.find(s => s.innerText.trim() === text);
-        if (target) {
-            target.click();
-            return true;
-        }
-        return false;
-    }, optionText);
-
-    if (!optionFound) {
-        // Fecha o dropdown para não atrapalhar o print de erro
-        await page.click(buttonSelector); 
-        throw new Error(`Opção "${optionText}" não existe na lista carregada.`);
-    }
-
-    // Fechar dropdown
-    await page.click(buttonSelector);
-    await new Promise(r => setTimeout(r, 1500)); // Espera tabela atualizar
-    console.log('Filtro aplicado.');
-}
+const GERENCIAS_ALVO = ["SP SUL", "SP NORTE", "FERRONORTE", "MALHA CENTRAL"]; 
+const MAX_RETRIES = 3;
+const BASE_WAIT_TIME = 5000;
 
 async function run() {
     if (!DASHBOARD_URL || !POWER_AUTOMATE_URL || !RECIPIENT_EMAIL) {
@@ -89,81 +24,81 @@ async function run() {
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
+    let abortEmail = false;
+    let htmlEmailBody = `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+            <h2 style="border-bottom: 2px solid #005ca9; padding-bottom: 10px;">Relatório Diário de Intervalos</h2>
+            <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+            <p>Status consolidado por gerência:</p>
+        </div>
+    `;
+
     try {
         console.log('Acessando Painel...');
-        // Aumentei o timeout de carga inicial para 2 minutos (rede lenta)
-        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle2', timeout: 120000 });
-
-        // 1. VERIFICAR SE DEU ERRO NA TELA (Baseado no seu App.jsx)
-        const hasError = await page.evaluate(() => {
-            return document.body.innerText.includes('Erro ao carregar o painel');
-        });
-
-        if (hasError) {
-            throw new Error("A página exibiu 'Erro ao carregar o painel'. A API do backend falhou.");
-        }
-
-        // 2. ESPERAR CARREGAMENTO COM MAIS PACIÊNCIA (60s)
-        console.log('Aguardando fim do loading...');
-        try {
-            await page.waitForFunction(
-                () => !document.body.innerText.includes('Carregando dados...'),
-                { timeout: 60000 }
-            );
-            console.log('Loading finalizado.');
-        } catch (e) {
-            console.warn("Aviso: Timeout aguardando loading sumir. Tentando continuar mesmo assim...");
-        }
-
-        let htmlEmailBody = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h2 style="border-bottom: 2px solid #005ca9; padding-bottom: 10px;">Relatório Diário de Intervalos</h2>
-                <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-                <p>Status consolidado por gerência:</p>
-            </div>
-        `;
+        await page.goto(DASHBOARD_URL, { waitUntil: 'networkidle0', timeout: 120000 });
+        await page.waitForSelector('#gerencia', { timeout: 30000 });
 
         for (const gerencia of GERENCIAS_ALVO) {
-            try {
-                await selectReactOption(page, "Gerência", gerencia);
+            if (abortEmail) break;
 
-                await new Promise(r => setTimeout(r, 3000));
+            console.log(`>> Processando: ${gerencia}`);
+            let attempt = 1;
+            let success = false;
+            let screenshotBase64 = null;
 
-                const mainElement = await page.$('main');
-                if (!mainElement) throw new Error("Tag <main> não encontrada");
+            while (attempt <= MAX_RETRIES && !success) {
+                try {
+                    await page.select('#gerencia', gerencia);
+                    const waitTime = BASE_WAIT_TIME * attempt;
+                    console.log(`   Tentativa ${attempt}: Aguardando ${waitTime/1000}s...`);
+                    await new Promise(r => setTimeout(r, waitTime));
 
-                const screenshotBase64 = await mainElement.screenshot({ encoding: 'base64' });
+                    const mainElement = await page.$('main');
+                    if (!mainElement) throw new Error("Tag <main> não encontrada");
 
+                    screenshotBase64 = await mainElement.screenshot({ encoding: 'base64' });
+                    success = true;
+                } catch (e) {
+                    console.error(`   Erro na tentativa ${attempt}: ${e.message}`);
+                    attempt++;
+                }
+            }
+
+            if (success && screenshotBase64) {
                 htmlEmailBody += `
                     <div style="margin-top: 30px; margin-bottom: 40px; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
                         <h3 style="background-color: #f4f4f4; padding: 10px; margin-top: 0; border-left: 5px solid #005ca9;">${gerencia}</h3>
                         <img src="data:image/png;base64,${screenshotBase64}" style="width: 100%; display: block;" />
                     </div>
                 `;
-            } catch (e) {
-                console.error(`Erro em ${gerencia}:`, e.message);
+            } else {
+                console.error(`❌ FALHA CRÍTICA em ${gerencia}. Cancelando envio.`);
                 
-                // Tira print para ver o estado do menu
-                await page.screenshot({ path: `erro-${gerencia.replace(/\s+/g, '_')}.png` });
+                // SALVA O PRINT DO ERRO NO DISCO PARA O GITHUB ACTIONS PEGAR
+                await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
+                console.log('📸 Screenshot de erro salvo como error-screenshot.png');
                 
-                htmlEmailBody += `<p style="color:red">Erro ao capturar: ${gerencia}. (Verificar se dados carregaram)</p>`;
-                
-                // Tenta fechar menus abertos
-                try { await page.click('body'); } catch(ex) {}
+                abortEmail = true;
             }
         }
 
-        console.log('Enviando para Power Automate...');
-        await axios.post(POWER_AUTOMATE_URL, {
-            recipient: RECIPIENT_EMAIL,
-            subject: `Painel Intervalos - ${new Date().toLocaleDateString('pt-BR')}`,
-            htmlContent: htmlEmailBody
-        }, { maxBodyLength: Infinity, maxContentLength: Infinity });
+        if (!abortEmail) {
+            console.log('Enviando e-mail...');
+            await axios.post(POWER_AUTOMATE_URL, {
+                recipient: RECIPIENT_EMAIL,
+                subject: `Painel Intervalos - ${new Date().toLocaleDateString('pt-BR')}`,
+                htmlContent: htmlEmailBody
+            }, { maxBodyLength: Infinity, maxContentLength: Infinity });
+            console.log('Sucesso!');
+        } else {
+            console.error('⚠️ Processo abortado devido a falhas de captura.');
+            process.exit(1); // Força falha no Action para você ver o erro vermelho
+        }
 
-        console.log('Sucesso!');
     } catch (error) {
         console.error("Erro fatal:", error.message);
-        await page.screenshot({ path: 'erro-fatal.png', fullPage: true });
+        // Tenta salvar print mesmo no catch global
+        try { await page.screenshot({ path: 'error-screenshot.png' }); } catch {}
         process.exit(1);
     } finally {
         await browser.close();
