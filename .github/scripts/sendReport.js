@@ -9,30 +9,38 @@ const GERENCIAS_ALVO = ["SP SUL", "SP NORTE", "FERRONORTE", "MALHA CENTRAL"];
 const MAX_RETRIES = 3;
 const BASE_WAIT_TIME = 5000; // 5 segundos
 
-// --- FUNÇÃO AUXILIAR PARA INTERAGIR COM O DROPDOWN REACT ---
+// --- FUNÇÃO AUXILIAR PARA INTERAGIR COM O DROPDOWN REACT (SINTAXE NOVA) ---
 async function toggleReactOption(page, labelText, optionText) {
-    // 1. Encontra o botão que abre o dropdown baseado no Label (ex: "Gerência")
-    const dropdownButtonXpath = `//label[contains(text(), '${labelText}')]/following-sibling::div//button`;
-    await page.waitForXPath(dropdownButtonXpath, { timeout: 10000 });
-    const [button] = await page.$x(dropdownButtonXpath);
+    // 1. Encontra o botão que abre o dropdown baseado no Label
+    // Sintaxe nova: ::-p-xpath(...) permite XPath dentro de seletores padrão
+    const dropdownSelector = `::-p-xpath(//label[contains(text(), '${labelText}')]/following-sibling::div//button)`;
     
-    if (!button) throw new Error(`Botão do dropdown "${labelText}" não encontrado.`);
+    let button;
+    try {
+        button = await page.waitForSelector(dropdownSelector, { timeout: 10000 });
+    } catch (e) {
+        throw new Error(`Botão do dropdown "${labelText}" não encontrado.`);
+    }
+
+    if (!button) throw new Error(`Botão do dropdown "${labelText}" não encontrado (null).`);
     
     // Clica para abrir a lista
     await button.click();
     await new Promise(r => setTimeout(r, 500)); 
 
     // 2. Procura a opção na lista (ex: "SP SUL")
-    const optionXpath = `//*[contains(text(), '${optionText}')]`;
+    const optionSelector = `::-p-xpath(//*[contains(text(), '${optionText}')])`;
     try {
-        await page.waitForXPath(optionXpath, { timeout: 2000, visible: true });
+        // Espera a opção ficar visível
+        await page.waitForSelector(optionSelector, { timeout: 2000, visible: true });
     } catch (e) {
         // Se der erro, tenta fechar o dropdown antes de lançar a exceção
         await button.click(); 
         throw new Error(`Opção "${optionText}" não encontrada na lista.`);
     }
 
-    const [optionElement] = await page.$x(optionXpath);
+    // Seleciona o elemento para clicar
+    const optionElement = await page.$(optionSelector);
     if (optionElement) {
         await optionElement.click(); // Clica para SELECIONAR ou DESELECIONAR
     }
@@ -77,13 +85,13 @@ async function run() {
         const hasError = await page.evaluate(() => document.body.innerText.includes('Erro ao carregar o painel'));
         if (hasError) throw new Error("A página exibiu erro de API na carga inicial.");
 
-        // Aguarda o filtro aparecer visualmente
+        // Aguarda o filtro aparecer visualmente (Sintaxe atualizada)
         console.log('Aguardando filtros carregarem...');
-        await page.waitForXPath("//label[contains(text(), 'Gerência')]", { timeout: 30000 });
+        await page.waitForSelector("::-p-xpath(//label[contains(text(), 'Gerência')])", { timeout: 30000 });
 
         // --- LOOP PRINCIPAL POR GERÊNCIA ---
         for (const gerencia of GERENCIAS_ALVO) {
-            if (abortEmail) break; // Se já falhou antes, para tudo.
+            if (abortEmail) break;
 
             console.log(`>> Processando: ${gerencia}`);
             let attempt = 1;
@@ -97,7 +105,7 @@ async function run() {
                     // 1. SELECIONA A GERÊNCIA
                     await toggleReactOption(page, "Gerência", gerencia);
 
-                    // 2. ESPERA PROGRESSIVA (5s, 10s, 15s)
+                    // 2. ESPERA PROGRESSIVA
                     const waitTime = BASE_WAIT_TIME * attempt;
                     console.log(`   Aguardando ${waitTime/1000}s para renderização...`);
                     await new Promise(r => setTimeout(r, waitTime));
@@ -107,23 +115,22 @@ async function run() {
                     if (!mainElement) throw new Error("Tag <main> não encontrada");
                     screenshotBase64 = await mainElement.screenshot({ encoding: 'base64' });
                     
-                    // 4. LIMPEZA (CRUCIAL): DESELECIONA A GERÊNCIA PARA NÃO ACUMULAR
+                    // 4. LIMPEZA: DESELECIONA A GERÊNCIA
                     console.log(`   Removendo filtro ${gerencia}...`);
                     await toggleReactOption(page, "Gerência", gerencia);
                     
-                    success = true; // Sai do loop while
+                    success = true; 
                     
                 } catch (e) {
                     console.error(`   Erro na tentativa ${attempt}: ${e.message}`);
                     attempt++;
 
-                    // Se falhar, tenta dar reload na página para limpar qualquer estado "sujo"
-                    // antes da próxima tentativa (ou da próxima gerência)
                     if (attempt <= MAX_RETRIES) {
                         console.log("   Recarregando página para limpar estado...");
                         try {
                             await page.reload({ waitUntil: 'networkidle0' });
-                            await page.waitForXPath("//label[contains(text(), 'Gerência')]", { timeout: 30000 });
+                            // Espera o filtro voltar após o reload
+                            await page.waitForSelector("::-p-xpath(//label[contains(text(), 'Gerência')])", { timeout: 30000 });
                         } catch (reloadError) {
                             console.error("   Falha ao recarregar página:", reloadError.message);
                         }
@@ -140,13 +147,11 @@ async function run() {
                 `;
             } else {
                 console.error(`❌ FALHA CRÍTICA em ${gerencia}. Cancelando envio.`);
-                // Salva print do erro
                 try { await page.screenshot({ path: 'error-screenshot.png', fullPage: true }); } catch {}
                 abortEmail = true;
             }
         }
 
-        // --- ENVIO DO EMAIL ---
         if (!abortEmail) {
             console.log('Enviando e-mail...');
             await axios.post(POWER_AUTOMATE_URL, {
@@ -157,7 +162,7 @@ async function run() {
             console.log('Sucesso! Processo finalizado.');
         } else {
             console.error('⚠️ Processo abortado: E-mail não enviado devido a falhas na captura.');
-            process.exit(1); // Falha no GitHub Actions para avisar no painel
+            process.exit(1); 
         }
 
     } catch (error) {
