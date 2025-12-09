@@ -4,7 +4,7 @@ import datetime
 import json
 import pandas as pd
 from zoneinfo import ZoneInfo
-from ..db.database import get_db_engine
+from db.database import get_db_engine
 
 # Criação do Blueprint
 atividades_bp = Blueprint('atividades_bp', __name__)

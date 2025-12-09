@@ -1,6 +1,6 @@
 import pandas as pd
 from sqlalchemy import text
-from ..db.database import get_db_engine
+from db.database import get_db_engine
 
 def time_str_to_minutes(time_str):
     """Converte 'HH:MM' para minutos inteiros."""
