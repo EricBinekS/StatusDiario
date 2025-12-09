@@ -50,7 +50,8 @@ def get_overview_data(start_date=None, end_date=None):
     # 2. Definir se foi realizado (tem inicio real e não é 00:00)
     df['foi_realizado'] = df['inicio_real'].notna() & (df['inicio_real'] != '') & (df['inicio_real'] != '00:00')
 
-    # 3. Normalizar Nomes das Gerências (Para bater com os IDs do Front)
+    coluna_gerencia = 'gerência_da_via' if 'gerência_da_via' in df.columns else 'gerencia_da_via'
+
     def normalizar_gerencia(g):
         g = str(g).upper()
         if 'FERRONORTE' in g: return 'ferronorte', 'Ferronorte'
@@ -61,7 +62,7 @@ def get_overview_data(start_date=None, end_date=None):
         if 'MECANIZA' in g: return 'mecanizacao', 'Mecanização'
         return 'outros', g.title() if g != 'NAN' else 'Outros'
 
-    df[['gerencia_id', 'gerencia_label']] = df['gerencia_da_via'].apply(
+    df[['gerencia_id', 'gerencia_label']] = df[coluna_gerencia].apply(
         lambda x: pd.Series(normalizar_gerencia(x))
     )
 
