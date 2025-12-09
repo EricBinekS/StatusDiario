@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import FiltersSection from '../../components/Filters/FiltersSection';
-import AtividadesTable from '../../components/Table/AtividadesTable';
+import { FiltersSection } from '../../components/Filters/FiltersSection';
+import { AtividadesTable } from '../../components/Table/AtividadesTable';
 import { useOutletContext } from 'react-router-dom';
 import { useFiltering } from '../../hooks/useFiltering'; 
 import { useSorting } from '../../hooks/useSorting';
