@@ -4,16 +4,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 
 const AderenciaCard = ({ data, isOpen, onClick }) => {
   
-  // CORES DO SEU CSS ORIGINAL (index.css)
   const COLORS = {
-    green: '#28a745',  // --cor-status-verde
-    yellow: '#ffc107', // --cor-status-amarelo
-    red: '#dc3545',    // --cor-status-vermelho
-    gray: '#d9d9d9',   // --cor-cinza-claro
-    text: '#062e4e'    // --cor-texto-principal
+    green: '#28a745',
+    yellow: '#ffc107',
+    red: '#dc3545',
+    gray: '#d9d9d9',
+    text: '#062e4e'
   };
 
-  // Regra de cor: > 80% = Verde
   const getColor = (percentual) => {
     if (percentual > 80) return { text: 'text-[#28a745]', fill: COLORS.green, border: 'border-l-[#28a745]' };
     if (percentual >= 70) return { text: 'text-[#ffc107]', fill: COLORS.yellow, border: 'border-l-[#ffc107]' };
@@ -33,7 +31,6 @@ const AderenciaCard = ({ data, isOpen, onClick }) => {
           </h4>
         </div>
         
-        {/* KPIs */}
         <div className="grid grid-cols-4 gap-2 mb-4 text-center">
             <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
                 <span className="block text-[9px] text-gray-400 uppercase font-bold">Int. Prog</span>
@@ -53,20 +50,21 @@ const AderenciaCard = ({ data, isOpen, onClick }) => {
             </div>
         </div>
 
-        {/* Gráfico */}
-        <div className="h-32 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={typeData.chartData} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
-              <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
-              <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '4px', border: '1px solid #e9e9e9', fontSize: '12px'}} />
-              
-              <Bar dataKey="prog" name="Programado" fill={COLORS.gray} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="real" name="Realizado" fill={color.fill} radius={[2, 2, 0, 0]} barSize={12} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {/* CORREÇÃO AQUI: Renderização Condicional do Gráfico */}
+        {isOpen && (
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={typeData.chartData} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
+                <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
+                <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '4px', border: '1px solid #e9e9e9', fontSize: '12px'}} />
+                <Bar dataKey="prog" name="Programado" fill={COLORS.gray} radius={[2, 2, 0, 0]} barSize={12} />
+                <Bar dataKey="real" name="Realizado" fill={color.fill} radius={[2, 2, 0, 0]} barSize={12} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     );
   };
@@ -107,7 +105,6 @@ const AderenciaCard = ({ data, isOpen, onClick }) => {
           </div>
         </div>
 
-        {/* Área Expansível */}
         <div className={`grid transition-all duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
           <div className="overflow-hidden min-h-0">
             <div className="border-t border-gray-100 pt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
