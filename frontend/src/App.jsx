@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
-import "./index.css";
-
-// Importando Hooks
-import { useFetchData } from "./hooks/useFetchData";
-import { useTimer } from "./hooks/useTimer";
-import { useSorting } from "./hooks/useSorting";
-import { useFiltering } from "./hooks/useFiltering";
-
-// Importando Componentes
-import { AppHeader } from "./components/Header/AppHeader";
-import { AtividadesTable } from "./components/Table/AtividadesTable";
-import { FiltersSection } from "./components/Filters/FiltersSection";
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import DashboardPage from './pages/Dashboard/DashboardPage';
+import OverviewPage from './pages/Overview/OverviewPage';
+import './index.css';
 
 function App() {
   // =========================================================================
@@ -42,47 +35,7 @@ function App() {
     }
   }, []);
 
-  // 1. LÓGICA DE BUSCA DE DADOS E ESTADO BRUTO
-  const { rawData, updatedRows, loading, lastUpdatedTimestamp, error } = useFetchData();
-
-  // 2. LÓGICA DE TEMPO
-  const { now, nextUpdateIn } = useTimer(lastUpdatedTimestamp);
-
-  // 3. LÓGICA DE FILTRAGEM
-  const {
-    filters,
-    handleFilterChange,
-    filteredData,
-    gerenciaOptions,
-    trechoOptions,
-    ativoOptions,
-    subOptions,
-    atividadeOptions,
-    tipoOptions,
-    isAnyFilterApplied,
-    displayedAdherence,
-  } = useFiltering(rawData, now);
-
-  // 4. LÓGICA DE ORDENAÇÃO
-  const { sortedData, requestSort, getSortDirectionClass } = useSorting(filteredData);
-  
-  // Memoização para performance (Correção anterior mantida)
-  const adherenceProps = useMemo(() => ({
-    isAnyFilterApplied,
-    displayedAdherence,
-  }), [isAnyFilterApplied, displayedAdherence]);
-
-  const optionsProps = useMemo(() => ({
-    gerenciaOptions,
-    trechoOptions,
-    ativoOptions,
-    subOptions,
-    atividadeOptions,
-    tipoOptions,
-  }), [gerenciaOptions, trechoOptions, ativoOptions, subOptions, atividadeOptions, tipoOptions]);
-
-
-  // A. TELA DE MANUTENÇÃO
+  // A. TELA DE MANUTENÇÃO (Bloqueia tudo se ativo e não autorizado)
   if (MAINTENANCE_MODE && !isAuthorized) {
     return (
       <div style={{
@@ -103,45 +56,23 @@ function App() {
     );
   }
 
-  // B. TELA DE ERRO DE API
-  if (error) {
-    return (
-      <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>
-        <h2>Erro ao carregar o painel</h2>
-        <p>Não foi possível buscar os dados da API. Tente novamente mais tarde.</p>
-        <p>Detalhe: {error}</p>
-      </div>
-    );
-  }
-
-  // C. APLICATIVO NORMAL
+  // B. APLICATIVO NORMAL (Roteamento)
   return (
-    <>
-      <AppHeader
-        lastUpdatedTimestamp={lastUpdatedTimestamp}
-        nextUpdateIn={nextUpdateIn}
-        loading={loading}
-      />
-
-      <main>
-        <FiltersSection 
-          filters={filters}
-          handleFilterChange={handleFilterChange}
-          options={optionsProps}
-          adherence={adherenceProps}
-        />
-        
-        <AtividadesTable
-          data={sortedData}
-          now={now}
-          updatedRows={updatedRows}
-          requestSort={requestSort}
-          getSortDirectionClass={getSortDirectionClass}
-          loading={loading}
-          rawDataCount={rawData.length}
-        />
-      </main>
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          {/* Rota Padrão: Painel */}
+          <Route index element={<DashboardPage />} />
+          
+          {/* Nova Rota: Overview */}
+          <Route path="overview" element={<OverviewPage />} />
+          
+          {/* Redirecionamento 404 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
+
 export default App;

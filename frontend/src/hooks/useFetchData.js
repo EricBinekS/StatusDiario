@@ -8,8 +8,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const useFetchData = () => {
   const [rawData, setRawData] = useState([]);
+  const [overviewData, setOverviewData] = useState([]); // <--- NOVO ESTADO
   const [updatedRows, setUpdatedRows] = useState(new Set());
-  // Começa como true para mostrar o loading na primeira carga da página
+  
+  // Começa como true para mostrar o loading SOMENTE na primeira carga da página
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
   const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState(null);
@@ -20,22 +22,31 @@ export const useFetchData = () => {
 
     const fetchData = async (isBackgroundUpdate = false) => {
       try {
-        // Só ativamos o loading visual se NÃO for uma atualização de fundo
+        // LÓGICA CRÍTICA: Só ativamos o loading visual se NÃO for uma atualização de fundo
         if (!isBackgroundUpdate) {
           setLoading(true);
         }
 
         const dateStr = getTodaysDateStringForApi();
-        const response = await fetch(`${API_URL}/api/atividades?data=${dateStr}`);
+
+        // Faz as duas requisições em paralelo (mais rápido)
+        const [resAtividades, resOverview] = await Promise.all([
+            fetch(`${API_URL}/api/atividades?data=${dateStr}`),
+            fetch(`${API_URL}/api/overview?start_date=${dateStr}&end_date=${dateStr}`)
+        ]);
         
-        if (!response.ok) {
-          throw new Error(`Erro na API: ${response.status}`);
+        if (!resAtividades.ok) {
+          throw new Error(`Erro na API Atividades: ${resAtividades.status}`);
         }
 
-        const jsonResponse = await response.json();
-        const dataList = jsonResponse.data || []; 
+        // Processa Atividades (Painel)
+        const jsonAtividades = await resAtividades.json();
+        const dataList = jsonAtividades.data || []; 
         
-        // Geração de ID único
+        // Processa Overview (Se falhar, não quebra o painel, retorna array vazio)
+        const jsonOverview = resOverview.ok ? await resOverview.json() : [];
+
+        // Geração de ID único (Mantido do seu original)
         const dataWithUniqueIds = Array.isArray(dataList) 
           ? dataList.map((row, index) => ({
               ...row,
@@ -45,8 +56,9 @@ export const useFetchData = () => {
 
         if (isMounted) {
           setRawData(dataWithUniqueIds);
+          setOverviewData(jsonOverview); // <--- Atualiza o Overview silenciosamente
           
-          const apiTimestamp = jsonResponse.last_updated ? new Date(jsonResponse.last_updated) : new Date();
+          const apiTimestamp = jsonAtividades.last_updated ? new Date(jsonAtividades.last_updated) : new Date();
           setLastUpdatedTimestamp(apiTimestamp);
           setError(null);
         }
@@ -62,7 +74,7 @@ export const useFetchData = () => {
       }
     };
 
-    // 1. Busca inicial (Mostra Loading)
+    // 1. Busca inicial (Mostra Loading, isBackgroundUpdate = false)
     fetchData(false);
 
     // 2. Polling a cada 30 segundos (NÃO mostra Loading, atualização silenciosa)
@@ -76,5 +88,6 @@ export const useFetchData = () => {
     };
   }, []);
 
-  return { rawData, updatedRows, loading, lastUpdatedTimestamp, error };
+  // Retornamos overviewData agora
+  return { rawData, overviewData, updatedRows, loading, lastUpdatedTimestamp, error };
 };
