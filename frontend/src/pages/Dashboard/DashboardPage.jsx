@@ -2,14 +2,12 @@ import React, { useMemo } from 'react';
 import FiltersSection from '../../components/Filters/FiltersSection';
 import AtividadesTable from '../../components/Table/AtividadesTable';
 import { useOutletContext } from 'react-router-dom';
-import useFiltering from '../../hooks/useFiltering';
-import useSorting from '../../hooks/useSorting';
+import { useFiltering } from '../../hooks/useFiltering'; 
+import { useSorting } from '../../hooks/useSorting';
 
 const DashboardPage = () => {
-  // Recebe dados do Layout (não faz fetch aqui)
   const context = useOutletContext();
   
-  // Proteção: Garante que atividadesData existe (mesmo que vazio)
   const rawData = context?.atividadesData || [];
   const loading = context?.loading || false;
   const error = context?.error || null;
@@ -26,7 +24,6 @@ const DashboardPage = () => {
     requestSort
   } = useSorting(rawFilteredData);
 
-  // O useMemo garante que a tabela não renderize à toa
   const tableData = useMemo(() => sortedData, [sortedData]);
 
   if (loading && rawData.length === 0) {
