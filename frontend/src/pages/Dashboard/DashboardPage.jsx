@@ -1,146 +1,73 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo } from 'react';
+import FiltersSection from '../../components/Filters/FiltersSection';
+import AtividadesTable from '../../components/Table/AtividadesTable';
+import { useOutletContext } from 'react-router-dom';
+import useFiltering from '../../hooks/useFiltering';
+import useSorting from '../../hooks/useSorting';
 
-// Importando Hooks
-import { useFetchData } from "./hooks/useFetchData";
-import { useTimer } from "./hooks/useTimer";
-import { useSorting } from "./hooks/useSorting";
-import { useFiltering } from "./hooks/useFiltering";
-
-// Importando Componentes
-import { AppHeader } from "./components/Header/AppHeader";
-import { AtividadesTable } from "./components/Table/AtividadesTable";
-import { FiltersSection } from "./components/Filters/FiltersSection";
-
-function App() {
-  // =========================================================================
-  // 0. LÓGICA DE MANUTENÇÃO (MODO DE SEGURANÇA)
-  // =========================================================================
-  const [isAuthorized, setIsAuthorized] = useState(false);
+const DashboardPage = () => {
+  // Recebe dados do Layout (não faz fetch aqui)
+  const context = useOutletContext();
   
-  // ---> MUDE AQUI PARA LIGAR/DESLIGAR <---
-  const MAINTENANCE_MODE = true; 
-  const SECRET_PASS = 'pcm123'; // Para acessar use: /?admin=pcm123
+  // Proteção: Garante que atividadesData existe (mesmo que vazio)
+  const rawData = context?.atividadesData || [];
+  const loading = context?.loading || false;
+  const error = context?.error || null;
 
-  useEffect(() => {
-    // 1. Verifica se já tem a permissão salva
-    const hasAccess = localStorage.getItem('maintenance_bypass');
-    
-    // 2. Verifica se a URL tem a senha
-    const params = new URLSearchParams(window.location.search);
-    const secretKey = params.get('admin');
-
-    if (hasAccess === 'true' || secretKey === SECRET_PASS) {
-      setIsAuthorized(true);
-      
-      // Se entrou pela URL, salva o cookie eterno no navegador
-      if (secretKey === SECRET_PASS) {
-        localStorage.setItem('maintenance_bypass', 'true');
-        // Limpa a URL para ficar limpa visualmente
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, []);
-
-  // 1. LÓGICA DE BUSCA DE DADOS E ESTADO BRUTO
-  const { rawData, updatedRows, loading, lastUpdatedTimestamp, error } = useFetchData();
-
-  // 2. LÓGICA DE TEMPO
-  const { now, nextUpdateIn } = useTimer(lastUpdatedTimestamp);
-
-  // 3. LÓGICA DE FILTRAGEM
   const {
     filters,
     handleFilterChange,
-    filteredData,
-    gerenciaOptions,
-    trechoOptions,
-    ativoOptions,
-    subOptions,
-    atividadeOptions,
-    tipoOptions,
-    isAnyFilterApplied,
-    displayedAdherence,
-  } = useFiltering(rawData, now);
+    filteredData: rawFilteredData
+  } = useFiltering(rawData);
 
-  // 4. LÓGICA DE ORDENAÇÃO
-  const { sortedData, requestSort, getSortDirectionClass } = useSorting(filteredData);
-  
-  // Memoização para performance (Correção anterior mantida)
-  const adherenceProps = useMemo(() => ({
-    isAnyFilterApplied,
-    displayedAdherence,
-  }), [isAnyFilterApplied, displayedAdherence]);
+  const {
+    sortedData,
+    sortConfig,
+    requestSort
+  } = useSorting(rawFilteredData);
 
-  const optionsProps = useMemo(() => ({
-    gerenciaOptions,
-    trechoOptions,
-    ativoOptions,
-    subOptions,
-    atividadeOptions,
-    tipoOptions,
-  }), [gerenciaOptions, trechoOptions, ativoOptions, subOptions, atividadeOptions, tipoOptions]);
+  // O useMemo garante que a tabela não renderize à toa
+  const tableData = useMemo(() => sortedData, [sortedData]);
 
-
-  // A. TELA DE MANUTENÇÃO
-  if (MAINTENANCE_MODE && !isAuthorized) {
+  if (loading && rawData.length === 0) {
     return (
-      <div style={{
-        height: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center',
-        backgroundColor: '#f4f4f9',
-        color: '#333',
-        fontFamily: 'sans-serif'
-      }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>🚧</h1>
-        <h2 style={{ fontSize: '2rem', marginBottom: '10px' }}>Sistema em Atualização</h2>
-        <p style={{ fontSize: '1.2rem', color: '#666' }}>Estamos implementando melhorias no Painel de Intervalos.</p>
-        <p style={{ marginTop: '20px', fontSize: '0.9rem', color: '#999' }}>Equipe PCM</p>
+      <div className="flex items-center justify-center h-full text-gray-500">
+        <div className="animate-pulse">Carregando dados do painel...</div>
       </div>
     );
   }
 
-  // B. TELA DE ERRO DE API
   if (error) {
     return (
-      <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>
-        <h2>Erro ao carregar o painel</h2>
-        <p>Não foi possível buscar os dados da API. Tente novamente mais tarde.</p>
-        <p>Detalhe: {error}</p>
+      <div className="flex items-center justify-center h-full text-red-500 bg-red-50 rounded-lg p-4">
+        <p>Erro de conexão: {error}</p>
       </div>
     );
   }
 
-  // C. APLICATIVO NORMAL
   return (
-    <>
-      <AppHeader
-        lastUpdatedTimestamp={lastUpdatedTimestamp}
-        nextUpdateIn={nextUpdateIn}
-        loading={loading}
+    <div className="flex flex-col h-full gap-4">
+      <FiltersSection 
+        filters={filters} 
+        onFilterChange={handleFilterChange} 
+        data={rawData} 
       />
-
-      <main>
-        <FiltersSection 
-          filters={filters}
-          handleFilterChange={handleFilterChange}
-          options={optionsProps}
-          adherence={adherenceProps}
-        />
-        
-        <AtividadesTable
-          data={sortedData}
-          now={now}
-          updatedRows={updatedRows}
-          requestSort={requestSort}
-          getSortDirectionClass={getSortDirectionClass}
-          loading={loading}
-          rawDataCount={rawData.length}
-        />
-      </main>
-    </>
+      
+      <div className="flex-1 overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm relative">
+        <div className="absolute inset-0 overflow-auto">
+           <AtividadesTable 
+             data={tableData} 
+             sortConfig={sortConfig}
+             onSort={requestSort}
+           />
+        </div>
+      </div>
+      
+      <div className="text-xs text-gray-400 text-right px-2">
+        {tableData.length} registros exibidos
+      </div>
+    </div>
   );
-}
-export default App;
+};
+
+export default DashboardPage;
