@@ -1,32 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/Header/AppHeader';
 import { useFetchData } from '../hooks/useFetchData';
+import { useFetchOverview } from '../hooks/useFetchOverview'; // <--- Importe o novo hook
 
 const MainLayout = () => {
-  // Agora desestruturamos também 'updatedRows'
-  const { rawData, overviewData, updatedRows, loading, error, lastUpdatedTimestamp } = useFetchData();
+  // Estado para os filtros globais (Data e Modo de Visualização)
+  const [globalFilters, setGlobalFilters] = useState({
+    startDate: '', // Será preenchido pelo OverviewPage
+    endDate: '',
+    viewMode: 'semana'
+  });
 
-  const formattedDate = lastUpdatedTimestamp 
-    ? lastUpdatedTimestamp.toLocaleString('pt-BR') 
-    : null;
+  // Hooks de Dados
+  const { rawData, loading: dataLoading, error: dataError, lastUpdatedTimestamp } = useFetchData();
+  
+  // Hook do Overview (Passamos os filtros para ele)
+  const { overviewData, loading: overviewLoading, error: overviewError } = useFetchOverview(globalFilters);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden font-sans">
-      <AppHeader 
-        lastUpdate={formattedDate} 
-        loading={loading}
-      />
+    <div className="flex flex-col h-screen bg-[#f8f9fa]">
+      <AppHeader lastUpdate={lastUpdatedTimestamp} />
       
-      <main className="flex-1 overflow-hidden relative p-4 sm:p-6">
-        {/* Passamos updatedRows para baixo */}
+      <main className="flex-1 overflow-hidden p-4">
+        {/* Passamos tudo via Context para as páginas filhas (Dashboard e Overview) */}
         <Outlet context={{ 
-            atividadesData: rawData, 
-            overviewData, 
-            updatedRows, 
-            loading, 
-            error,
-            lastUpdatedTimestamp 
+          // Dados da Tabela (Dashboard)
+          rawData, 
+          loading: dataLoading, 
+          error: dataError,
+          
+          // Dados do Overview
+          overviewData,
+          overviewLoading, // Renomeado para não conflitar
+          overviewError,
+          
+          // Controle de Filtros (Para o OverviewPage poder mudar a data/modo)
+          globalFilters,
+          setGlobalFilters
         }} />
       </main>
     </div>

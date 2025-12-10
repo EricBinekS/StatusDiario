@@ -7,6 +7,27 @@ from ..scripts.utils import flexible_time_to_datetime, clean_column_names, forma
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
+# --- CONSTANTES ---
+
+ATIVOS_MODERNIZACAO = [
+    "MODERNIZAÇÃOTURMA2",
+    "MODERNIZAÇÃOLASTRO2",
+    "MOD ZYQ ZWI",
+    "MOD ZWU ZDC",
+    "MODERNIZAÇÃO TURMA 2",
+    "MOD ZDG PAT",
+    "MOD ZRB ZEV",
+    "MOD ZEM",
+    "MOD SPN",
+    "MODERNIZAÇÃO ZGP",
+    "MODERNIZAÇÃO SERRA",
+    "MOD ZGP",
+    "MOD FN"
+]
+# Normaliza para comparação
+ATIVOS_MODERNIZACAO = [x.strip().upper() for x in ATIVOS_MODERNIZACAO]
+
+
 # --- Funções de Transformação de Colunas ---
 
 def _create_full_datetime(row, time_col_name, date_col_name='data'):
@@ -91,6 +112,20 @@ def transform_dataframe(df):
     df = df.where(pd.notnull(df), None)
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df.dropna(subset=['data'], inplace=True)
+
+    # --- NOVA REGRA: MODERNIZAÇÃO (GLOBAL) ---
+    # Aplica a alteração de gerência aqui para refletir em todo o app (Dashboard e Overview)
+    coluna_gerencia = 'gerência_da_via' if 'gerência_da_via' in df.columns else 'gerencia_da_via'
+    
+    if coluna_gerencia in df.columns:
+        # Garante que a coluna seja string para evitar erros
+        df[coluna_gerencia] = df[coluna_gerencia].astype(str)
+        
+        # Cria mascara (filtro) para os ativos de modernização
+        mask_modernizacao = df['ativo'].astype(str).str.strip().str.upper().isin(ATIVOS_MODERNIZACAO)
+        
+        # Aplica a substituição
+        df.loc[mask_modernizacao, coluna_gerencia] = 'MODERNIZAÇÃO'
 
     now_aware = datetime.datetime.now(BR_TZ)
 
