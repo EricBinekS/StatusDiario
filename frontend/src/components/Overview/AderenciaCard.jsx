@@ -20,11 +20,12 @@ const AderenciaCard = ({ data, isOpen, onClick }) => {
 
   const mainStatusColor = getColor(data.types.contrato.percentual).border;
 
+  // Componente interno para as seções (Contrato/Oportunidade)
   const TypeSection = ({ title, typeData }) => {
     const color = getColor(typeData.percentual);
     
     return (
-      <div className="mb-6 last:mb-0">
+      <div className="mb-6 last:mb-0 w-full">
         <div className="flex justify-between items-center mb-2">
           <h4 className="text-xs font-bold uppercase tracking-wide border-b border-gray-100 pb-1 w-full" style={{ color: COLORS.text }}>
             {title}
@@ -50,15 +51,18 @@ const AderenciaCard = ({ data, isOpen, onClick }) => {
             </div>
         </div>
 
-        {/* CORREÇÃO AQUI: Renderização Condicional do Gráfico */}
+        {/* CORREÇÃO AQUI: Adicionado minWidth={0} e estilos no container pai */}
         {isOpen && (
-          <div className="h-32 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={typeData.chartData} barGap={2}>
+          <div className="h-32 w-full min-w-0 relative">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
+              <BarChart data={typeData.chartData} barGap={2} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
                 <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
-                <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '4px', border: '1px solid #e9e9e9', fontSize: '12px'}} />
+                <Tooltip 
+                  cursor={{fill: '#f9fafb'}} 
+                  contentStyle={{borderRadius: '4px', border: '1px solid #e9e9e9', fontSize: '12px'}} 
+                />
                 <Bar dataKey="prog" name="Programado" fill={COLORS.gray} radius={[2, 2, 0, 0]} barSize={12} />
                 <Bar dataKey="real" name="Realizado" fill={color.fill} radius={[2, 2, 0, 0]} barSize={12} />
               </BarChart>
