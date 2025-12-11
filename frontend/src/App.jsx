@@ -12,7 +12,7 @@ function App() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   
   // ---> MUDE AQUI PARA LIGAR/DESLIGAR <---
-  const MAINTENANCE_MODE = true; 
+  const MAINTENANCE_MODE = false; 
   const SECRET_PASS = 'pcm123'; // Para acessar use: /?admin=pcm123
 
   useEffect(() => {
