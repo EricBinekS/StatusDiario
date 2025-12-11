@@ -6,10 +6,14 @@ export const useFetchOverview = (filters) => {
   const [error, setError] = useState(null);
 
   const fetchOverview = useCallback(async () => {
+    // Se não houver filtros definidos ainda (inicialização), pode pular ou usar padrão
+    if (!filters) return;
+
     try {
       setLoading(true);
-      // Monta a URL com os parametros (startDate, endDate, viewMode)
       const queryParams = new URLSearchParams();
+      
+      // Adiciona parâmetros apenas se existirem
       if (filters.startDate) queryParams.append("startDate", filters.startDate);
       if (filters.endDate) queryParams.append("endDate", filters.endDate);
       if (filters.viewMode) queryParams.append("viewMode", filters.viewMode);
@@ -28,12 +32,12 @@ export const useFetchOverview = (filters) => {
     } finally {
       setLoading(false);
     }
-  }, [filters]); // Recarrega sempre que os filtros mudarem
+  }, [filters]); 
 
   useEffect(() => {
     fetchOverview();
     
-    // Atualiza a cada 5 minutos automaticamente
+    // Atualiza a cada 5 minutos
     const intervalId = setInterval(fetchOverview, 300000);
     return () => clearInterval(intervalId);
   }, [fetchOverview]);

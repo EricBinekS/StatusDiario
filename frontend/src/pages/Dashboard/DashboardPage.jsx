@@ -10,7 +10,7 @@ import { useTimer } from '../../hooks/useTimer';
 const DashboardPage = () => {
   const context = useOutletContext();
   
-  const rawData = context?.atividadesData || [];
+  const rawData = context?.rawData || [];
   const updatedRows = context?.updatedRows || new Set();
   const loading = context?.loading || false;
   const error = context?.error || null;

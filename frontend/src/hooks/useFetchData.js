@@ -1,93 +1,68 @@
-import { useState, useEffect } from "react";
-import { getTodaysDateStringForApi } from "../utils/dateUtils";
-
-// CUIDADO COM ALTERAÇÕES NESSE CÓDIGO PARA MANTER A ATUALIZAÇÃO INVISIVEL, EXECUTIVOS NÃO GOSTAM DA TELA PISCANTE!!!
-
-// URL da API
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import { useState, useEffect, useRef } from "react";
+// Se utils/dataUtils não existir ou for diferente, ajuste o import
+import { findUpdatedRows } from "../utils/dataUtils"; 
 
 export const useFetchData = () => {
   const [rawData, setRawData] = useState([]);
-  const [overviewData, setOverviewData] = useState([]); // <--- NOVO ESTADO
   const [updatedRows, setUpdatedRows] = useState(new Set());
-  
-  // Começa como true para mostrar o loading SOMENTE na primeira carga da página
-  const [loading, setLoading] = useState(true); 
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState(null);
+  const [error, setError] = useState(null);
+  const previousDataRef = useRef([]);
 
-  useEffect(() => {
-    // Variável para evitar atualização de estado se o componente desmontar
-    let isMounted = true;
+  const fetchData = async () => {
+    try {
+      // setLoading(true); // Opcional: Evita piscar a tela se já tem dados
+      const url = `${import.meta.env.VITE_API_URL}/api/atividades`;
+      const response = await fetch(url);
+      
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const responseData = await response.json();
+      
+      // Garante que jsonData seja um array mesmo se a API falhar
+      const jsonData = Array.isArray(responseData.data) ? responseData.data : [];
+      const timestamp = responseData.last_updated;
 
-    const fetchData = async (isBackgroundUpdate = false) => {
-      try {
-        // LÓGICA CRÍTICA: Só ativamos o loading visual se NÃO for uma atualização de fundo
-        if (!isBackgroundUpdate) {
-          setLoading(true);
-        }
-
-        const dateStr = getTodaysDateStringForApi();
-
-        // Faz as duas requisições em paralelo (mais rápido)
-        const [resAtividades, resOverview] = await Promise.all([
-            fetch(`${API_URL}/api/atividades?data=${dateStr}`),
-            fetch(`${API_URL}/api/overview?start_date=${dateStr}&end_date=${dateStr}`)
-        ]);
-        
-        if (!resAtividades.ok) {
-          throw new Error(`Erro na API Atividades: ${resAtividades.status}`);
-        }
-
-        // Processa Atividades (Painel)
-        const jsonAtividades = await resAtividades.json();
-        const dataList = jsonAtividades.data || []; 
-        
-        // Processa Overview (Se falhar, não quebra o painel, retorna array vazio)
-        const jsonOverview = resOverview.ok ? await resOverview.json() : [];
-
-        // Geração de ID único (Mantido do seu original)
-        const dataWithUniqueIds = Array.isArray(dataList) 
-          ? dataList.map((row, index) => ({
-              ...row,
-              frontend_uid: `${row.row_hash || 'unknown'}-${index}`
-            }))
-          : [];
-
-        if (isMounted) {
-          setRawData(dataWithUniqueIds);
-          setOverviewData(jsonOverview); // <--- Atualiza o Overview silenciosamente
-          
-          const apiTimestamp = jsonAtividades.last_updated ? new Date(jsonAtividades.last_updated) : new Date();
-          setLastUpdatedTimestamp(apiTimestamp);
-          setError(null);
-        }
-        
-      } catch (err) {
-        console.error("Erro ao buscar dados:", err);
-        if (isMounted) setError(err.message);
-      } finally {
-        // Sempre desliga o loading, independente se foi background ou não
-        if (isMounted) {
-          setLoading(false);
+      // Lógica de linhas atualizadas
+      if (previousDataRef.current.length > 0 && jsonData.length > 0) {
+        // Verifica se a função existe antes de chamar
+        if (typeof findUpdatedRows === 'function') {
+            const changes = findUpdatedRows(previousDataRef.current, jsonData);
+            if (changes.size > 0) {
+                setUpdatedRows(changes);
+                setTimeout(() => setUpdatedRows(new Set()), 2000);
+            }
         }
       }
-    };
 
-    // 1. Busca inicial (Mostra Loading, isBackgroundUpdate = false)
-    fetchData(false);
+      setRawData(jsonData);
+      previousDataRef.current = jsonData;
+      if (timestamp) setLastUpdatedTimestamp(new Date(timestamp));
+      setError(null); // Limpa erro se tiver sucesso
 
-    // 2. Polling a cada 30 segundos (NÃO mostra Loading, atualização silenciosa)
-    const intervalId = setInterval(() => {
-        fetchData(true); 
-    }, 30000);
+    } catch (error) {
+      console.error("Erro ao buscar os dados:", error);
+      // Não zeramos rawData em caso de erro para manter os dados antigos visíveis
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
+  useEffect(() => {
+    fetchData();
+    const timerFetchId = setInterval(fetchData, 60000); // 60s é mais seguro que 10min (600000)
+    return () => clearInterval(timerFetchId);
   }, []);
 
-  // Retornamos overviewData agora
-  return { rawData, overviewData, updatedRows, loading, lastUpdatedTimestamp, error };
+  return {
+    rawData,
+    updatedRows,
+    loading,
+    error,
+    lastUpdatedTimestamp,
+    fetchData,
+  };
 };
