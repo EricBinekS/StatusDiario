@@ -8,15 +8,7 @@ from routes.overview_route import overview_bp
 
 app = Flask(__name__)
 
-# CONFIGURAÇÃO DE CORS (Segurança)
-# Adicione o seu domínio real do Vercel aqui (sem barra no final)
-origins_list = [
-    "http://localhost:5173",       # Frontend Local
-    "http://127.0.0.1:5173",       # Frontend Local (alternativo)
-    "https://status-diario-alpha.vercel.app/" # <--- SEU FRONTEND NO VERCEL
-]
-
-CORS(app, resources={r"/api/*": {"origins": origins_list}})
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Inicializa Banco de Dados
 init_db()
@@ -30,7 +22,7 @@ def read_root():
     return jsonify({
         "status": "online",
         "message": "Status Diário API is running correctly.",
-        "cors_enabled_for": origins_list
+        "cors": "open-to-all"
     })
 
 if __name__ == "__main__":
