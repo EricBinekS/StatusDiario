@@ -13,7 +13,7 @@ app = Flask(__name__)
 origins_list = [
     "http://localhost:5173",       # Frontend Local
     "http://127.0.0.1:5173",       # Frontend Local (alternativo)
-    "https://status-diario.vercel.app" # <--- SEU FRONTEND NO VERCEL
+    "https://status-diario-alpha.vercel.app/" # <--- SEU FRONTEND NO VERCEL
 ]
 
 CORS(app, resources={r"/api/*": {"origins": origins_list}})
