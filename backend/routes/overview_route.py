@@ -1,27 +1,28 @@
 from flask import Blueprint, jsonify, request
+# Importa o serviço que já tratamos (ele usa get_db_engine internamente)
 from services.overview_service import get_overview_data
 
-# Cria o Blueprint
-overview_bp = Blueprint('overview_bp', __name__)
+overview_bp = Blueprint('overview', __name__)
 
-@overview_bp.route("/overview", methods=["GET"])
+@overview_bp.route('/overview', methods=['GET'])
 def get_overview():
-    """
-    Retorna JSON agregado para o painel gerencial.
-    Rota final: /api/overview
-    """
-    # Captura os parâmetros da URL
-    # Aceita tanto 'startDate' (do frontend JS) quanto 'start_date' (padrão Python/Postman)
-    start_date = request.args.get('startDate') or request.args.get('start_date')
-    end_date = request.args.get('endDate') or request.args.get('end_date')
-    
-    # Captura o modo de visualização ('semana' ou 'mes'), padrão é 'semana'
-    view_mode = request.args.get('viewMode') or request.args.get('view_mode', 'semana')
-    
     try:
-        # Passa os 3 parâmetros para o serviço atualizado
+        # Pega parâmetros da URL (Query Params)
+        view_mode = request.args.get('view', 'semana') # default: semana
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
+
+        # Chama o serviço
         data = get_overview_data(start_date, end_date, view_mode)
+        
+        # BLINDAGEM NO BACKEND:
+        # Garante que sempre retorne uma lista, mesmo se for None
+        if data is None:
+            data = []
+            
         return jsonify(data)
+
     except Exception as e:
-        print(f"Erro na rota Overview: {e}")
-        return jsonify({"error": str(e), "data": []}), 500
+        print(f"Erro Crítico na Rota Overview: {e}")
+        # Retorna lista vazia em vez de erro 500, para a tela ficar "Sem dados" em vez de crashar
+        return jsonify([])
