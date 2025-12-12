@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import OverviewHeader from '../../components/Header/OverviewHeader';
+import OverviewHeader from '../../components/Header/AppHeader'; 
 import AderenciaCard from '../../components/Overview/AderenciaCard';
 import useFetchOverview from '../../hooks/useFetchOverview';
 
