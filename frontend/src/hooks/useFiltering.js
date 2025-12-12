@@ -1,153 +1,71 @@
-import { useState, useMemo, useCallback } from "react";
-import { getTodaysDateStringForReact } from "../utils/dateUtils";
-import { getUniqueOptions } from "../utils/dataUtils"; 
-import { calculateAdherence } from "../utils/calcUtils"; 
-import { useStableArray } from "./useStableArray"; 
+import { useState, useMemo } from 'react';
+import { normalizeText } from '../utils/formatters';
 
-export const useFiltering = (rawData, now) => {
+const useFiltering = (data) => {
   const [filters, setFilters] = useState({
-    data: getTodaysDateStringForReact(),
-    gerencia: [],
-    trecho: [],
-    sub: [],
-    ativo: [], 
+    gerencia_da_via: [],
     atividade: [],
-    tipo: [],
+    status: [],
+    data: '' // Data específica se necessário
   });
 
-  const handleFilterChange = useCallback((filterName, value) => {
-    setFilters((prevFilters) => {
-      const newFilters = { ...prevFilters, [filterName]: value };
+  // Extrai opções únicas baseadas nos dados carregados
+  const filterOptions = useMemo(() => {
+    if (!data || data.length === 0) return { gerencia_da_via: [], atividade: [], status: [] };
+
+    const extractUnique = (key) => 
+      [...new Set(data.map(item => normalizeText(item[key])).filter(Boolean))].sort();
+
+    return {
+      gerencia_da_via: extractUnique('gerencia_da_via'),
+      atividade: extractUnique('atividade'),
+      status: extractUnique('status') // ou 'operational_status'
+    };
+  }, [data]);
+
+  // Aplica os filtros
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    
+    return data.filter(row => {
+      // Filtro de Gerência
+      if (filters.gerencia_da_via.length > 0) {
+        if (!filters.gerencia_da_via.includes(normalizeText(row.gerencia_da_via))) return false;
+      }
       
-      if (filterName === "gerencia") {
-        newFilters.trecho = [];
-        newFilters.sub = [];
-        newFilters.ativo = [];
-        newFilters.atividade = [];
-        newFilters.tipo = [];
+      // Filtro de Atividade
+      if (filters.atividade.length > 0) {
+        if (!filters.atividade.includes(normalizeText(row.atividade))) return false;
       }
-      if (filterName === "trecho") {
-        newFilters.sub = [];
-        newFilters.ativo = [];
-        newFilters.atividade = [];
-        newFilters.tipo = [];
+
+      // Filtro de Status
+      if (filters.status.length > 0) {
+        const rowStatus = normalizeText(row.status) || normalizeText(row.operational_status);
+        if (!filters.status.includes(rowStatus)) return false;
       }
-      if (filterName === "sub") {
-        newFilters.ativo = [];
-        newFilters.atividade = [];
-        newFilters.tipo = [];
+
+      // Filtro de Data (Exato)
+      if (filters.data) {
+        // Assume formato YYYY-MM-DD ou ISO no row.data
+        const rowDate = row.data ? new Date(row.data).toISOString().split('T')[0] : '';
+        if (rowDate !== filters.data) return false;
       }
-      return newFilters;
-    });
-  }, []);
-
-  const unstableFilteredData = useMemo(() => {
-    if (!Array.isArray(rawData)) return [];
-
-    let filterableData = rawData.filter((row) => {
-      if (filters.data && (!row.data || !row.data.startsWith(filters.data)))
-        return false;
-
-      if (filters.ativo.length > 0 && !filters.ativo.includes(String(row.ativo)))
-        return false;
-
-      if (filters.gerencia.length > 0 && !filters.gerencia.includes(String(row.gerência_da_via)))
-        return false;
-      if (filters.trecho.length > 0 && !filters.trecho.includes(String(row.coordenação_da_via)))
-        return false;
-      if (filters.sub.length > 0 && !filters.sub.includes(String(row.sub)))
-        return false;
-      if (filters.atividade.length > 0 && !filters.atividade.includes(String(row.atividade)))
-        return false;
-      if (filters.tipo.length > 0 && !filters.tipo.includes(String(row.tipo)))
-        return false;
 
       return true;
     });
+  }, [data, filters]);
 
-    return filterableData;
-  }, [rawData, filters]);
-
-  const filteredData = useStableArray(unstableFilteredData);
-
-  const gerenciaOptions = useMemo(
-    () => getUniqueOptions(rawData, "gerência_da_via"),
-    [rawData]
-  );
-
-  const trechoOptions = useMemo(() => {
-    let d = rawData;
-    if (filters.gerencia.length > 0)
-      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
-    return getUniqueOptions(d, "coordenação_da_via");
-  }, [rawData, filters.gerencia]);
-
-  const subOptions = useMemo(() => {
-    let d = rawData;
-    if (filters.gerencia.length > 0)
-      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
-    if (filters.trecho.length > 0)
-      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
-    return getUniqueOptions(d, "sub");
-  }, [rawData, filters.gerencia, filters.trecho]);
-
-  const ativoOptions = useMemo(() => {
-    let d = rawData;
-    if (filters.gerencia.length > 0)
-      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
-    if (filters.trecho.length > 0)
-      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
-    if (filters.sub.length > 0) 
-      d = d.filter((r) => filters.sub.includes(String(r.sub)));
-    return getUniqueOptions(d, "ativo");
-  }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
-
-  const atividadeOptions = useMemo(() => {
-    let d = rawData;
-    if (filters.gerencia.length > 0)
-      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
-    if (filters.trecho.length > 0)
-      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
-    if (filters.sub.length > 0) 
-      d = d.filter((r) => filters.sub.includes(String(r.sub)));
-    return getUniqueOptions(d, "atividade");
-  }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
-
-  const tipoOptions = useMemo(() => {
-    let d = rawData;
-    if (filters.gerencia.length > 0)
-      d = d.filter((r) => filters.gerencia.includes(String(r.gerência_da_via)));
-    if (filters.trecho.length > 0)
-      d = d.filter((r) => filters.trecho.includes(String(r.coordenação_da_via)));
-    if (filters.sub.length > 0) 
-      d = d.filter((r) => filters.sub.includes(String(r.sub)));
-    return getUniqueOptions(d, "tipo");
-  }, [rawData, filters.gerencia, filters.trecho, filters.sub]);
-
-  const isAnyFilterApplied = useMemo(() => {
-    if (!filters) return false;
-    return Object.entries(filters).some(([key, v]) => {
-      if (key === 'data') return v !== getTodaysDateStringForReact();
-      // Verificação para Arrays (agora inclui 'ativo')
-      return Array.isArray(v) && v.length > 0;
-    });
-  }, [filters]);
-
-  const globalAdherence = useMemo(() => calculateAdherence(rawData, now), [rawData, now]);
-  const filteredAdherence = useMemo(() => calculateAdherence(filteredData, now), [filteredData, now]); 
-  const displayedAdherence = useMemo(() => isAnyFilterApplied ? filteredAdherence : globalAdherence, [isAnyFilterApplied, filteredAdherence, globalAdherence]);
+  const resetFilters = () => {
+    setFilters({ gerencia_da_via: [], atividade: [], status: [], data: '' });
+  };
 
   return {
     filters,
-    handleFilterChange,
-    filteredData, 
-    gerenciaOptions,
-    trechoOptions,
-    subOptions,
-    ativoOptions, 
-    atividadeOptions,
-    tipoOptions,
-    isAnyFilterApplied,
-    displayedAdherence,
+    setFilters,
+    filteredData,
+    filterOptions,
+    resetFilters
   };
 };
+
+export default useFiltering;

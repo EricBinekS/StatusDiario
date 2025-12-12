@@ -1,175 +1,209 @@
 import pandas as pd
+from datetime import datetime, timedelta
 from sqlalchemy import text
-from db.database import get_db_engine
+from db.connection import get_db_engine
 
-# --- CONSTANTES ---
+# --- CONFIGURAÇÃO ---
 ATIVIDADES_MECANIZACAO = [
-    "MECANIZAÇÃO - CAPINA QUÍMICA", "MECANIZAÇÃO - DOL", 
-    "MECANIZAÇÃO - ESMERILHADORA", "MECANIZAÇÃO - MANUTENÇÃO", 
-    "MECANIZAÇÃO - SOCADORA"
+    "MECANIZAÇÃO", "SOCADORA", "REGULADORA", "ESMERILHADORA", 
+    "DESGUARNECEDORA", "ESTABILIZADORA", "CAPINA QUÍMICA"
 ]
-ATIVIDADES_MECANIZACAO = [x.strip().upper() for x in ATIVIDADES_MECANIZACAO]
 
-def time_str_to_minutes(time_str):
-    if not time_str or pd.isna(time_str): return 0
+def _calculate_hours(row, start_col, end_col):
+    """Calcula diferença em horas entre duas colunas de tempo."""
     try:
-        s = str(time_str).strip()
-        if ':' not in s: return 0
-        h, m = map(int, s.split(':')[:2])
-        return h * 60 + m
-    except: return 0
-
-def _get_chart_data(df, view_mode):
-    chart_data = []
-    if df.empty: return chart_data
-
-    df['data_dt'] = pd.to_datetime(df['data'])
-
-    if view_mode == 'semana':
-        days_map = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
-        df['day_of_week'] = df['data_dt'].dt.dayofweek
-        grouped = df.groupby('day_of_week')
+        if pd.isna(row[start_col]) or pd.isna(row[end_col]):
+            return 0.0
         
-        for i in range(7):
-            grp = grouped.get_group(i) if i in grouped.groups else pd.DataFrame()
-            chart_data.append({
-                "name": days_map[i],
-                "prog": len(grp),
-                "real": int(grp['foi_realizado'].sum()) if not grp.empty else 0
-            })
-
-    elif view_mode == 'mes':
-        df['week_num'] = df['data_dt'].dt.isocalendar().week
-        grouped = df.groupby('week_num')
-        sorted_weeks = sorted(list(grouped.groups.keys()))
+        # Converte strings de tempo para timedelta se já não forem
+        # Assumindo que o banco retorna objetos datetime.time ou strings 'HH:MM:SS'
+        # Aqui simplificamos: O Pandas read_sql geralmente traz como datetime ou object
         
-        for w_num in sorted_weeks:
-            grp = grouped.get_group(w_num)
-            chart_data.append({
-                "name": f"Sem {w_num}",
-                "prog": len(grp),
-                "real": int(grp['foi_realizado'].sum())
-            })
+        # Se for datetime no dataframe:
+        delta = row[end_col] - row[start_col]
+        return delta.total_seconds() / 3600.0
+    except:
+        return 0.0
 
-    return chart_data
-
-def get_overview_data(start_date=None, end_date=None, view_mode='semana'):
+def get_overview_data(view_mode='semana'):
+    """
+    Gera indicadores gerenciais.
+    view_mode: 'semana' (Dom-Sáb) ou 'mes' (1-30).
+    """
     engine = get_db_engine()
     if not engine:
-        print("Erro: Engine de banco de dados não disponível.")
         return []
 
-    # Query Base
-    query_str = "SELECT * FROM atividades"
-    params = {}
+    # 1. Definição de Período (Regra de Negócio: Datas Fixas)
+    today = datetime.now().date()
     
-    if start_date and end_date:
-        query_str += " WHERE data >= :start AND data <= :end"
-        params = {"start": start_date, "end": end_date}
-    
+    if view_mode == 'mes':
+        start_date = today.replace(day=1)
+        # Gambiarra segura para achar ultimo dia do mês
+        next_month = start_date.replace(day=28) + timedelta(days=4)
+        end_date = next_month - timedelta(days=next_month.day)
+    else: # Semana (Domingo a Sábado)
+        # weekday: Seg=0, Dom=6.
+        # Se hoje é Qua(2). Domingo passado foi Hoje - (2+1) = -3 dias.
+        idx = (today.weekday() + 1) % 7
+        start_date = today - timedelta(days=idx)
+        end_date = start_date + timedelta(days=6)
+
+    str_start = start_date.strftime('%Y-%m-%d')
+    str_end = end_date.strftime('%Y-%m-%d')
+
+    # 2. Query Filtrada
+    query = text("""
+        SELECT * FROM atividades 
+        WHERE data >= :start AND data <= :end
+    """)
+
     try:
-        # USO CORRETO DO ENGINE AQUI
         with engine.connect() as conn:
-            df = pd.read_sql(text(query_str), conn, params=params)
+            df = pd.read_sql(query, conn, params={"start": str_start, "end": str_end})
+        
+        if df.empty:
+            return []
+
+        # 3. Pré-processamento e Cálculos
+        df['inicio_prog'] = pd.to_datetime(df['inicio_prog'].astype(str), format='%H:%M:%S', errors='coerce')
+        df['fim_prog'] = pd.to_datetime(df['fim_prog'].astype(str), format='%H:%M:%S', errors='coerce')
+        df['inicio_real'] = pd.to_datetime(df['inicio_real'].astype(str), format='%H:%M:%S', errors='coerce')
+        df['fim_real'] = pd.to_datetime(df['fim_real'].astype(str), format='%H:%M:%S', errors='coerce')
+
+        # Cálculo de Horas (Regra: Fim - Inicio)
+        # Precisamos lidar com virada de dia? Por enquanto assumimos mesmo dia.
+        df['horas_prog'] = (df['fim_prog'] - df['inicio_prog']).dt.total_seconds() / 3600
+        df['horas_real'] = (df['fim_real'] - df['inicio_real']).dt.total_seconds() / 3600
+        
+        # Limpeza de negativos ou nulos
+        df['horas_prog'] = df['horas_prog'].fillna(0).clip(lower=0)
+        df['horas_real'] = df['horas_real'].fillna(0).clip(lower=0)
+
+        # 4. Separação Mecanização (Regra Visual)
+        # Normaliza string para busca
+        df['atividade_norm'] = df['atividade'].astype(str).str.upper()
+        mask_mec = df['atividade_norm'].apply(lambda x: any(m in x for m in ATIVIDADES_MECANIZACAO))
+        
+        df_mec = df[mask_mec].copy()
+        df_geral = df[~mask_mec].copy()
+
+        # 5. Estruturação do JSON de Resposta
+        # IDs das gerências esperadas
+        ids = ['ferronorte', 'sp_norte', 'sp_sul', 'central', 'modernizacao', 'mecanizacao', 'outros']
+        
+        # Helper para normalizar nome da gerencia
+        def get_gerencia_id(g):
+            g = str(g).upper()
+            if 'FERRONORTE' in g: return 'ferronorte'
+            if 'SP NORTE' in g: return 'sp_norte'
+            if 'SP SUL' in g: return 'sp_sul'
+            if 'CENTRAL' in g: return 'central'
+            if 'MODERNIZA' in g: return 'modernizacao'
+            return 'outros'
+
+        df_geral['gid'] = df_geral['gerencia_da_via'].apply(get_gerencia_id)
+        
+        # Objeto final
+        output = []
+
+        # Processa Gerências Normais
+        for gid in ['ferronorte', 'sp_norte', 'sp_sul', 'central', 'modernizacao', 'outros']:
+            sub_df = df_geral[df_geral['gid'] == gid]
+            if sub_df.empty and gid == 'outros': continue # Pula 'outros' se vazio
+            
+            output.append(_build_card_data(gid, sub_df, view_mode))
+
+        # Processa Mecanização (Card Separado)
+        if not df_mec.empty:
+            mec_card = _build_card_data('mecanizacao', df_mec, view_mode)
+            mec_card['title'] = "Mecanização" # Título bonito
+            output.append(mec_card)
+            
+        return output
+
     except Exception as e:
-        print(f"Erro ao ler banco de dados: {e}")
+        print(f"🔴 Erro no OverviewService: {e}")
         return []
 
-    if df.empty: return []
-
-    # --- Processamento ---
-    df['minutos_prog'] = df['tempo_prog'].apply(time_str_to_minutes)
-    df['minutos_real'] = df['tempo_real'].apply(time_str_to_minutes)
-    df['foi_realizado'] = df['inicio_real'].notna() & (df['inicio_real'] != '') & (df['inicio_real'] != '00:00')
-
-    coluna_gerencia = 'gerência_da_via' if 'gerência_da_via' in df.columns else 'gerencia_da_via'
-
-    def normalizar_gerencia(g):
-        g = str(g).upper()
-        if 'FERRONORTE' in g: return 'ferronorte', 'Ferronorte'
-        if 'SP NORTE' in g or 'MALHA PAULISTA' in g: return 'sp_norte', 'SP Norte'
-        if 'SP SUL' in g or 'MALHA SUL' in g: return 'sp_sul', 'SP Sul'
-        if 'CENTRAL' in g: return 'central', 'Malha Central'
-        if 'MODERNIZA' in g: return 'modernizacao', 'Modernização'
-        return 'outros', g.title() if g != 'NAN' else 'Outros'
-
-    df[['gerencia_id', 'gerencia_label']] = df[coluna_gerencia].apply(lambda x: pd.Series(normalizar_gerencia(x)))
+def _build_card_data(gid, df, view_mode):
+    """Monta a estrutura do card (Contrato vs Oportunidade)."""
     
-    df['tipo_norm'] = df['tipo'].apply(lambda x: 'contrato' if x and 'CONTRATO' in str(x).upper() else 'oportunidade')
-
-    # Agrupamento
-    grouped = df.groupby(['gerencia_id', 'gerencia_label', 'tipo_norm']).agg(
-        total_int_prog=('row_hash', 'count'),
-        total_int_real=('foi_realizado', 'sum'),
-        total_min_prog=('minutos_prog', 'sum'),
-        total_min_real=('minutos_real', 'sum')
-    ).reset_index()
-
-    # Separação Mecanização
-    df_mecanizacao = pd.DataFrame()
-    if 'atividade' in df.columns:
-        mask_mec = df['atividade'].astype(str).str.strip().str.upper().isin(ATIVIDADES_MECANIZACAO)
-        df_mecanizacao = df[mask_mec].copy()
-
-    # Estrutura JSON
-    output_data = {}
-    setup_keys = [
-        ('ferronorte', 'Ferronorte'), ('sp_norte', 'SP Norte'), 
-        ('sp_sul', 'SP Sul'), ('central', 'Malha Central'), 
-        ('modernizacao', 'Modernização'), ('mecanizacao', 'Mecanização')
-    ]
+    # Estrutura base
+    titles = {
+        'ferronorte': 'Ferronorte', 'sp_norte': 'SP Norte', 
+        'sp_sul': 'SP Sul', 'central': 'Malha Central', 
+        'modernizacao': 'Modernização', 'mecanizacao': 'Mecanização', 'outros': 'Outros'
+    }
     
-    for gid, glabel in setup_keys:
-        output_data[gid] = {
-            "id": gid, "title": glabel,
-            "types": { "contrato": _empty_stats(), "oportunidade": _empty_stats() }
+    card = {
+        "id": gid,
+        "title": titles.get(gid, gid.title()),
+        "types": {
+            "contrato": _agg_stats(df, "CONTRATO", view_mode),
+            "oportunidade": _agg_stats(df, "OPORTUNIDADE", view_mode) # Tudo que não é contrato cai aqui? Ou filtramos explícito?
         }
+    }
+    return card
 
-    # Preencher Gerências
-    for _, row in grouped.iterrows():
-        g_id = row['gerencia_id']
-        if g_id not in output_data or g_id == 'mecanizacao': continue
-
-        _fill_stats(output_data[g_id], row, df, view_mode)
-
-    # Preencher Mecanização
-    if not df_mecanizacao.empty:
-        mec_grouped = df_mecanizacao.groupby('tipo_norm').agg(
-            total_int_prog=('row_hash', 'count'),
-            total_int_real=('foi_realizado', 'sum'),
-            total_min_prog=('minutos_prog', 'sum'),
-            total_min_real=('minutos_real', 'sum')
-        ).reset_index()
-        
-        mec_grouped['gerencia_id'] = 'mecanizacao' # Fake ID para usar a mesma função
-        for _, row in mec_grouped.iterrows():
-            _fill_stats(output_data['mecanizacao'], row, df_mecanizacao, view_mode)
-
-    return list(output_data.values())
-
-def _fill_stats(target_obj, row, dataframe, view_mode):
-    tipo = row['tipo_norm']
-    stats = target_obj["types"][tipo]
-
-    stats["kpis"]["prog_int"] = int(row['total_int_prog'])
-    stats["kpis"]["real_int"] = int(row['total_int_real'])
-    stats["kpis"]["prog_h"] = round(row['total_min_prog'] / 60, 1)
-    stats["kpis"]["real_h"] = round(row['total_min_real'] / 60, 1)
-
-    if stats["kpis"]["prog_int"] > 0:
-        stats["percentual"] = int((stats["kpis"]["real_int"] / stats["kpis"]["prog_int"]) * 100)
-
-    # Filtra dados para o gráfico deste grupo específico
-    if row['gerencia_id'] == 'mecanizacao':
-         mask = (dataframe['tipo_norm'] == tipo)
+def _agg_stats(df, tipo_filtro, view_mode):
+    """Agrega estatísticas para um tipo específico."""
+    # Filtra por tipo (Contrato ou não)
+    if tipo_filtro == "CONTRATO":
+        mask = df['tipo'].astype(str).str.upper().str.contains("CONTRATO")
     else:
-         mask = (dataframe['gerencia_id'] == row['gerencia_id']) & (dataframe['tipo_norm'] == tipo)
-         
-    stats["chartData"] = _get_chart_data(dataframe[mask].copy(), view_mode)
+        mask = ~df['tipo'].astype(str).str.upper().str.contains("CONTRATO")
+    
+    filtered = df[mask]
+    
+    # KPIs
+    prog_h = filtered['horas_prog'].sum()
+    real_h = filtered['horas_real'].sum()
+    prog_int = len(filtered)
+    real_int = filtered[filtered['horas_real'] > 0].shape[0] # Considera realizado se teve horas
 
-def _empty_stats():
+    percent = 0
+    if prog_h > 0:
+        percent = int((real_h / prog_h) * 100)
+    
+    # Gráfico (Agrupamento Temporal)
+    chart_data = []
+    if not filtered.empty:
+        filtered = filtered.copy() # Evita warning
+        filtered['date_obj'] = pd.to_datetime(filtered['data'])
+        
+        if view_mode == 'semana':
+            # Agrupa por Dia da Semana (0-6)
+            days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+            filtered['dow'] = filtered['date_obj'].dt.dayofweek
+            grouped = filtered.groupby('dow').agg({'horas_prog': 'sum', 'horas_real': 'sum'}).reindex(range(7), fill_value=0)
+            
+            for i in range(7):
+                chart_data.append({
+                    "name": days[i],
+                    "prog": round(grouped.loc[i, 'horas_prog'], 1),
+                    "real": round(grouped.loc[i, 'horas_real'], 1)
+                })
+        else:
+            # Agrupa por Semana do Ano
+            filtered['week'] = filtered['date_obj'].dt.isocalendar().week
+            grouped = filtered.groupby('week').agg({'horas_prog': 'sum', 'horas_real': 'sum'}).sort_index()
+            
+            for w, row in grouped.iterrows():
+                chart_data.append({
+                    "name": f"Sem {w}",
+                    "prog": round(row['horas_prog'], 1),
+                    "real": round(row['horas_real'], 1)
+                })
+
     return {
-        "percentual": 0, "meta": 85,
-        "kpis": {"prog_int": 0, "real_int": 0, "prog_h": 0, "real_h": 0},
-        "chartData": []
+        "kpis": {
+            "prog_h": round(prog_h, 1),
+            "real_h": round(real_h, 1),
+            "prog_int": prog_int,
+            "real_int": real_int
+        },
+        "percentual": percent,
+        "meta": 85, # Meta Hardcoded
+        "chartData": chart_data
     }
