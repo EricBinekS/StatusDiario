@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-export const useFetchOverview = (filters) => {
+const useFetchOverview = (filters) => {
   const [overviewData, setOverviewData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,3 +44,5 @@ export const useFetchOverview = (filters) => {
 
   return { overviewData, loading, error, refetch: fetchOverview };
 };
+
+export default useFetchOverview;
