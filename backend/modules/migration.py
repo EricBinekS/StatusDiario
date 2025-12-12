@@ -117,7 +117,7 @@ def _clean_and_finalize_data(df):
 
     # 2. Filtro de Data Limite (últimos 10 dias)
     hoje = datetime.date.today()
-    data_limite = hoje - datetime.timedelta(days=10)
+    data_limite = hoje - datetime.timedelta(days=31)
 
     transformed_df['data_dt_temp'] = pd.to_datetime(transformed_df['data'], errors='coerce')
     df_filtrado = transformed_df.dropna(subset=['data_dt_temp'])

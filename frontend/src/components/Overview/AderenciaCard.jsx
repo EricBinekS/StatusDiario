@@ -1,126 +1,85 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
-const AderenciaCard = ({ data, isOpen, onClick }) => {
-  
-  const COLORS = {
-    green: '#28a745',
-    yellow: '#ffc107',
-    red: '#dc3545',
-    gray: '#d9d9d9',
-    text: '#062e4e'
+const AderenciaCard = ({ title, data, type = "gerencia" }) => {
+  const getBarColor = (aderencia) => {
+    if (aderencia >= 90) return "#22c55e"; // green-500
+    if (aderencia >= 80) return "#eab308"; // yellow-500
+    return "#ef4444"; // red-500
   };
 
-  const getColor = (percentual) => {
-    if (percentual > 80) return { text: 'text-[#28a745]', fill: COLORS.green, border: 'border-l-[#28a745]' };
-    if (percentual >= 70) return { text: 'text-[#ffc107]', fill: COLORS.yellow, border: 'border-l-[#ffc107]' };
-    return { text: 'text-[#dc3545]', fill: COLORS.red, border: 'border-l-[#dc3545]' };
-  };
-
-  const mainStatusColor = getColor(data.types.contrato.percentual).border;
-
-  // Componente interno para as seções (Contrato/Oportunidade)
-  const TypeSection = ({ title, typeData }) => {
-    const color = getColor(typeData.percentual);
-    
-    return (
-      <div className="mb-6 last:mb-0 w-full">
-        <div className="flex justify-between items-center mb-2">
-          <h4 className="text-xs font-bold uppercase tracking-wide border-b border-gray-100 pb-1 w-full" style={{ color: COLORS.text }}>
-            {title}
-          </h4>
-        </div>
-        
-        <div className="grid grid-cols-4 gap-2 mb-4 text-center">
-            <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
-                <span className="block text-[9px] text-gray-400 uppercase font-bold">Int. Prog</span>
-                <span className="font-bold text-sm text-gray-700">{typeData.kpis.prog_int}</span>
-            </div>
-            <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
-                <span className="block text-[9px] text-gray-400 uppercase font-bold">Int. Real</span>
-                <span className="font-bold text-sm text-gray-700">{typeData.kpis.real_int}</span>
-            </div>
-            <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
-                <span className="block text-[9px] text-gray-400 uppercase font-bold">Hs Prog</span>
-                <span className="font-bold text-sm text-gray-700">{typeData.kpis.prog_h}h</span>
-            </div>
-            <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
-                <span className="block text-[9px] text-gray-400 uppercase font-bold">Hs Real</span>
-                <span className={`font-bold text-sm ${color.text}`.replace('text-', 'text-')}>{typeData.kpis.real_h}h</span>
-            </div>
-        </div>
-
-        {/* CORREÇÃO AQUI: Adicionado minWidth={0} e estilos no container pai */}
-        {isOpen && (
-          <div className="h-32 w-full min-w-0 relative">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
-              <BarChart data={typeData.chartData} barGap={2} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
-                <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
-                <Tooltip 
-                  cursor={{fill: '#f9fafb'}} 
-                  contentStyle={{borderRadius: '4px', border: '1px solid #e9e9e9', fontSize: '12px'}} 
-                />
-                <Bar dataKey="prog" name="Programado" fill={COLORS.gray} radius={[2, 2, 0, 0]} barSize={12} />
-                <Bar dataKey="real" name="Realizado" fill={color.fill} radius={[2, 2, 0, 0]} barSize={12} />
-              </BarChart>
-            </ResponsiveContainer>
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const item = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border border-gray-200 shadow-lg rounded text-sm">
+          <p className="font-bold text-gray-800 mb-1">{item.nome}</p>
+          <p className="text-gray-600">
+            Aderência: <span className="font-bold" style={{ color: getBarColor(item.aderencia) }}>{item.aderencia}%</span>
+          </p>
+          <div className="mt-2 text-xs text-gray-500 border-t pt-2">
+            <p>Prog: {item.horas_prog}h</p>
+            <p>Real: {item.horas_real}h</p>
           </div>
-        )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow-md h-64 flex items-center justify-center">
+        <span className="text-gray-400">Sem dados para o período</span>
       </div>
     );
-  };
+  }
 
   return (
-    <div 
-      onClick={onClick}
-      className={`
-        bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer transition-all duration-300
-        ${mainStatusColor} border-l-[6px]
-        ${isOpen ? 'ring-2 ring-blue-500 ring-opacity-50 shadow-md col-span-1 md:col-span-2 lg:col-span-3' : 'hover:shadow-md col-span-1'}
-      `}
-    >
-      <div className="p-4">
-        <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <h3 className="text-gray-600 text-xs font-bold uppercase tracking-wider mb-1">{data.title}</h3>
+    <div className="bg-white p-4 rounded-lg shadow-md border border-gray-100 flex flex-col h-full">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-semibold text-gray-700">{title}</h3>
+      </div>
+      
+      <div className="flex-grow min-h-[250px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+            <XAxis type="number" domain={[0, 100]} hide />
+            <YAxis 
+              dataKey="nome" 
+              type="category" 
+              width={100} 
+              tick={{ fontSize: 11, fill: '#4b5563' }}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
             
-            <div className="flex items-center gap-4">
-                <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold">Contrato:</span>
-                    <span className={`text-xl font-bold ${getColor(data.types.contrato.percentual).text}`}>
-                        {data.types.contrato.percentual}%
-                    </span>
-                </div>
-                <div className="w-px h-6 bg-gray-200 mx-1"></div>
-                <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold">Oportunidade:</span>
-                    <span className={`text-xl font-bold ${getColor(data.types.oportunidade.percentual).text}`}>
-                        {data.types.oportunidade.percentual}%
-                    </span>
-                </div>
-            </div>
-          </div>
-          
-          <div className={`p-2 rounded-full transition-colors ${isOpen ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-400'}`}>
-            {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </div>
+            <Bar dataKey="aderencia" radius={[0, 4, 4, 0]} barSize={20}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.aderencia)} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Legenda de apoio */}
+      <div className="mt-4 flex justify-center gap-4 text-xs text-gray-500">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <span>&lt; 75%</span>
         </div>
-
-        <div className={`grid transition-all duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
-          <div className="overflow-hidden min-h-0">
-            <div className="border-t border-gray-100 pt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <TypeSection title="Contrato" typeData={data.types.contrato} />
-                <TypeSection title="Oportunidade" typeData={data.types.oportunidade} />
-            </div>
-            
-            <div className="mt-2 text-[10px] text-gray-400 flex items-center gap-1 justify-end border-t border-gray-50 pt-2">
-                <AlertCircle size={12} />
-                <span>Meta de Aderência: 80%</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <span>75-90%</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <span>&gt; 90%</span>
         </div>
       </div>
     </div>
