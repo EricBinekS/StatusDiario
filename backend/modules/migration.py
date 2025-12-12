@@ -6,9 +6,15 @@ import glob
 import json
 import datetime
 import sys
-from ..db.database import get_db_engine
-from ..scripts.utils import clean_column_names, normalize_str
-from .data_processor import transform_dataframe, make_row_id
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.dirname(current_dir)      
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
+
+from db.database import get_db_engine
+from scripts.utils import clean_column_names, normalize_str
+from modules.data_processor import transform_dataframe, make_row_id
 
 # Mapeamentos para coluna final do DB (com acentos)
 COL_MAPPING = {
@@ -27,20 +33,20 @@ FINAL_COLUMNS_DB = [
 
 def _load_raw_data():
     """Carrega todos os arquivos .xlsx e concatena em um único DataFrame."""
-    BACKEND_ROOT = Path(__file__).resolve().parent.parent
-    map_path = str(BACKEND_ROOT / "scripts" / "mapeamento_abas.json")
-    raw_data_path = str(BACKEND_ROOT / "raw_data" / "*.xlsx")
+    # Garante que o caminho seja relativo à raiz do backend calculada
+    map_path = os.path.join(backend_dir, "scripts", "mapeamento_abas.json")
+    raw_data_path = os.path.join(backend_dir, "raw_data", "*.xlsx")
 
     try:
         with open(map_path, 'r', encoding='utf-8') as f:
             mapa_de_abas = json.load(f)
     except Exception as e:
-        print(f"🔴 ERRO: Ao ler o mapa de abas: {e}")
+        print(f"🔴 ERRO: Ao ler o mapa de abas em {map_path}: {e}")
         return None
 
     file_paths = glob.glob(raw_data_path)
     if not file_paths:
-        print("🟠 AVISO: Nenhum arquivo de dados encontrado em raw_data.")
+        print(f"🟠 AVISO: Nenhum arquivo de dados encontrado em {raw_data_path}.")
         return None
 
     df_list = []
@@ -115,7 +121,7 @@ def _clean_and_finalize_data(df):
     if transformed_df.empty:
         return pd.DataFrame()
 
-    # 2. Filtro de Data Limite (últimos 10 dias)
+    # 2. Filtro de Data Limite (últimos 31 dias)
     hoje = datetime.date.today()
     data_limite = hoje - datetime.timedelta(days=31)
 
@@ -170,7 +176,7 @@ def run_migration():
         print("🔴 ERRO: Falha ao carregar os dados brutos. Abortando.")
         return
 
-    print(f"  -> Total de linhas brutos para processar: {len(df_raw)}")
+    print(f"  -> Total de linhas brutas para processar: {len(df_raw)}")
 
     # 2. Transformar e Limpar
     df_final = _clean_and_finalize_data(df_raw)
@@ -184,7 +190,9 @@ def run_migration():
     # 3. Persistência no Banco de Dados
     print("\n💾 Iniciando Persistência no Banco de Dados...")
     try:
-        with engine.connect() as conn:
+        # Usa engine.begin() para criar uma transação segura
+        with engine.begin() as conn:
+            # Substitui a tabela 'atividades' inteira com os novos dados
             df_final.to_sql('atividades', conn, if_exists='replace', index=False)
             print(f"🟢 SUCESSO: Migração da tabela 'atividades' concluída. {len(df_final)} linhas salvas.")
 
@@ -200,6 +208,7 @@ def run_migration():
                 )
             )
 
+            # Tenta atualizar; se não existir linha com id=1, insere
             result = conn.execute(
                 text("UPDATE migration_log SET last_updated_at = CURRENT_TIMESTAMP WHERE id = 1")
             )
@@ -209,10 +218,13 @@ def run_migration():
                     text("INSERT INTO migration_log (id, last_updated_at) VALUES (1, CURRENT_TIMESTAMP)")
                 )
 
-            conn.commit()
             print("🟢 SUCESSO: Timestamp da migração salvo.")
+            # O commit é feito automaticamente ao sair do bloco 'with engine.begin()'
 
     except Exception as e:
         print(f"🔴 ERRO durante a persistência no DB: {e}")
 
     print("\n--- ✅ MIGRAÇÃO CONCLUÍDA ---")
+
+if __name__ == "__main__":
+    run_migration()

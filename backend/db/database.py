@@ -2,40 +2,35 @@ from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 
-# Carrega variáveis locais (apenas em dev)
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Configuração do Engine
+# Variável global para o engine
+engine = None
+
 try:
     if not DATABASE_URL:
-        # Em produção, o print pode aparecer nos logs
-        print("AVISO: DATABASE_URL não encontrada. O backend pode falhar ao conectar.")
-        engine = None
+        print("AVISO: DATABASE_URL não encontrada.")
     else:
-        engine = create_engine(DATABASE_URL)
-        print("Servidor conectado ao banco de dados via DATABASE_URL.")
+        # Pool size e recycle ajudam a manter a conexão estável no Render
+        engine = create_engine(DATABASE_URL, pool_size=10, pool_recycle=1800)
+        print("Engine do Banco de Dados criado com sucesso.")
 except Exception as e:
-    print(f"ERRO CRÍTICO ao configurar o engine do banco de dados: {e}")
-    engine = None
+    print(f"ERRO CRÍTICO ao criar engine: {e}")
 
 def get_db_engine():
-    """Retorna o objeto SQLAlchemy Engine."""
+    """Retorna o engine para uso nas rotas/services."""
     return engine
 
 def init_db():
-    """
-    Função chamada pelo main.py ao iniciar.
-    Pode ser usada para criar tabelas (metadata.create_all) no futuro.
-    Por enquanto, serve apenas para validar a conexão inicial.
-    """
+    """Testa a conexão ao iniciar a API."""
     if engine:
         try:
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            print("Inicialização do DB: Conexão bem-sucedida.")
+            print("DB: Conexão de teste bem-sucedida.")
         except Exception as e:
-            print(f"Inicialização do DB: Falha ao conectar. {e}")
+            print(f"DB: Falha na conexão de teste. {e}")
     else:
-        print("Inicialização do DB: Engine não configurado.")
+        print("DB: Engine não está configurado.")
