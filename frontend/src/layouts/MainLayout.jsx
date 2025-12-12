@@ -1,43 +1,46 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import AppHeader from '../components/Header/AppHeader';
 import { useFetchData } from '../hooks/useFetchData';
-import { useFetchOverview } from '../hooks/useFetchOverview'; // <--- Importe o novo hook
+import useFetchOverview from '../hooks/useFetchOverview'; 
 
 const MainLayout = () => {
-  // Estado para os filtros globais (Data e Modo de Visualização)
-  const [globalFilters, setGlobalFilters] = useState({
-    startDate: '', // Será preenchido pelo OverviewPage
-    endDate: '',
-    viewMode: 'semana'
-  });
+  const location = useLocation();
 
-  // Hooks de Dados
-  const { rawData, loading: dataLoading, error: dataError, lastUpdatedTimestamp } = useFetchData();
-  
-  // Hook do Overview (Passamos os filtros para ele)
-  const { overviewData, loading: overviewLoading, error: overviewError } = useFetchOverview(globalFilters);
+  const { data: rawData, loading: loadingData, error: errorData, refetch: refetchData } = useFetchData();
+
+  const { overviewData, loading: loadingOverview, error: errorOverview, refetch: refetchOverview } = useFetchOverview();
+
+  const handleRefresh = () => {
+    refetchData();
+    refetchOverview();
+  };
+
+  const isOverview = location.pathname === '/overview';
+  const isLoading = isOverview ? loadingOverview : loadingData;
+  const error = isOverview ? errorOverview : errorData;
+
+  const lastUpdate = new Date(); 
 
   return (
-    <div className="flex flex-col h-screen bg-[#f8f9fa]">
-      <AppHeader lastUpdate={lastUpdatedTimestamp} />
-      
-      <main className="flex-1 overflow-hidden p-4">
-        {/* Passamos tudo via Context para as páginas filhas (Dashboard e Overview) */}
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+      {!isOverview && (
+        <AppHeader 
+          lastUpdate={lastUpdate} 
+          onRefresh={handleRefresh} 
+          loading={isLoading}
+        />
+      )}
+
+      <main className="flex-grow">
         <Outlet context={{ 
-          // Dados da Tabela (Dashboard)
           rawData, 
-          loading: dataLoading, 
-          error: dataError,
-          
-          // Dados do Overview
-          overviewData,
-          overviewLoading, // Renomeado para não conflitar
-          overviewError,
-          
-          // Controle de Filtros (Para o OverviewPage poder mudar a data/modo)
-          globalFilters,
-          setGlobalFilters
+          loadingData, 
+          errorData, 
+          overviewData, 
+          loadingOverview, 
+          errorOverview,
+          handleRefresh 
         }} />
       </main>
     </div>
