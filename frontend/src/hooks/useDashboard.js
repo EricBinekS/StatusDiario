@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDashboardData } from '../services/dashboardService';
+import { fetchAPI } from '../services/api'; 
 
 export const useDashboard = (selectedDate) => {
   const [data, setData] = useState([]);
@@ -10,15 +10,15 @@ export const useDashboard = (selectedDate) => {
     setLoading(true);
     setError(null);
     try {
-      // Se não tiver data selecionada, usa hoje formatado YYYY-MM-DD
       const dateToSend = selectedDate || new Date().toISOString().split('T')[0];
       
-      const result = await getDashboardData(dateToSend);
+      const result = await fetchAPI(`/dashboard`, { data: dateToSend });
+      
       setData(result || []);
     } catch (err) {
-      console.error("Erro no hook useDashboard:", err);
-      setError(err.message);
-      setData([]); // Garante array vazio em caso de erro
+      console.error("Erro ao carregar dashboard:", err);
+      setError("Não foi possível carregar os dados. Verifique a conexão.");
+      setData([]); // Evita quebrar a tabela com undefined
     } finally {
       setLoading(false);
     }

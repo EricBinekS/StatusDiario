@@ -1,20 +1,53 @@
-# Frontend (Node.js)
-Frontend/node_modules/
-Frontend/dist/
-Frontend/.env
-Frontend/.env.*
-Frontend/npm-debug.log*
-Frontend/yarn-debug.log*
-Frontend/yarn-error.log*
+# --- GERAL E SISTEMA OPERACIONAL ---
+.DS_Store
+Thumbs.db
+*.log
 
-# Backend (Python)
-Backend/venv/
-Backend/__pycache__/
-Backend/*.pyc
-Backend/.env
+# --- PYTHON (Backend) ---
+# Bytecode compilado (Onde o Python guarda cache)
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Arquivos de IDE e Sistema Operacional
+# Ambientes Virtuais (Nunca commitar a venv!)
+venv/
+env/
+.venv/
+backend/venv/
+
+# Variáveis de Ambiente (SEGURANÇA CRÍTICA)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+
+# Banco de dados local (se usar SQLite)
+*.sqlite3
+*.db
+
+# --- JAVASCRIPT / REACT (Frontend) ---
+# Dependências (São gigantes e instaláveis via npm install)
+node_modules/
+frontend/node_modules/
+
+# Build de produção
+dist/
+build/
+frontend/dist/
+
+# Logs de erro do NPM
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- DADOS E ARQUIVOS TEMPORÁRIOS ---
+# Ignora planilhas locais de teste para não poluir o histórico
+*.xlsx
+*.xls
+backend/raw_data/*.xlsx
+
+# --- IDEs (Configurações do editor) ---
 .vscode/
 .idea/
-*.DS_Store
-/node_modules

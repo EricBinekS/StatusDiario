@@ -1,27 +1,33 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from db.connection import get_db_engine # Apenas para testar conexão na inicialização
+import os
 
-# Importa as rotas novas
-from routes.dashboard_routes import dashboard_bp
-from routes.overview_routes import overview_bp
+from backend.db.connection import get_db_engine
+from backend.routes.dashboard_routes import dashboard_bp
 
 app = Flask(__name__)
+CORS(app) # Habilita CORS para o Frontend conectar
 
-# Configuração CORS permissiva para evitar dores de cabeça em dev/prod
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Registrar Blueprints (Rotas)
+app.register_blueprint(dashboard_bp)
+# app.register_blueprint(overview_bp)
 
-# Teste inicial de DB (Opcional, mas bom para debug no log do Render)
-with app.app_context():
-    get_db_engine()
+@app.route('/')
+def home():
+    return jsonify({"message": "API Status Diário Online 🚀", "status": "ok"})
 
-# Registro de Blueprints
-app.register_blueprint(dashboard_bp, url_prefix='/api')
-app.register_blueprint(overview_bp, url_prefix='/api')
+@app.route('/api/test-db')
+def test_db():
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            # Teste simples de conexão
+            result = conn.execute("SELECT 1").scalar()
+            return jsonify({"database": "Conectado", "result": result}), 200
+    except Exception as e:
+        return jsonify({"database": "Erro", "details": str(e)}), 500
 
-@app.route("/")
-def health_check():
-    return jsonify({"status": "API Online", "version": "2.0 (Refactored)"})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 8000))
+    # debug=True ajuda a ver erros detalhados no desenvolvimento
+    app.run(host='0.0.0.0', port=port, debug=True)

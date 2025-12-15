@@ -2,15 +2,15 @@ import React, { useState, useMemo } from 'react';
 import FiltersSection from '../../components/Dashboard/FiltersSection';
 import AtividadesTable from '../../components/Dashboard/AtividadesTable';
 import KPICards from '../../components/Dashboard/KPICards';
-import { useDashboard } from '../../hooks/useDashboard';
+import { useDashboard } from '../../hooks/useDashboard'; 
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const DashboardPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Estado inicial dos filtros
+  // Estado dos filtros
   const [filters, setFilters] = useState({
-    data: new Date().toISOString().split('T')[0], // Hoje
+    data: new Date().toISOString().split('T')[0], // Começa com hoje
     gerencia: [],
     trecho: [],
     sub: [],
@@ -19,12 +19,14 @@ const DashboardPage = () => {
     tipo: []
   });
 
-  // 1. CHAMADA REAL A API (Substitui o mockData)
+  // 1. CONEXÃO: Chama a API através do Hook
   const { data: apiData, loading, error, refetch } = useDashboard(filters.data);
 
-  // 2. Extração dinâmica de opções para os filtros (Baseado no que veio do banco)
+  // 2. EXTRAÇÃO: Gera as opções dos filtros dinamicamente baseada nos dados reais
   const options = useMemo(() => {
     if (!apiData || apiData.length === 0) return {};
+    
+    // Função auxiliar para pegar valores únicos e não nulos
     const extract = (key) => [...new Set(apiData.map(item => item[key]).filter(Boolean))].sort();
     
     return {
@@ -37,13 +39,12 @@ const DashboardPage = () => {
     };
   }, [apiData]);
 
-  // 3. Filtragem Local (Cliente-side)
-  // O backend filtra a DATA, o frontend filtra o RESTO (para ser rápido)
+  // 3. FILTRAGEM: Aplica os filtros selecionados nos dados que vieram da API
   const filteredData = useMemo(() => {
     if (!apiData) return [];
 
     return apiData.filter(row => {
-      // Verifica filtros MultiSelect
+      // Verifica cada filtro de array (MultiSelect)
       const checkFilter = (key) => {
         if (!filters[key] || filters[key].length === 0) return true;
         return filters[key].includes(row[key]);
@@ -56,7 +57,7 @@ const DashboardPage = () => {
       if (!checkFilter('atividade')) return false;
       if (!checkFilter('tipo')) return false;
 
-      // Busca por texto livre
+      // Busca Global por texto
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
         const match = 
@@ -78,7 +79,7 @@ const DashboardPage = () => {
     setSearchTerm('');
   };
 
-  // Renderização de Erro
+  // Se der erro de conexão
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-96 text-red-500 bg-white rounded-xl shadow-sm m-4 border border-red-100">
@@ -94,16 +95,15 @@ const DashboardPage = () => {
 
   return (
     <div className="flex flex-col">
-      {/* Filtros */}
+      {/* Barra de Filtros */}
       <FiltersSection 
         filters={filters} 
         setFilters={setFilters} 
         options={options}
         onClear={handleClearFilters}
-        searchTerm={searchTerm} // Se quiser passar pro FiltersSection (opcional, pois removemos o input grande de lá)
       />
 
-      {/* Loading State */}
+      {/* Estado de Carregamento */}
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 opacity-50">
           <Loader2 className="animate-spin text-blue-600 mb-2" size={40} />
@@ -111,10 +111,10 @@ const DashboardPage = () => {
         </div>
       ) : (
         <>
-          {/* Cards KPI com dados reais */}
+          {/* Cards de KPI (Calculados com dados reais) */}
           <KPICards data={filteredData} />
           
-          {/* Tabela */}
+          {/* Tabela de Dados */}
           <AtividadesTable data={filteredData} searchTerm={searchTerm} />
           
           <div className="text-right text-[10px] text-gray-400 mt-2 font-medium">

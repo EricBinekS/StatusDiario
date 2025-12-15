@@ -21,7 +21,11 @@ const AtividadesTable = ({ data, searchTerm }) => {
     let filtered = [...data];
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(i => String(i.ativo).toLowerCase().includes(lower) || String(i.atividade).toLowerCase().includes(lower) || String(i.detalhe).toLowerCase().includes(lower));
+      filtered = filtered.filter(i => 
+        String(i.ativo).toLowerCase().includes(lower) || 
+        String(i.atividade).toLowerCase().includes(lower) || 
+        String(i.detalhe).toLowerCase().includes(lower)
+      );
     }
     if (sortConfig.key) {
       filtered.sort((a, b) => {
@@ -39,7 +43,13 @@ const AtividadesTable = ({ data, searchTerm }) => {
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const currentData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const getStatusColor = (s) => (s === 2 ? 'bg-[#28a745]' : s === 1 ? 'bg-[#ffc107]' : s === 0 ? 'bg-[#dc3545]' : 'bg-[#6c757d]');
+  // REGRA DE CORES CORRIGIDA (2 = Verde)
+  const getStatusColor = (s) => {
+    if (s === 2) return 'bg-[#28a745]'; // Verde (Concluído)
+    if (s === 1) return 'bg-[#ffc107]'; // Amarelo (Andamento)
+    if (s === 0) return 'bg-[#dc3545]'; // Vermelho (Cancelado)
+    return 'bg-[#6c757d]';              // Cinza (Programado/Null)
+  };
 
   const SortableHeader = ({ label, sortKey, width, colorClass, borderRight = true }) => (
     <th onClick={() => handleSort(sortKey)} className={`${width} ${colorClass} py-3 px-1 ${borderRight ? 'border-r border-[#e5e7eb]' : ''} cursor-pointer group select-none transition-colors hover:brightness-95`}>

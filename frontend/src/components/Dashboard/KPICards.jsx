@@ -3,21 +3,29 @@ import { CheckCircle2, Clock, Ban, PieChart } from 'lucide-react';
 
 const KPICards = ({ data }) => {
   const stats = useMemo(() => {
-    if (!data) return { aderencia: 0, realizados: 0, andamento: 0, cancelados: 0 };
-    const total = data.length;
-    const realizados = data.filter(r => r.status === 2).length;
-    const andamento = data.filter(r => r.status === 1 || r.status === 3).length;
-    const cancelados = data.filter(r => r.status === 0).length;
-    const aderencia = total > 0 ? ((realizados / total) * 100).toFixed(1) : 0;
+    if (!data || data.length === 0) return { aderencia: 0, realizados: 0, andamento: 0, cancelados: 0 };
+
+    const validData = data.filter(r => r.status !== null && r.status !== undefined);
+    const totalConsiderado = validData.length;
+
+    // ALTERADO: Status 2 é Realizado (Verde)
+    const realizados = validData.filter(r => r.status === 2).length; 
+    const andamento = validData.filter(r => r.status === 1).length;
+    const cancelados = validData.filter(r => r.status === 0).length;
+
+    const aderencia = totalConsiderado > 0 
+      ? ((realizados / totalConsiderado) * 100).toFixed(1) 
+      : 0;
+
     return { aderencia, realizados, andamento, cancelados };
   }, [data]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Global" />
+      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global" />
       <Card label="Realizados" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Concluídos" />
-      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="blue" subtext="Execução" />
-      <Card label="Cancelados" value={stats.cancelados} icon={<Ban size={20} />} color="red" subtext="Falhas" />
+      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="blue" subtext="Em Execução" />
+      <Card label="Cancelados" value={stats.cancelados} icon={<Ban size={20} />} color="red" subtext="Não Executados" />
     </div>
   );
 };
@@ -31,7 +39,7 @@ const Card = ({ label, value, icon, color, subtext }) => {
   };
   const theme = styles[color] || styles.blue;
   return (
-    <div className={`flex items-center justify-between p-4 rounded-xl border ${theme.border} ${theme.bg} shadow-sm hover:shadow-md transition-all`}>
+    <div className={`flex items-center justify-between p-4 rounded-xl border ${theme.border} ${theme.bg} shadow-sm transition-all hover:shadow-md`}>
       <div>
         <p className={`text-[10px] font-bold uppercase tracking-wider opacity-70 ${theme.text}`}>{label}</p>
         <div className="flex items-baseline gap-1 mt-0.5">
