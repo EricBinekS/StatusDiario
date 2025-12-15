@@ -3,18 +3,18 @@ import { getOverviewData } from '../services/overviewService';
 
 export const useOverview = (viewMode) => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Começa carregando
   const [error, setError] = useState(null);
 
-  const loadData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await getOverviewData(viewMode);
-      setData(Array.isArray(result) ? result : []);
-      setError(null);
+      setData(result || []);
     } catch (err) {
-      console.error("Overview Error:", err);
-      setError("Falha ao carregar indicadores gerenciais.");
+      console.error("Erro ao carregar overview:", err);
+      setError("Não foi possível carregar os indicadores.");
       setData([]);
     } finally {
       setLoading(false);
@@ -22,10 +22,8 @@ export const useOverview = (viewMode) => {
   }, [viewMode]);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 300000); 
-    return () => clearInterval(interval);
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
-  return { data, loading, error, refetch: loadData };
+  return { data, loading, error, refetch: fetchData };
 };

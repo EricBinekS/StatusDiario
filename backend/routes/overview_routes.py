@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from services.overview_service import get_overview_data
+from backend.services.overview_service import get_overview_data
 
 overview_bp = Blueprint('overview', __name__)
 
