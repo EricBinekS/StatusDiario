@@ -1,81 +1,58 @@
-import React from 'react';
-import { X, Filter } from 'lucide-react';
-import MultiSelectFilterPlaceholder from './MultiSelectFilterPlaceholder';
+import React, { useState } from 'react';
+import { X, Calendar, Image as ImageIcon } from 'lucide-react';
 import FilterPortal from './FilterPortal';
+import MultiSelectFilterPlaceholder from './MultiSelectFilterPlaceholder';
 
 const FiltersSection = ({ filters, setFilters, options, onClear }) => {
-  const [activeFilter, setActiveFilter] = React.useState(null);
+  const [activeFilter, setActiveFilter] = useState(null);
+  const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
+  const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
 
-  const handleChange = (key, vals) => setFilters(prev => ({ ...prev, [key]: vals }));
+  const filterConfig = [
+    { key: 'gerencia', label: 'Gerência' }, { key: 'trecho', label: 'Trecho' },
+    { key: 'sub', label: 'Sub' }, { key: 'ativo', label: 'Ativo' },
+    { key: 'atividade', label: 'Atividade' }, { key: 'tipo', label: 'Tipo' },
+  ];
 
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-      <div className="flex items-center gap-2 text-slate-700 text-sm font-bold min-w-max">
-        <Filter size={16} />
-        Filtros:
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 w-full">
-        {/* Gerência */}
-        <div className="relative">
-          <div onClick={() => setActiveFilter('gerencia')}>
-            <MultiSelectFilterPlaceholder label="Gerência" count={filters.gerencia_da_via.length} />
-          </div>
-          {activeFilter === 'gerencia' && (
-            <FilterPortal 
-              title="Gerência" 
-              options={options.gerencia_da_via} 
-              selected={filters.gerencia_da_via} 
-              onChange={v => handleChange('gerencia_da_via', v)} 
-              onClose={() => setActiveFilter(null)} 
-            />
-          )}
-        </div>
-
-        {/* Atividade */}
-        <div className="relative">
-           <div onClick={() => setActiveFilter('atividade')}>
-            <MultiSelectFilterPlaceholder label="Atividade" count={filters.atividade.length} />
-          </div>
-          {activeFilter === 'atividade' && (
-            <FilterPortal 
-              title="Atividade" 
-              options={options.atividade} 
-              selected={filters.atividade} 
-              onChange={v => handleChange('atividade', v)} 
-              onClose={() => setActiveFilter(null)} 
-            />
-          )}
-        </div>
-
-        {/* Status */}
-        <div className="relative">
-           <div onClick={() => setActiveFilter('status')}>
-            <MultiSelectFilterPlaceholder label="Status" count={filters.status.length} />
-          </div>
-          {activeFilter === 'status' && (
-            <FilterPortal 
-              title="Status" 
-              options={options.status} 
-              selected={filters.status} 
-              onChange={v => handleChange('status', v)} 
-              onClose={() => setActiveFilter(null)} 
-            />
-          )}
-        </div>
-
-         {/* Botão Limpar */}
-        {(filters.gerencia_da_via.length > 0 || filters.atividade.length > 0 || filters.status.length > 0) && (
-            <button 
-                onClick={onClear}
-                className="flex items-center justify-center gap-1 text-xs text-red-600 font-bold hover:bg-red-50 px-3 py-2 rounded transition-colors border border-transparent hover:border-red-100"
-            >
-                <X size={14} /> Limpar
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex items-center gap-4">
+      <div className="flex-grow flex flex-col gap-2">
+        {hasFilters && (
+          <div className="flex justify-end mb-1">
+            <button onClick={onClear} className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1">
+              <X size={12} /> Limpar filtros selecionados
             </button>
+          </div>
         )}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-center">
+          <div className="flex flex-col gap-1 relative group">
+             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">Data Base</label>
+             <div className="relative">
+                <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input type="date" value={filters.data} onChange={(e) => setFilters(prev => ({ ...prev, data: e.target.value }))} className="w-full h-8 pl-8 pr-2 text-xs border border-gray-300 rounded-lg bg-gray-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium" />
+             </div>
+          </div>
+          {filterConfig.map(({ key, label }) => (
+            <div key={key} className="flex flex-col gap-1 relative group">
+              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">{label}</label>
+              <div onClick={() => setActiveFilter(activeFilter === key ? null : key)}>
+                <MultiSelectFilterPlaceholder label={label} count={filters[key]?.length || 0} active={activeFilter === key} />
+              </div>
+              {activeFilter === key && (
+                <div className="absolute top-full left-0 mt-1 z-[100] w-full min-w-[200px]">
+                  <FilterPortal title={label} options={options[key] || []} selected={filters[key] || []} onChange={(vals) => handleFilterChange(key, vals)} onClose={() => setActiveFilter(null)} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center justify-center border-l border-gray-100 pl-4 min-w-[100px]">
+        <button className="flex items-center justify-center gap-2 px-3 py-1.5 h-8 text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50 rounded-lg transition-all w-full">
+          <ImageIcon size={14} /> Imagem
+        </button>
       </div>
     </div>
   );
 };
-
 export default FiltersSection;

@@ -1,78 +1,43 @@
-import React, { useMemo } from 'react';
-import { useDashboard } from '../../hooks/useDashboard';
-import useFiltering from '../../hooks/useFiltering';
+import React, { useState, useMemo } from 'react';
 import FiltersSection from '../../components/Dashboard/FiltersSection';
 import AtividadesTable from '../../components/Dashboard/AtividadesTable';
-import LoadingSpinner from '../../components/Common/LoadingSpinner';
+import KPICards from '../../components/Dashboard/KPICards';
+import { painelData } from '../../data/mockData';
 
 const DashboardPage = () => {
-  const { data: rawData, loading } = useDashboard();
-  
-  const {
-    filters,
-    setFilters,
-    filteredData,
-    filterOptions,
-    resetFilters
-  } = useFiltering(rawData);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({ data: '2025-12-09', gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] });
 
-  // Cálculo dos Cards de Resumo (KPIs rápidos)
-  const stats = useMemo(() => {
-    const total = filteredData.length;
-    const concluido = filteredData.filter(d => ['CONCLUIDO', 'CONCLUÍDO'].includes(d.status?.toUpperCase())).length;
-    const andamento = filteredData.filter(d => d.status?.toUpperCase() === 'EM ANDAMENTO').length;
-    const programado = filteredData.filter(d => d.status?.toUpperCase() === 'PROGRAMADO').length;
-    
-    return { total, concluido, andamento, programado };
-  }, [filteredData]);
+  const options = useMemo(() => {
+    const extract = (key) => [...new Set(painelData.map(item => item[key]).filter(Boolean))].sort();
+    return { gerencia: extract('gerencia'), trecho: extract('trecho'), sub: extract('sub'), ativo: extract('ativo'), atividade: extract('atividade'), tipo: extract('tipo') };
+  }, []);
 
-  if (loading) return <div className="p-10"><LoadingSpinner /></div>;
+  const filteredData = useMemo(() => {
+    return painelData.filter(row => {
+      const checkFilter = (key) => filters[key].length === 0 || filters[key].includes(row[key]);
+      if (!checkFilter('ativo') || !checkFilter('atividade')) return false;
+      if (searchTerm) {
+        const lower = searchTerm.toLowerCase();
+        const match = String(row.ativo).toLowerCase().includes(lower) || String(row.atividade).toLowerCase().includes(lower) || String(row.detalhe).toLowerCase().includes(lower);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [filters, searchTerm]);
 
-  return (
-    <div className="space-y-4">
-      {/* Cards de Resumo (Estilo MKP) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard label="Total de Atividades" value={stats.total} color="blue" />
-        <SummaryCard label="Concluídas" value={stats.concluido} color="green" />
-        <SummaryCard label="Em Andamento" value={stats.andamento} color="yellow" />
-        <SummaryCard label="Aguardando / Programado" value={stats.programado} color="gray" />
-      </div>
-
-      {/* Área de Filtros e Tabela */}
-      <div className="bg-white rounded shadow border border-slate-200">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-           <FiltersSection 
-              filters={filters} 
-              setFilters={setFilters} 
-              options={filterOptions} 
-              onClear={resetFilters}
-           />
-        </div>
-        
-        <AtividadesTable data={filteredData} />
-        
-        <div className="bg-slate-50 px-4 py-2 text-xs text-slate-500 text-right border-t border-slate-200">
-          Mostrando {filteredData.length} registros
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SummaryCard = ({ label, value, color }) => {
-  const colors = {
-    blue: "bg-blue-50 border-blue-200 text-blue-800",
-    green: "bg-green-50 border-green-200 text-green-800",
-    yellow: "bg-yellow-50 border-yellow-200 text-yellow-800",
-    gray: "bg-slate-50 border-slate-200 text-slate-800"
+  const handleClearFilters = () => {
+    setFilters({ data: filters.data, gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] });
+    setSearchTerm('');
   };
 
   return (
-    <div className={`p-4 rounded border ${colors[color]} flex flex-col items-center justify-center shadow-sm`}>
-      <span className="text-3xl font-bold">{value}</span>
-      <span className="text-xs uppercase font-semibold opacity-70 mt-1">{label}</span>
+    <div className="flex flex-col">
+      <FiltersSection filters={filters} setFilters={setFilters} options={options} onClear={handleClearFilters} />
+      <KPICards data={filteredData} />
+      <AtividadesTable data={filteredData} searchTerm={searchTerm} />
+      <div className="text-right text-[10px] text-gray-500 mt-2">Mostrando {filteredData.length} de {painelData.length} registros</div>
     </div>
   );
 };
-
 export default DashboardPage;
