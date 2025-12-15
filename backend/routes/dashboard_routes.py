@@ -1,15 +1,15 @@
 from flask import Blueprint, jsonify, request
-from services.dashboard_service import get_dashboard_data
+from backend.services.dashboard_service import DashboardService
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
-@dashboard_bp.route('/atividades', methods=['GET'])
-def list_atividades():
+@dashboard_bp.route('/api/dashboard', methods=['GET'])
+def get_dashboard():
+    # Recebe ?data=2023-12-09
+    data_ref = request.args.get('data')
+    
     try:
-        # Futuramente podemos passar filtros via request.args
-        data = get_dashboard_data()
-        return jsonify(data)
+        data = DashboardService.get_dashboard_data(data_ref)
+        return jsonify(data), 200
     except Exception as e:
-        # Loga no servidor, mas responde JSON válido para o React
-        print(f"Erro na Rota Dashboard: {e}")
-        return jsonify([]), 200 # Retorna vazio, não erro 500
+        return jsonify({"error": str(e)}), 500

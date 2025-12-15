@@ -1,6 +1,5 @@
 import { fetchAPI } from './api';
 
-export const getDashboardData = async () => {
-  // Retorna a lista plana de atividades
-  return await fetchAPI('/atividades');
+export const getDashboardData = async (date) => {
+  return await fetchAPI('/dashboard', { data: date });
 };
