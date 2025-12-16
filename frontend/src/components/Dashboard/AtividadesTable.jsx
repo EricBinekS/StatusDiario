@@ -88,7 +88,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
               
               <th className="w-[18%] bg-[#9eb0be] py-3 px-1 border-r border-[#e5e7eb]">Identificador<br/><span className="text-[9px] font-normal opacity-80">Ativo | Atividade</span></th>
               <SortableHeader label={<span>Início<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="inicio.prog" width="w-[10%]" colorClass="bg-[#8acaba]" />
-              <SortableHeader label={<span>Tempo<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="tempo.real" width="w-[10%]" colorClass="bg-[#a7fa97]" />
+              <SortableHeader label={<span>Tempo<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="tempo.real" width="w-[10%]" colorClass="bg-[#8acaba]" />
               <th className="w-[12%] bg-[#a7fa97] py-3 px-1 border-r border-[#e5e7eb]">Local<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></th>
               <th className="w-[10%] bg-[#a7fa97] py-3 px-1 border-r border-[#e5e7eb]">Quantidade<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></th>
               <th className="w-[32%] bg-[#fc9254] py-3 px-1">Detalhamento</th>
