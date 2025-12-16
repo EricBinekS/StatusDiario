@@ -28,7 +28,7 @@ def get_dashboard_data(filters=None):
             detalhe_local
         FROM atividades
         WHERE data = :data_ref
-        ORDER BY inicio_prog ASC
+        ORDER BY data DESC, status ASC, inicio_prog ASC
     """)
 
     try:
@@ -37,6 +37,7 @@ def get_dashboard_data(filters=None):
         
         if df.empty:
             return []
+
         dashboard_data = []
         
         for _, row in df.iterrows():
@@ -44,12 +45,19 @@ def get_dashboard_data(filters=None):
                 if pd.isna(t) or t == "" or t is None: return "--:--"
                 try:
                     if hasattr(t, 'strftime'): return t.strftime('%H:%M')
-                    # Se for string
                     return str(t)[:5]
                 except:
                     return "--:--"
 
-            status_val = int(row['status']) if pd.notna(row['status']) else None
+            # --- CORREÇÃO AQUI ---
+            # Converte float (2.0), int (2) ou string ("2") para inteiro
+            status_val = None
+            if pd.notna(row['status']):
+                try:
+                    status_val = int(float(row['status']))
+                except:
+                    status_val = None
+            # ---------------------
 
             data_fmt = "--/--"
             if pd.notna(row['data']):
@@ -96,5 +104,28 @@ def get_dashboard_data(filters=None):
         return dashboard_data
 
     except Exception as e:
-        print(f"Erro no DashboardService: {e}")
+        print(f"Erro no DashboardService (get_dashboard_data): {e}")
         return []
+
+def get_last_migration_time():
+    engine = get_db_engine()
+    if not engine:
+        return {"last_updated_at": None}
+
+    query = text("SELECT last_updated_at FROM migration_log ORDER BY last_updated_at DESC LIMIT 1")
+    
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(query).scalar()
+            
+            if result:
+                iso_time = result.isoformat()
+                if not iso_time.endswith('Z') and '+' not in iso_time:
+                    iso_time += 'Z'
+                return {"last_updated_at": iso_time}
+            else:
+                return {"last_updated_at": None}
+
+    except Exception as e:
+        print(f"Erro no DashboardService (get_last_migration_time): {e}")
+        return {"last_updated_at": None}
