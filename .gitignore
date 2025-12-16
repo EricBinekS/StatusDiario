@@ -42,12 +42,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# --- DADOS E ARQUIVOS TEMPORÁRIOS ---
-# Ignora planilhas locais de teste para não poluir o histórico
-*.xlsx
-*.xls
-backend/raw_data/*.xlsx
-
 # --- IDEs (Configurações do editor) ---
 .vscode/
 .idea/

@@ -1,0 +1,41 @@
+name: Executar ETL na Atualização de Dados
+
+# 1. Configura o gatilho para rodar SOMENTE quando houver commits 
+#    que alteram arquivos dentro da pasta backend/raw_data.
+on:
+  push:
+    paths:
+      - 'backend/raw_data/**'
+
+jobs:
+  run-migration:
+    runs-on: ubuntu-latest
+    # Define o ambiente para o backend (Python)
+    defaults:
+      run:
+        working-directory: ./backend 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # Acelera a instalação de dependências
+
+      - name: Install Python Dependencies
+        # Instala as dependências a partir do requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run ETL Migration (Update Database)
+        env:
+          # A variável de ambiente DATABASE_URL é crucial
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # Roda o módulo de migração. Note que o Working Directory já é 'backend',
+        # então o comando é simplificado.
+        run: |
+          python -m etl.run_migration
