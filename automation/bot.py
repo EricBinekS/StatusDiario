@@ -14,15 +14,15 @@ if not DASHBOARD_URL:
     print("❌ ERRO CRÍTICO: 'DASHBOARD_URL' não definida.")
     exit(1)
 
-# CORREÇÃO 1: Adicionado acento em MODERNIZAÇÃO para o seletor encontrar o texto correto
-GERENCIAS = ["FERRONORTE", "SP NORTE", "SP SUL", "MALHA CENTRAL", "MODERNIZAÇÃO"]
+GERENCIAS = ["FERRONORTE", "SP NORTE", "SP SUL", "MALHA CENTRAL"]
 
 def run():
-    screenshots_data = [] # Lista para guardar os prints
+    screenshots_data = [] 
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={"width": 1920, "height": 1080})
+        
+        context = browser.new_context(viewport={"width": 1920, "height": 1400})
         page = context.new_page()
 
         print(f"🚀 Acessando {DASHBOARD_URL}...")
@@ -43,18 +43,17 @@ def run():
                 # 2. ESPERA MENU
                 page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
 
-                # 3. LIMPA (Se necessário)
+                # 3. LIMPA
                 btn_limpar = page.locator("button:has-text('Limpar')").last
                 if btn_limpar.is_visible() and btn_limpar.is_enabled():
                     btn_limpar.click()
                     time.sleep(0.5)
                 
-                # 4. BUSCA (Digita o nome)
+                # 4. BUSCA
                 page.fill("input[placeholder='Buscar...']", gerencia)
                 time.sleep(1) 
 
-                # 5. SELECIONA (Clica no texto exato da lista)
-                # O .last garante que pegamos o item da lista e não o input ou header
+                # 5. SELECIONA
                 page.locator(f"div:has-text('{gerencia}')").last.click()
 
                 # 6. APLICA
@@ -64,13 +63,13 @@ def run():
                 time.sleep(1)
                 if page.is_visible("text=Carregando dados..."):
                     page.wait_for_selector("text=Carregando dados...", state="detached")
-                time.sleep(2) 
+                time.sleep(3) # Espera renderizar tudo
 
-                # 8. TIRA O PRINT E GUARDA NA MEMÓRIA
+                # 8. PRINT
                 print(f"📸 Capturado: {gerencia}")
+                # O print agora pegará o elemento inteiro, que já está totalmente visível na tela de 3000px
                 screenshot_bytes = page.locator("#dashboard-content").screenshot()
                 
-                # Salva para enviar depois
                 screenshots_data.append({
                     "nome": gerencia,
                     "img": screenshot_bytes
@@ -88,7 +87,7 @@ def run():
 
         browser.close()
     
-    # 9. ENVIA TUDO DE UMA VEZ
+    # 9. ENVIA EMAIL
     if screenshots_data:
         enviar_email_unificado(screenshots_data)
     else:
@@ -102,7 +101,6 @@ def enviar_email_unificado(lista_prints):
     print("📧 Montando email unificado...")
     data_hoje = datetime.now().strftime("%d/%m/%Y")
     
-    # Início do HTML
     html_body = f"""
     <html>
     <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
@@ -114,7 +112,6 @@ def enviar_email_unificado(lista_prints):
             </div>
     """
 
-    # Loop para adicionar cada imagem no HTML
     for item in lista_prints:
         nome = item['nome']
         b64_img = base64.b64encode(item['img']).decode('utf-8')
@@ -128,7 +125,6 @@ def enviar_email_unificado(lista_prints):
             </div>
         """
 
-    # Fechamento do HTML
     html_body += """
             <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 11px; color: #999;">
                 <p>Email automático gerado pelo Sistema PCM.</p>
