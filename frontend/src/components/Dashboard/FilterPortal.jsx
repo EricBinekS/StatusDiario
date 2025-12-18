@@ -3,11 +3,25 @@ import { X, Search, Check } from 'lucide-react';
 
 const FilterPortal = ({ title, options = [], selected = [], onChange, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const filteredOptions = useMemo(() => options?.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase())) || [], [options, searchTerm]);
+  
+  const filteredOptions = useMemo(() => 
+    options?.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase())) || [], 
+  [options, searchTerm]);
+
+  const isAllSelected = filteredOptions.length > 0 && filteredOptions.every(opt => selected.includes(opt));
 
   const toggleOption = (opt) => {
     if (selected.includes(opt)) onChange(selected.filter(s => s !== opt));
     else onChange([...selected, opt]);
+  };
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      onChange(selected.filter(s => !filteredOptions.includes(s)));
+    } else {
+      const newSelected = [...new Set([...selected, ...filteredOptions])];
+      onChange(newSelected);
+    }
   };
 
   return (
@@ -16,12 +30,14 @@ const FilterPortal = ({ title, options = [], selected = [], onChange, onClose })
         <h4 className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Filtrar {title}</h4>
         <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-gray-200"><X size={14} /></button>
       </div>
+      
       <div className="p-2 border-b border-gray-100 bg-white">
         <div className="relative group">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
           <input type="text" placeholder="Buscar..." className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
         </div>
       </div>
+
       <div className="max-h-56 overflow-y-auto p-1 bg-white scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
         {filteredOptions.length > 0 ? (
           filteredOptions.map(opt => (
@@ -36,8 +52,26 @@ const FilterPortal = ({ title, options = [], selected = [], onChange, onClose })
           <div className="flex flex-col items-center justify-center py-6 text-gray-400 gap-2"><Search size={16} className="opacity-20" /><span className="text-[10px]">Sem resultados</span></div>
         )}
       </div>
-      <div className="bg-gray-50 p-2 border-t border-gray-100 flex justify-between items-center">
-        <button onClick={() => onChange([])} disabled={selected.length === 0} className="text-[10px] font-bold text-gray-500 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition-colors">Limpar ({selected.length})</button>
+
+      <div className="bg-gray-50 p-2 border-t border-gray-100 flex justify-between items-center gap-2">
+        <div className="flex gap-1">
+            {/* NOVO BOTÃO: TODOS */}
+            <button 
+                onClick={handleSelectAll} 
+                disabled={filteredOptions.length === 0}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 px-2 py-1 hover:bg-blue-50 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+                {isAllSelected ? 'Desmarcar' : 'Todos'}
+            </button>
+            
+            <button 
+                onClick={() => onChange([])} 
+                disabled={selected.length === 0} 
+                className="text-[10px] font-bold text-gray-500 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition-colors"
+            >
+                Limpar
+            </button>
+        </div>
         <button onClick={onClose} className="text-[10px] font-bold bg-blue-600 text-white px-4 py-1.5 rounded-md hover:bg-blue-700 shadow-sm hover:shadow active:scale-95 transition-all">Aplicar</button>
       </div>
     </div>
