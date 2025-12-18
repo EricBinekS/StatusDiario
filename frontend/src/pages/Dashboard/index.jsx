@@ -48,54 +48,48 @@ const DashboardPage = () => {
     setFilters(prev => ({ ...prev, gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] }));
     setSearchTerm('');
   };
+
   const handleExportImage = async () => {
     if (!dashboardRef.current) return;
     setIsExporting(true);
-    
     await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
         const canvas = await html2canvas(dashboardRef.current, {
             scale: 3, 
-            
-            backgroundColor: '#f4f6f8', 
+            backgroundColor: null, // Deixa transparente para pegar a cor da div (ou force '#f4f6f8' se quiser sempre claro)
             logging: false,
             useCORS: true,
             allowTaint: true, 
-            
             onclone: (clonedDoc) => {
                 const style = clonedDoc.createElement('style');
-                style.innerHTML = `
-                    * {
-                        -webkit-font-smoothing: antialiased !important;
-                        -moz-osx-font-smoothing: grayscale !important;
-                        text-rendering: optimizeLegibility !important;
-                        /* Tenta evitar que bordas finas sumam no redimensionamento */
-                        box-shadow: 0 0 1px rgba(0,0,0,0.01); 
-                    }
-                `;
+                style.innerHTML = `* { -webkit-font-smoothing: antialiased !important; -moz-osx-font-smoothing: grayscale !important; }`;
                 clonedDoc.head.appendChild(style);
+                
+                // Força fundo claro na exportação para garantir legibilidade, se desejar
+                const element = clonedDoc.getElementById('dashboard-content');
+                if(element) {
+                    element.style.backgroundColor = '#f4f6f8';
+                    element.classList.remove('dark'); // Remove dark mode da captura se quiser sempre claro
+                }
             }
         });
-
+        
         canvas.toBlob(async (blob) => {
             try {
                 if (!blob) throw new Error("Falha ao gerar imagem");
-                
                 const item = new ClipboardItem({ "image/png": blob });
                 await navigator.clipboard.write([item]);
-                
-                console.log("Imagem de alta qualidade copiada para a área de transferência.");
+                console.log("Imagem copiada!");
             } catch (err) {
-                console.error("Erro ao copiar para o clipboard:", err);
-                
-                alert("Não foi possível copiar automaticamente. Verifique as permissões.");
+                console.error("Erro clipboard:", err);
+                alert("Verifique permissões do navegador.");
             }
         }, 'image/png', 1.0);
 
     } catch (err) {
-        console.error("Erro crítico no html2canvas:", err);
-        alert("Erro ao processar a imagem do painel.");
+        console.error("Erro html2canvas:", err);
+        alert("Erro ao processar imagem.");
     } finally {
         setIsExporting(false);
     }
@@ -103,17 +97,17 @@ const DashboardPage = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-red-500 bg-white rounded-xl shadow-sm m-4 border border-red-100">
+      <div className="flex flex-col items-center justify-center h-96 text-red-500 bg-white dark:bg-slate-800 rounded-xl shadow-sm m-4 border border-red-100 dark:border-red-900">
         <AlertCircle size={48} className="mb-2 opacity-50" />
         <p className="font-bold">Falha ao carregar dados</p>
-        <p className="text-sm mb-4 opacity-75">{error}</p>
-        <button onClick={refetch} className="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors font-bold text-sm">Tentar Novamente</button>
+        <button onClick={refetch} className="mt-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">Tentar Novamente</button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
+      {/* Filtros Fora da área de print para não sair na foto se não quiser */}
       <FiltersSection 
         filters={filters} 
         setFilters={setFilters} 
@@ -123,23 +117,23 @@ const DashboardPage = () => {
         isExporting={isExporting}    
       />
 
-      <div ref={dashboardRef} className="flex flex-col bg-[#f4f6f8]"> 
-        <div className="p-1"> 
-            {loading ? (
-                <div className="flex flex-col items-center justify-center h-64 opacity-50">
-                <Loader2 className="animate-spin text-blue-600 mb-2" size={40} />
-                <span className="text-xs font-bold text-blue-900/50 uppercase tracking-widest">Carregando dados...</span>
-                </div>
-            ) : (
-                <>
-                <KPICards data={filteredData} />
-                <AtividadesTable data={filteredData} searchTerm={searchTerm} />
-                <div className="text-right text-[10px] text-gray-400 mt-2 font-medium">
-                    Exibindo {filteredData.length} registros (Total do dia: {apiData.length})
-                </div>
-                </>
-            )}
-        </div>
+      {/* ÁREA DE CONTEÚDO (Cards + Tabela) */}
+      {/* Adicionei dark:bg-slate-900 e id para o export */}
+      <div ref={dashboardRef} id="dashboard-content" className="flex flex-col bg-[#f4f6f8] dark:bg-slate-900 transition-colors p-1 rounded-xl"> 
+        {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 opacity-50">
+            <Loader2 className="animate-spin text-blue-600 dark:text-blue-400 mb-2" size={40} />
+            <span className="text-xs font-bold text-blue-900/50 dark:text-blue-100/50 uppercase tracking-widest">Carregando dados...</span>
+            </div>
+        ) : (
+            <>
+            <KPICards data={filteredData} />
+            <AtividadesTable data={filteredData} searchTerm={searchTerm} />
+            <div className="text-right text-[10px] text-gray-400 mt-2 font-medium px-2">
+                Exibindo {filteredData.length} registros (Total do dia: {apiData.length})
+            </div>
+            </>
+        )}
       </div>
     </div>
   );
