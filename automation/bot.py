@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 # --- CONFIGURAÇÕES ---
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL") 
 WEBHOOK_URL = os.environ.get("POWER_AUTOMATE_URL")
-RECIPIENT_EMAIL = os.environ.get("RECIPIENT_EMAIL", "eric.bine@rumolog.com")
+RECIPIENT_EMAIL = os.environ.get("RECIPIENT_EMAIL")
 
 # VALIDAÇÃO DE SEGURANÇA
 if not DASHBOARD_URL:
@@ -37,40 +37,32 @@ def run():
             
             try:
                 # 1. ABRE O FILTRO DE GERÊNCIA
-                # Estratégia: Acha o texto 'Gerência' e clica no elemento pai (div group), 
-                # depois busca o ultimo div clicável dentro dele (o botão do filtro)
                 filter_group = page.locator("div.group", has_text="Gerência").first
-                
-                # Clica na caixa do filtro (que geralmente tem borda ou texto 'Todos')
-                # O seletor abaixo pega a div clicável irmã do label
                 filter_btn = filter_group.locator("div").last 
                 filter_btn.click()
                 
-                # 2. ESPERA O MENU ABRIR (CRUCIAL)
-                # Só tenta digitar se o campo de busca aparecer
+                # 2. ESPERA O MENU ABRIR
                 page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
 
-                # 3. Limpa filtros anteriores (se houver botão limpar visível)
-                # O botão limpar fica dentro do portal que acabou de abrir
+                # 3. LIMPA FILTROS ANTERIORES (CORREÇÃO AQUI)
+                # Só clica se o botão estiver visível E habilitado (enabled)
                 btn_limpar = page.locator("button:has-text('Limpar')").last
-                if btn_limpar.is_visible():
+                if btn_limpar.is_visible() and btn_limpar.is_enabled():
                     btn_limpar.click()
+                    time.sleep(0.5) # Pequena pausa para a limpeza processar
                 
                 # 4. Busca a Gerência
                 page.fill("input[placeholder='Buscar...']", gerencia)
                 time.sleep(1) # Espera visual para a lista filtrar
 
                 # 5. Seleciona a opção
-                # Clica na div que tem o texto da gerência e role='button' ou cursor-pointer
-                # Usa 'visible=True' para garantir que não clica em algo oculto
                 page.locator(f"div:has-text('{gerencia}')").last.click()
 
                 # 6. Aplica
                 page.click("button:has-text('Aplicar')")
 
-                # 7. Espera o loading sumir (recarregamento dos dados)
+                # 7. Espera o loading sumir
                 time.sleep(1)
-                # Se aparecer loading, espera ele sumir
                 if page.is_visible("text=Carregando dados..."):
                     page.wait_for_selector("text=Carregando dados...", state="detached")
                 
@@ -83,13 +75,12 @@ def run():
                 enviar_email_formatado(gerencia, screenshot_bytes)
 
                 # Fecha o menu de filtro se ele ainda estiver aberto (safety)
-                # Clicando fora ou apertando ESC
                 page.keyboard.press("Escape")
                 time.sleep(0.5)
 
             except Exception as e:
                 print(f"❌ Erro na gerência {gerencia}: {e}")
-                # Recarrega a página para limpar o estado e tentar a próxima gerência limpa
+                # Recarrega a página para limpar o estado
                 page.reload()
                 page.wait_for_selector("text=Carregando dados...", state="detached")
                 time.sleep(3)
