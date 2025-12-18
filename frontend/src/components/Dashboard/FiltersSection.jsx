@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Calendar, Image as ImageIcon } from 'lucide-react';
+// MUDANÇA: Importei o ícone 'Copy' em vez de 'Image'
+import { X, Calendar, Copy, Loader2 } from 'lucide-react';
 import FilterPortal from './FilterPortal';
 import MultiSelectFilterPlaceholder from './MultiSelectFilterPlaceholder';
 
-const FiltersSection = ({ filters, setFilters, options, onClear }) => {
+const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExporting }) => {
   const [activeFilter, setActiveFilter] = useState(null);
   const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
   const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
@@ -47,9 +48,20 @@ const FiltersSection = ({ filters, setFilters, options, onClear }) => {
           ))}
         </div>
       </div>
+      
+      {/* Botão de Copiar Imagem */}
       <div className="flex items-center justify-center border-l border-gray-100 pl-4 min-w-[100px]">
-        <button className="flex items-center justify-center gap-2 px-3 py-1.5 h-8 text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50 rounded-lg transition-all w-full">
-          <ImageIcon size={14} /> Imagem
+        <button 
+          onClick={onExport} 
+          disabled={isExporting}
+          className="flex items-center justify-center gap-2 px-3 py-1.5 h-8 text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50 rounded-lg transition-all w-full disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isExporting ? (
+             <><Loader2 size={14} className="animate-spin" /> Copiando...</>
+          ) : (
+             // Usando ícone COPY e texto atualizado
+             <><Copy size={14} /> Imagem</>
+          )}
         </button>
       </div>
     </div>
