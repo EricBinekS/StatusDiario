@@ -15,7 +15,7 @@ const DashboardPage = () => {
     data: new Date().toISOString().split('T')[0],
     gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: []
   });
-  
+
   const { data: apiData, loading, error, refetch } = useDashboard(filters.data);
 
   const options = useMemo(() => {
@@ -48,33 +48,54 @@ const DashboardPage = () => {
     setFilters(prev => ({ ...prev, gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] }));
     setSearchTerm('');
   };
-
   const handleExportImage = async () => {
     if (!dashboardRef.current) return;
     setIsExporting(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
         const canvas = await html2canvas(dashboardRef.current, {
-            scale: 2, 
-            backgroundColor: '#f4f6f8',
+            scale: 3, 
+            
+            backgroundColor: '#f4f6f8', 
             logging: false,
-            useCORS: true
-        });
-        
-        canvas.toBlob(async (blob) => {
-            try {
-                if (!blob) throw new Error("Falha ao gerar imagem");
-                const item = new ClipboardItem({ "image/png": blob });
-                await navigator.clipboard.write([item]);
-                alert("Imagem copiada para a área de transferência! 📋");
-            } catch (err) {
-                console.error("Erro ao copiar:", err);
-                alert("Erro ao copiar imagem. Verifique as permissões do navegador.");
+            useCORS: true,
+            allowTaint: true, 
+            
+            onclone: (clonedDoc) => {
+                const style = clonedDoc.createElement('style');
+                style.innerHTML = `
+                    * {
+                        -webkit-font-smoothing: antialiased !important;
+                        -moz-osx-font-smoothing: grayscale !important;
+                        text-rendering: optimizeLegibility !important;
+                        /* Tenta evitar que bordas finas sumam no redimensionamento */
+                        box-shadow: 0 0 1px rgba(0,0,0,0.01); 
+                    }
+                `;
+                clonedDoc.head.appendChild(style);
             }
         });
 
+        canvas.toBlob(async (blob) => {
+            try {
+                if (!blob) throw new Error("Falha ao gerar imagem");
+                
+                const item = new ClipboardItem({ "image/png": blob });
+                await navigator.clipboard.write([item]);
+                
+                console.log("Imagem de alta qualidade copiada para a área de transferência.");
+            } catch (err) {
+                console.error("Erro ao copiar para o clipboard:", err);
+                
+                alert("Não foi possível copiar automaticamente. Verifique as permissões.");
+            }
+        }, 'image/png', 1.0);
+
     } catch (err) {
-        console.error("Erro ao gerar canvas:", err);
-        alert("Erro ao processar imagem.");
+        console.error("Erro crítico no html2canvas:", err);
+        alert("Erro ao processar a imagem do painel.");
     } finally {
         setIsExporting(false);
     }
@@ -102,10 +123,8 @@ const DashboardPage = () => {
         isExporting={isExporting}    
       />
 
-      <div ref={dashboardRef} className="flex flex-col"> 
+      <div ref={dashboardRef} className="flex flex-col bg-[#f4f6f8]"> 
         <div className="p-1"> 
-            
-
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 opacity-50">
                 <Loader2 className="animate-spin text-blue-600 mb-2" size={40} />
