@@ -2,9 +2,7 @@ name: Relatório Diário de Status
 
 on:
   schedule:
-    # Horários UTC: 11h(8h BR), 15h(12h BR), 21h(18h BR)
     - cron: '0 11,15,21 * * *'
-  # Permite rodar manualmente na aba Actions para testar
   workflow_dispatch:
 
 jobs:
@@ -27,7 +25,7 @@ jobs:
 
       - name: Rodar Bot de Print
         env:
-          # Adicione essas chaves nos Secrets do Repositório (Settings -> Secrets)
-          SITE_URL: ${{ secrets.DASHBOARD_URL }} 
-          POWER_AUTOMATE_WEBHOOK: ${{ secrets.POWER_AUTOMATE_URL }}
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
         run: python automation/bot.py
