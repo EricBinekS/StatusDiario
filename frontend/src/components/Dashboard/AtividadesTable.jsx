@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
 
 const AtividadesTable = ({ data, searchTerm }) => {
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
