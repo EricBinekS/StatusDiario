@@ -7,7 +7,6 @@ from playwright.sync_api import sync_playwright
 
 # --- CONFIGURAÇÕES ---
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL") 
-# CORREÇÃO: Nome da variável atualizado
 WEBHOOK_URL = os.environ.get("POWER_AUTOMATE_URL")
 RECIPIENT_EMAIL = os.environ.get("RECIPIENT_EMAIL", "eric.bine@rumolog.com")
 
@@ -22,56 +21,84 @@ GERENCIAS = ["FERRONORTE", "SP NORTE", "SP SUL", "MALHA CENTRAL", "MODERNIZACAO"
 def run():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
+        # Viewport grande para garantir que layout não quebre
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
 
         print(f"🚀 Acessando {DASHBOARD_URL}...")
         page.goto(DASHBOARD_URL)
         
+        # Espera inicial generosa
         page.wait_for_selector("text=Carregando dados...", state="detached", timeout=60000)
-        time.sleep(2)
+        time.sleep(3)
 
         for gerencia in GERENCIAS:
             print(f"🔄 Processando: {gerencia}")
             
             try:
-                # 1. Abre Filtro
-                page.locator("text=Gerência").click()
+                # 1. ABRE O FILTRO DE GERÊNCIA
+                # Estratégia: Acha o texto 'Gerência' e clica no elemento pai (div group), 
+                # depois busca o ultimo div clicável dentro dele (o botão do filtro)
+                filter_group = page.locator("div.group", has_text="Gerência").first
                 
-                # 2. Limpa anterior
+                # Clica na caixa do filtro (que geralmente tem borda ou texto 'Todos')
+                # O seletor abaixo pega a div clicável irmã do label
+                filter_btn = filter_group.locator("div").last 
+                filter_btn.click()
+                
+                # 2. ESPERA O MENU ABRIR (CRUCIAL)
+                # Só tenta digitar se o campo de busca aparecer
+                page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
+
+                # 3. Limpa filtros anteriores (se houver botão limpar visível)
+                # O botão limpar fica dentro do portal que acabou de abrir
                 btn_limpar = page.locator("button:has-text('Limpar')").last
                 if btn_limpar.is_visible():
                     btn_limpar.click()
                 
-                # 3. Busca e Seleciona
+                # 4. Busca a Gerência
                 page.fill("input[placeholder='Buscar...']", gerencia)
-                time.sleep(0.5)
-                page.click(f"div[role='button']:has-text('{gerencia}')")
+                time.sleep(1) # Espera visual para a lista filtrar
 
-                # 4. Aplica
+                # 5. Seleciona a opção
+                # Clica na div que tem o texto da gerência e role='button' ou cursor-pointer
+                # Usa 'visible=True' para garantir que não clica em algo oculto
+                page.locator(f"div:has-text('{gerencia}')").last.click()
+
+                # 6. Aplica
                 page.click("button:has-text('Aplicar')")
 
-                # 5. Espera Carregar
+                # 7. Espera o loading sumir (recarregamento dos dados)
                 time.sleep(1)
-                page.wait_for_selector("text=Carregando dados...", state="detached")
-                time.sleep(2) 
+                # Se aparecer loading, espera ele sumir
+                if page.is_visible("text=Carregando dados..."):
+                    page.wait_for_selector("text=Carregando dados...", state="detached")
+                
+                time.sleep(2) # Espera final para renderização dos gráficos
 
-                # 6. Print
+                # 8. Print
                 screenshot_bytes = page.locator("#dashboard-content").screenshot()
 
-                # 7. Envia
+                # 9. Envia
                 enviar_email_formatado(gerencia, screenshot_bytes)
+
+                # Fecha o menu de filtro se ele ainda estiver aberto (safety)
+                # Clicando fora ou apertando ESC
+                page.keyboard.press("Escape")
+                time.sleep(0.5)
 
             except Exception as e:
                 print(f"❌ Erro na gerência {gerencia}: {e}")
+                # Recarrega a página para limpar o estado e tentar a próxima gerência limpa
                 page.reload()
                 page.wait_for_selector("text=Carregando dados...", state="detached")
+                time.sleep(3)
 
         browser.close()
 
 def enviar_email_formatado(gerencia, image_bytes):
     if not WEBHOOK_URL:
-        print("⚠️ Webhook não configurado (POWER_AUTOMATE_URL vazio).")
+        print("⚠️ Webhook não configurado.")
         return
 
     b64_img = base64.b64encode(image_bytes).decode('utf-8')
