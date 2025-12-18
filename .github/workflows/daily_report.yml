@@ -28,4 +28,4 @@ jobs:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
-        run: python automation/bot.py
+        run: python -u automation/bot.py
