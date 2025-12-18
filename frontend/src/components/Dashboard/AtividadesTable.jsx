@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
 
 const AtividadesTable = ({ data, searchTerm }) => {
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -32,10 +33,12 @@ const AtividadesTable = ({ data, searchTerm }) => {
         const getVal = (o, p) => p.split('.').reduce((x, y) => (x && x[y] !== undefined) ? x[y] : null, o);
         let aVal = getVal(a, sortConfig.key);
         let bVal = getVal(b, sortConfig.key);
+        
         if (sortConfig.key === 'status') {
           if (aVal === null || aVal === undefined) aVal = -1;
           if (bVal === null || bVal === undefined) bVal = -1;
         }
+        
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -48,10 +51,10 @@ const AtividadesTable = ({ data, searchTerm }) => {
   const currentData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getStatusColor = (s) => {
-    if (s === 2) return 'bg-[#28a745] ring-[#28a745]'; // Verde
-    if (s === 1) return 'bg-[#ffc107] ring-[#ffc107]'; // Amarelo
-    if (s === 0) return 'bg-[#dc3545] ring-[#dc3545]'; // Vermelho
-    return 'bg-[#6c757d] ring-[#6c757d]';              // Cinza
+    if (s === 2) return 'bg-[#28a745] ring-[#28a745]';
+    if (s === 1) return 'bg-[#ffc107] ring-[#ffc107]'; 
+    if (s === 0) return 'bg-[#dc3545] ring-[#dc3545]'; 
+    return 'bg-[#6c757d] ring-[#6c757d]';              
   };
 
   const SortableHeader = ({ label, sortKey, width, colorClass, borderRight = true }) => (
@@ -63,9 +66,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
   return (
     <div className="flex flex-col gap-2">
       
-      {/* ======================= */}
-      {/* VISUALIZAÇÃO DESKTOP   */}
-      {/* ======================= */}
       <div className="hidden md:block w-full overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-[0_2px_15px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-slate-700">
         <table className="w-full border-collapse table-fixed min-w-[1000px]">
           <thead>
@@ -82,7 +82,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
           <tbody className="text-[11px] text-[#333] dark:text-slate-300">
             {currentData.map((row) => (
               <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-blue-50/30 dark:hover:bg-slate-700/50 transition-colors group">
-                {/* Data e Status */}
                 <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
@@ -143,13 +142,9 @@ const AtividadesTable = ({ data, searchTerm }) => {
         </table>
       </div>
 
-      {/* ======================= */}
-      {/* VISUALIZAÇÃO MOBILE   */}
-      {/* ======================= */}
       <div className="md:hidden flex flex-col gap-3">
         {currentData.map((row) => (
           <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-            {/* Cabeçalho do Card */}
             <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
                 <div>
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atividade</span>
@@ -162,7 +157,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </div>
             </div>
 
-            {/* Grid de Informações */}
             <div className="grid grid-cols-2 gap-3 mb-3">
                 <MobileInfoBlock label="Início (Prog | Real)" value={
                     <div className="flex gap-1.5 font-mono text-xs">
@@ -186,7 +180,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 } />
             </div>
 
-            {/* Detalhe Footer */}
             <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
                 <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">{row.detalhe || 'Sem detalhes.'}</p>
@@ -195,7 +188,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
         ))}
       </div>
       
-      {/* Paginação (Comum para ambos) */}
       <div className="flex justify-between items-center px-2 py-2">
         <span className="text-[10px] text-gray-400 font-medium">Mostrando {currentData.length} de {processedData.length}</span>
         <div className="flex items-center gap-1">
