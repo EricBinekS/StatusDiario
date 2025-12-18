@@ -1,0 +1,33 @@
+name: Relatório Diário de Status
+
+on:
+  schedule:
+    # Horários UTC: 11h(8h BR), 15h(12h BR), 21h(18h BR)
+    - cron: '0 11,15,21 * * *'
+  # Permite rodar manualmente na aba Actions para testar
+  workflow_dispatch:
+
+jobs:
+  screenshot-and-send:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Instalar Dependências
+        run: |
+          pip install -r automation/requirements.txt
+          playwright install chromium
+
+      - name: Rodar Bot de Print
+        env:
+          # Adicione essas chaves nos Secrets do Repositório (Settings -> Secrets)
+          SITE_URL: ${{ secrets.DASHBOARD_URL }} 
+          POWER_AUTOMATE_WEBHOOK: ${{ secrets.POWER_AUTOMATE_URL }}
+        run: python automation/bot.py
