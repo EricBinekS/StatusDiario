@@ -1,11 +1,35 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  // --- LÓGICA DE HORÁRIO (NOVA IMPLEMENTAÇÃO) ---
+  const getDetalhamentoPorHorario = (row) => {
+    // Obtém a data/hora atual convertida para o fuso de Brasília
+    const now = new Date();
+    const brazilDateStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    const brazilDate = new Date(brazilDateStr);
+    const currentHour = brazilDate.getHours();
+
+    // Regra: Antes das 12:00 exibe Status 1, após 12:00 exibe Status 2
+    const isManha = currentHour < 12;
+
+    // Tenta acessar as propriedades. 
+    // IMPORTANTE: Verifique se o nome das colunas no seu DB/JSON é 'status_1'/'status_2' ou 'Status 1'/'Status 2'
+    const valStatus1 = row.status_1 || row['Status 1'] || row['status 1'];
+    const valStatus2 = row.status_2 || row['Status 2'] || row['status 2'];
+
+    // Se não encontrar as colunas especificas, faz fallback para o 'detalhe' original
+    if (isManha) {
+        return valStatus1 || row.detalhe || 'Sem info manhã';
+    } else {
+        return valStatus2 || row.detalhe || 'Sem info tarde';
+    }
+  };
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -66,6 +90,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
   return (
     <div className="flex flex-col gap-2">
       
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block w-full overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-[0_2px_15px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-slate-700">
         <table className="w-full border-collapse table-fixed min-w-[1000px]">
           <thead>
@@ -134,7 +159,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </td>
                 
                 <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-orange-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-3 text-left leading-snug">
-                  {row.detalhe}
+                  {getDetalhamentoPorHorario(row)}
                 </td>
               </tr>
             ))}
@@ -142,6 +167,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
         </table>
       </div>
 
+      {/* MOBILE LIST */}
       <div className="md:hidden flex flex-col gap-3">
         {currentData.map((row) => (
           <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
@@ -182,12 +208,15 @@ const AtividadesTable = ({ data, searchTerm }) => {
 
             <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
-                <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">{row.detalhe || 'Sem detalhes.'}</p>
+                <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
+                    {getDetalhamentoPorHorario(row)}
+                </p>
             </div>
           </div>
         ))}
       </div>
       
+      {/* PAGINATION */}
       <div className="flex justify-between items-center px-2 py-2">
         <span className="text-[10px] text-gray-400 font-medium">Mostrando {currentData.length} de {processedData.length}</span>
         <div className="flex items-center gap-1">
