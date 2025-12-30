@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import rumoLogo from '/rumo-logo.svg'; 
 import pcmLogo from '/logo_pcm.svg';
-// Adicionei Sun e Moon aos imports
 import { LayoutDashboard, BarChart3, Clock, CheckCircle2, AlertCircle, Sun, Moon } from 'lucide-react';
 import { fetchAPI } from '../services/api'; 
 
@@ -35,6 +34,7 @@ const MainLayout = () => {
 
   const checkDbStatus = useCallback(async () => {
     try {
+      // Faz a requisição leve apenas para pegar a data
       const data = await fetchAPI('/last-update');
       if (data && data.last_updated_at) {
         const dbDate = new Date(data.last_updated_at);
@@ -49,12 +49,17 @@ const MainLayout = () => {
     }
   }, []);
 
+  // --- CORREÇÃO AQUI ---
   useEffect(() => {
-    checkDbStatus(); 
-    const interval = setInterval(checkDbStatus, 30000); 
+    checkDbStatus(); // Chama imediatamente ao carregar
+    
+    // Aumentado para 60000ms (1 minuto) para evitar sobrecarga no servidor
+    const interval = setInterval(checkDbStatus, 120000); 
+    
     return () => clearInterval(interval);
   }, [checkDbStatus]);
 
+  // Timer visual (Seguro: apenas atualiza estado local, não chama API)
   useEffect(() => {
     const tick = setInterval(() => {
       setSecondsLeft(prev => Math.max(0, prev - 1));
@@ -68,10 +73,9 @@ const MainLayout = () => {
   };
 
   return (
-    // Adicionei dark:bg-slate-900 e dark:text-gray-100 ao container principal
     <div className="min-h-screen bg-[#f4f6f8] dark:bg-slate-900 font-sans text-[#1e293b] dark:text-slate-100 transition-colors duration-300">
       
-      {/* Header com Dark Mode */}
+      {/* Header */}
       <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-200/60 dark:border-slate-700 sticky top-0 z-50 h-16 px-6 flex items-center justify-between shadow-sm transition-all">
         
         {/* Logo e Título */}
@@ -92,7 +96,6 @@ const MainLayout = () => {
 
         {/* Lado Direito */}
         <div className="flex items-center gap-5">
-            {/* Botão de Tema */}
             <button 
                 onClick={toggleTheme} 
                 className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-700 transition-colors"
@@ -125,6 +128,7 @@ const MainLayout = () => {
   );
 };
 
+// Componentes Auxiliares (mantidos iguais)
 const NavPill = ({ active, onClick, icon, label }) => (
   <button onClick={onClick} className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-300 ease-out ${active ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-200 shadow-sm ring-1 ring-gray-200 dark:ring-slate-500' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-slate-700'}`}>
     {icon} {label}
