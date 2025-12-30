@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAPI } from '../services/api'; 
 
 export const useDashboard = (selectedDate) => {
@@ -6,25 +6,48 @@ export const useDashboard = (selectedDate) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  
+  // Ref para guardar o controlador da requisição atual e poder cancelar se necessário
+  const abortControllerRef = useRef(null);
 
-  // 1. Função que busca os dados da tabela
   const loadData = useCallback(async () => {
+    // 1. Cancela requisição anterior se houver (evita duplicação no StrictMode)
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 2. Cria novo controlador
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
+
     try {
       const dateToSend = selectedDate || new Date().toISOString().split('T')[0];
-      const result = await fetchAPI(`/dashboard`, { data: dateToSend });
-      setData(result || []);
+      
+      // Passamos o signal para o fetchAPI (precisa ajustar o api.js se ele não suportar, veja abaixo)
+      // Se seu fetchAPI não aceitar signal, o backend ainda recebe a request, mas o front ignora a resposta antiga.
+      const result = await fetchAPI(`/dashboard`, { data: dateToSend }, { signal: controller.signal });
+      
+      // Só atualiza o estado se o componente ainda estiver montado/ativo
+      if (!controller.signal.aborted) {
+        setData(result || []);
+      }
     } catch (err) {
+      // Ignora erro de cancelamento manual
+      if (err.name === 'AbortError') return;
+
       console.error("Erro ao carregar dashboard:", err);
-      setError("Não foi possível carregar os dados. Verifique a conexão.");
+      setError("Não foi possível carregar os dados. Tente atualizar a página.");
       setData([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [selectedDate]);
 
-  // 2. Função auxiliar para pegar a data da última atualização (apenas informativo)
   const fetchLastUpdate = useCallback(async () => {
     try {
       const result = await fetchAPI(`/last-update`);
@@ -36,18 +59,24 @@ export const useDashboard = (selectedDate) => {
     }
   }, []);
 
-  // Efeito Único: Carrega dados ao montar ou mudar a data do filtro
   useEffect(() => {
     loadData();
     fetchLastUpdate();
+
+    // Cleanup: Cancela requisição se o usuário sair da tela ou mudar a data rápido
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [loadData, fetchLastUpdate]);
 
   return { 
     data, 
     loading, 
     error, 
-    refetch: () => { loadData(); fetchLastUpdate(); }, // Recarga manual continua funcionando
+    refetch: () => { loadData(); fetchLastUpdate(); },
     lastUpdateTime,
-    countdownTime: "" // Retornamos vazio para não quebrar o código se a página ainda tentar ler isso
+    countdownTime: "" 
   };
 };

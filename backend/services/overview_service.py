@@ -1,23 +1,22 @@
-import pandas as pd
-from datetime import datetime, timedelta, time
 from sqlalchemy import text
 from backend.db.connection import get_db_engine
+from datetime import datetime, timedelta, time
 
 # --- CONFIGURAÇÃO ---
-ATIVIDADES_MECANIZACAO = [
+ATIVIDADES_MECANIZACAO = {
     "MECANIZACAO", "MECANIZAÇÃO", "SOCADORA", "REGULADORA", "ESMERILHADORA", 
     "DESGUARNECEDORA", "ESTABILIZADORA", "CAPINA QUÍMICA", "CAPINA QUIMICA"
-]
+}
 
 def time_to_hours(t):
-    """Converte datetime.time ou string 'HH:MM:SS' para float horas."""
-    if pd.isna(t) or t == "":
+    """Converte datetime.time, timedelta ou string para float horas."""
+    if t is None or t == "":
         return 0.0
-    
-    if isinstance(t, time):
-        return t.hour + t.minute / 60.0
-    
     try:
+        if isinstance(t, time):
+            return t.hour + t.minute / 60.0
+        if isinstance(t, timedelta):
+            return t.total_seconds() / 3600.0
         if isinstance(t, str):
             for fmt in ('%H:%M:%S', '%H:%M'):
                 try:
@@ -27,7 +26,6 @@ def time_to_hours(t):
                     continue
     except:
         pass
-    
     return 0.0
 
 def get_overview_data(view_mode='semana'):
@@ -37,157 +35,144 @@ def get_overview_data(view_mode='semana'):
 
     today = datetime.now().date()
     
+    # 1. Definição do Período
     if view_mode == 'mes':
         start_date = today.replace(day=1)
         next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
         end_date = next_month - timedelta(days=1)
     else: 
-        idx = (today.weekday() + 1) % 7
+        idx = today.weekday() # 0=Seg, 6=Dom
         start_date = today - timedelta(days=idx)
         end_date = start_date + timedelta(days=6)
 
-    str_start = start_date.strftime('%Y-%m-%d')
-    str_end = end_date.strftime('%Y-%m-%d')
-
+    # 2. Query Otimizada
     query = text("""
         SELECT 
-            gerencia_da_via, 
-            atividade, 
-            tipo, 
-            data, 
-            tempo_prog, 
-            tempo_real, 
-            status 
+            gerencia_da_via, atividade, tipo, data, 
+            tempo_prog, tempo_real, status 
         FROM atividades 
         WHERE data >= :start AND data <= :end
     """)
 
     try:
         with engine.connect() as conn:
-            df = pd.read_sql(query, conn, params={"start": str_start, "end": str_end})
+            # --- CORREÇÃO DO TIMEOUT ---
+            # Define 60 segundos (60000ms) para consultas de intervalo/período.
+            # Necessário para bancos que demoram em range queries.
+            conn.execute(text("SET statement_timeout = 60000;"))
+            
+            result = conn.execute(query, {"start": start_date, "end": end_date})
+            rows = result.mappings().all()
         
-        if df.empty:
+        if not rows:
             return []
 
-        df['horas_prog'] = df['tempo_prog'].apply(time_to_hours)
-        df['horas_real'] = df['tempo_real'].apply(time_to_hours)
-        
-        df['gerencia_norm'] = df['gerencia_da_via'].astype(str).str.upper()
-        df['atividade_norm'] = df['atividade'].astype(str).str.upper()
-        df['tipo_norm'] = df['tipo'].astype(str).str.upper()
+        # 3. Inicializa Estruturas de Agregação
+        ids_order = ['ferronorte', 'sp_norte', 'sp_sul', 'central', 'modernizacao', 'mecanizacao']
+        stats = {gid: {'contrato': _init_stats(), 'oportunidade': _init_stats()} for gid in ids_order}
 
-        mask_mec = df['atividade_norm'].apply(lambda x: any(m in x for m in ATIVIDADES_MECANIZACAO))
-        df_mec = df[mask_mec].copy()
-        df_geral = df[~mask_mec].copy()
-
-        def get_gerencia_id(g):
-            if 'FERRONORTE' in g: return 'ferronorte'
-            if 'SP NORTE' in g or 'SP_NORTE' in g: return 'sp_norte'
-            if 'SP SUL' in g or 'SP_SUL' in g: return 'sp_sul'
-            if 'CENTRAL' in g or 'MALHA CENTRAL' in g: return 'central'
-            if 'MODERNIZA' in g: return 'modernizacao'
-            return 'outros'
-
-        df_geral['gid'] = df_geral['gerencia_norm'].apply(get_gerencia_id)
-        
-        output = []
-        ids_order = ['ferronorte', 'sp_norte', 'sp_sul', 'central', 'modernizacao']
-
-        for gid in ids_order:
-            sub_df = df_geral[df_geral['gid'] == gid]
-            output.append(_build_card_data(gid, sub_df, view_mode))
-
-        if not df_mec.empty:
-            mec_card = _build_card_data('mecanizacao', df_mec, view_mode)
-            mec_card['title'] = "Mecanização"
-            output.append(mec_card)
+        # 4. Processamento Python Puro (Leve)
+        for row in rows:
+            g_raw = str(row['gerencia_da_via'] or "").upper()
+            ativ_raw = str(row['atividade'] or "").upper()
+            tipo_raw = str(row['tipo'] or "").upper()
+            status_raw = str(row['status'] or "").upper()
             
+            h_prog = time_to_hours(row['tempo_prog'])
+            h_real = time_to_hours(row['tempo_real'])
+            
+            # Identifica Grupo
+            gid = 'outros'
+            is_mec = any(m in ativ_raw for m in ATIVIDADES_MECANIZACAO)
+            
+            if is_mec: gid = 'mecanizacao'
+            elif 'FERRONORTE' in g_raw: gid = 'ferronorte'
+            elif 'SP NORTE' in g_raw or 'SP_NORTE' in g_raw: gid = 'sp_norte'
+            elif 'SP SUL' in g_raw or 'SP_SUL' in g_raw: gid = 'sp_sul'
+            elif 'CENTRAL' in g_raw or 'MALHA CENTRAL' in g_raw: gid = 'central'
+            elif 'MODERNIZA' in g_raw: gid = 'modernizacao'
+            
+            if gid not in stats: continue
+            
+            cat_key = 'contrato' if 'CONTRATO' in tipo_raw else 'oportunidade'
+            
+            # Soma totais
+            s = stats[gid][cat_key]
+            s['prog_h'] += h_prog
+            s['real_h'] += h_real
+            s['prog_int'] += 1
+            
+            # Lógica de Realizado
+            is_realized = (h_real > 0)
+            if not is_realized and status_raw in ['1', '2', '3', 'CONCLUIDO', 'EM ANDAMENTO', '1.0', '2.0', '3.0']:
+                is_realized = True
+            
+            if is_realized: s['real_int'] += 1
+
+            # Agregação para Gráficos
+            dt = row['data']
+            if dt:
+                key = dt.weekday() if view_mode == 'semana' else dt.isocalendar()[1]
+                if key not in s['chart_agg']: s['chart_agg'][key] = {'p': 0.0, 'r': 0.0}
+                s['chart_agg'][key]['p'] += h_prog
+                s['chart_agg'][key]['r'] += h_real
+
+        # 5. Monta Resposta
+        output = []
+        titles = {
+            'ferronorte': 'Ferronorte', 'sp_norte': 'SP Norte', 
+            'sp_sul': 'SP Sul', 'central': 'Malha Central', 
+            'modernizacao': 'Modernização', 'mecanizacao': 'Mecanização'
+        }
+
+        # Blocos Principais
+        for gid in [i for i in ids_order if i != 'mecanizacao']:
+            output.append(_build_final_object(gid, titles.get(gid, gid.title()), stats[gid], view_mode))
+
+        # Bloco Mecanização
+        mec_stats = stats['mecanizacao']
+        if (mec_stats['contrato']['prog_int'] > 0 or mec_stats['oportunidade']['prog_int'] > 0):
+             output.append(_build_final_object('mecanizacao', 'Mecanização', mec_stats, view_mode))
+
         return output
 
     except Exception as e:
         print(f"🔴 Erro no OverviewService: {e}")
         return []
 
-def _build_card_data(gid, df, view_mode):
-    titles = {
-        'ferronorte': 'Ferronorte', 'sp_norte': 'SP Norte', 
-        'sp_sul': 'SP Sul', 'central': 'Malha Central', 
-        'modernizacao': 'Modernização', 'mecanizacao': 'Mecanização'
-    }
-    
+def _init_stats():
+    return {'prog_h': 0.0, 'real_h': 0.0, 'prog_int': 0, 'real_int': 0, 'chart_agg': {}}
+
+def _build_final_object(gid, title, group_stats, view_mode):
     return {
         "id": gid,
-        "title": titles.get(gid, gid.title()),
+        "title": title,
         "types": {
-            "contrato": _agg_stats(df, "CONTRATO", view_mode),
-            "oportunidade": _agg_stats(df, "OPORTUNIDADE", view_mode)
+            "contrato": _finalize_stats(group_stats['contrato'], view_mode),
+            "oportunidade": _finalize_stats(group_stats['oportunidade'], view_mode)
         }
     }
 
-def _agg_stats(df, tipo_filtro, view_mode):
-    if tipo_filtro == "CONTRATO":
-        mask = df['tipo_norm'].str.contains("CONTRATO", na=False)
-    else:
-        mask = ~df['tipo_norm'].str.contains("CONTRATO", na=False)
-    
-    filtered = df[mask].copy()
-    
-    prog_h = filtered['horas_prog'].sum()
-    real_h = filtered['horas_real'].sum()
-    prog_int = len(filtered)
-    real_int = filtered[
-        (filtered['horas_real'] > 0) | 
-        (filtered['status'].isin([1, 2, 3, 'CONCLUIDO', 'EM ANDAMENTO']))
-    ].shape[0]
-
+def _finalize_stats(s, view_mode):
     percent = 0
-    if prog_h > 0:
-        percent = int((real_h / prog_h) * 100)
+    if s['prog_h'] > 0:
+        percent = int((s['real_h'] / s['prog_h']) * 100)
     
     chart_data = []
-    
-    if not filtered.empty:
-        filtered['date_obj'] = pd.to_datetime(filtered['data'])
-        
-        if view_mode == 'semana':
-            days_map = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
-            filtered['dow'] = filtered['date_obj'].dt.dayofweek
-            
-            grouped = filtered.groupby('dow').agg({
-                'horas_prog': 'sum', 
-                'horas_real': 'sum'
-            }).reindex(range(7), fill_value=0)
-            
-            for i in range(7):
-                chart_data.append({
-                    "name": days_map[i],
-                    "prog": round(grouped.loc[i, 'horas_prog'], 1),
-                    "real": round(grouped.loc[i, 'horas_real'], 1)
-                })
-        else:
-            filtered['week'] = filtered['date_obj'].dt.isocalendar().week
-            grouped = filtered.groupby('week').agg({
-                'horas_prog': 'sum', 
-                'horas_real': 'sum'
-            }).sort_index()
-            
-            for w, row in grouped.iterrows():
-                chart_data.append({
-                    "name": f"Sem {w}",
-                    "prog": round(row['horas_prog'], 1),
-                    "real": round(row['horas_real'], 1)
-                })
+    if view_mode == 'semana':
+        days_map = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
+        for i in range(7):
+            val = s['chart_agg'].get(i, {'p': 0, 'r': 0})
+            chart_data.append({"name": days_map[i], "prog": round(val['p'], 1), "real": round(val['r'], 1)})
     else:
-        if view_mode == 'semana':
-            days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
-            chart_data = [{"name": d, "prog": 0, "real": 0} for d in days]
+        for w in sorted(s['chart_agg'].keys()):
+            val = s['chart_agg'][w]
+            chart_data.append({"name": f"Sem {w}", "prog": round(val['p'], 1), "real": round(val['r'], 1)})
 
     return {
         "kpis": {
-            "prog_h": round(prog_h, 1),
-            "real_h": round(real_h, 1),
-            "prog_int": prog_int,
-            "real_int": real_int
+            "prog_h": round(s['prog_h'], 1), "real_h": round(s['real_h'], 1),
+            "prog_int": s['prog_int'], "real_int": s['real_int']
         },
         "percentual": percent,
         "meta": 85,
