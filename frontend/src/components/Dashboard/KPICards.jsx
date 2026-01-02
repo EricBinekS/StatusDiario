@@ -1,68 +1,79 @@
 import React, { useMemo } from 'react';
-import { CheckCircle2, Clock, XCircle, PieChart } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, PieChart, AlertTriangle, MinusCircle } from 'lucide-react';
+import { getDerivedStatus } from '../../utils/dataUtils';
 
 const KPICards = ({ data }) => {
   const stats = useMemo(() => {
-    if (!data || data.length === 0) return { aderencia: 0, realizados: 0, andamento: 0, cancelados: 0 };
+    if (!data || data.length === 0) {
+        return { aderencia: 0, realizados: 0, parcial: 0, andamento: 0, nao_iniciado: 0, cancelados: 0 };
+    }
 
-    const validData = data.filter(r => r.status !== null && r.status !== undefined);
-    
-    const realizados = validData.filter(r => r.status === 2).length; 
-    const andamento = validData.filter(r => r.status === 1).length;
-    const cancelados = validData.filter(r => r.status === 0).length;
+    const validData = data.filter(r => r);
+
+    let realizados = 0;
+    let parcial = 0;
+    let andamento = 0;
+    let nao_iniciado = 0;
+    let cancelados = 0;
+
+    validData.forEach(row => {
+        const status = getDerivedStatus(row);
+        if (status === 'concluido') realizados++;     // Inclui Status 2 OU > 90%
+        else if (status === 'parcial') parcial++;     // 50% a 90%
+        else if (status === 'andamento') andamento++; // Status 1 sem tempo calculado
+        else if (status === 'nao_iniciado') nao_iniciado++;
+        else if (status === 'cancelado') cancelados++; // Status 0 OU < 50%
+    });
 
     const atividadesIgnoradas = [
       "DESLOCAMENTO", "DETECÇÃO - CARRO CONTROLE", "DETECÇÃO - RONDA 7 DIAS",
       "DETECÇÃO - ULTRASSOM - SPERRY", "INSPEÇÃO RIV", "INSPEÇÃO AUTO DE LINHA"
     ];
 
-    const dataAderencia = validData.filter(r => !atividadesIgnoradas.includes(r.atividade));
+    const dataAderencia = validData.filter(r => 
+        r.atividade && !atividadesIgnoradas.some(ign => r.atividade.toUpperCase().includes(ign))
+    );
+    
     const totalAderencia = dataAderencia.length;
-    const realizadosAderencia = dataAderencia.filter(r => r.status === 2).length;
+    let pontos = 0;
 
-    const aderencia = totalAderencia > 0 ? ((realizadosAderencia / totalAderencia) * 100).toFixed(1) : 0;
+    dataAderencia.forEach(row => {
+        const st = getDerivedStatus(row);
+        if (st === 'concluido') pontos += 1.0;
+        else if (st === 'parcial') pontos += 0.5;
+        // Cancelado e Andamento (sem tempo) somam 0
+    });
 
-    return { aderencia, realizados, andamento, cancelados };
+    const aderencia = totalAderencia > 0 
+        ? ((pontos / totalAderencia) * 100).toFixed(1) 
+        : 0;
+
+    return { aderencia, realizados, parcial, andamento, nao_iniciado, cancelados };
   }, [data]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global (Ajustada)" />
-      <Card label="Realizados" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Executados" />
-      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="blue" subtext="Em Execução" />
-      <Card label="Cancelados" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Não Executados" />
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
+      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global" />
+      <Card label="Executado" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Realizado" />
+      <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Realizado Parcial"/>
+      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Em Andamento" />
+      <Card label="Não Iniciado" value={stats.nao_iniciado} icon={<MinusCircle size={20} />} color="gray" subtext="Aguardando" />
+      <Card label="Não Executado" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Não Realizado" />
     </div>
   );
 };
 
 const Card = ({ label, value, icon, color, subtext }) => {
-  // CORREÇÃO DARK: Adicionado classes dark para bg, text e border
   const styles = {
-    purple: { 
-        bg: 'bg-purple-50 dark:bg-purple-900/20', 
-        text: 'text-purple-700 dark:text-purple-300', 
-        border: 'border-purple-200 dark:border-purple-800', 
-        icon: 'text-purple-600 dark:text-purple-400' 
-    },
-    green: { 
-        bg: 'bg-green-50 dark:bg-green-900/20', 
-        text: 'text-green-700 dark:text-green-300', 
-        border: 'border-green-200 dark:border-green-800', 
-        icon: 'text-green-600 dark:text-green-400' 
-    },
-    blue: { 
-        bg: 'bg-blue-50 dark:bg-blue-900/20', 
-        text: 'text-blue-700 dark:text-blue-300', 
-        border: 'border-blue-200 dark:border-blue-800', 
-        icon: 'text-blue-600 dark:text-blue-400' 
-    },
-    red: { 
-        bg: 'bg-red-50 dark:bg-red-900/20', 
-        text: 'text-red-700 dark:text-red-300', 
-        border: 'border-red-200 dark:border-red-800', 
-        icon: 'text-red-600 dark:text-red-400' 
-    },
+    purple: { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800', icon: 'text-purple-600 dark:text-purple-400' },
+    green: { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800', icon: 'text-green-600 dark:text-green-400' },
+    orange: { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-800', icon: 'text-orange-600 dark:text-orange-400' },
+    yellow: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-200 dark:border-yellow-800', icon: 'text-yellow-600 dark:text-yellow-400' },
+    blue:   { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800', icon: 'text-blue-600 dark:text-blue-400' },
+    gray:   { bg: 'bg-gray-50 dark:bg-gray-800', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-700', icon: 'text-gray-600 dark:text-gray-400' },
+    red:    { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-800 dark:text-red-200', border: 'border-red-300 dark:border-red-700', icon: 'text-red-700 dark:text-red-400' },
   };
+  
   const theme = styles[color] || styles.blue;
   
   return (

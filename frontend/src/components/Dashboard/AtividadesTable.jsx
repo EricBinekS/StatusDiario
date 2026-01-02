@@ -1,29 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getDerivedStatus } from '../../utils/dataUtils';
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
-  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // --- LÓGICA DE HORÁRIO (NOVA IMPLEMENTAÇÃO) ---
   const getDetalhamentoPorHorario = (row) => {
-    // Obtém a data/hora atual convertida para o fuso de Brasília
     const now = new Date();
     const brazilDateStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
     const brazilDate = new Date(brazilDateStr);
     const currentHour = brazilDate.getHours();
-
-    // Regra: Antes das 12:00 exibe Status 1, após 12:00 exibe Status 2
     const isManha = currentHour < 12;
 
-    // Tenta acessar as propriedades. 
-    // IMPORTANTE: Verifique se o nome das colunas no seu DB/JSON é 'status_1'/'status_2' ou 'Status 1'/'Status 2'
     const valStatus1 = row.status_1 || row['Status 1'] || row['status 1'];
     const valStatus2 = row.status_2 || row['Status 2'] || row['status 2'];
 
-    // Se não encontrar as colunas especificas, faz fallback para o 'detalhe' original
     if (isManha) {
         return valStatus1 || row.detalhe || 'Sem info manhã';
     } else {
@@ -74,11 +67,16 @@ const AtividadesTable = ({ data, searchTerm }) => {
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const currentData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const getStatusColor = (s) => {
-    if (s === 2) return 'bg-[#28a745] ring-[#28a745]';
-    if (s === 1) return 'bg-[#ffc107] ring-[#ffc107]'; 
-    if (s === 0) return 'bg-[#dc3545] ring-[#dc3545]'; 
-    return 'bg-[#6c757d] ring-[#6c757d]';              
+  const getStatusColorClass = (row) => {
+    const status = getDerivedStatus(row);
+    switch (status) {
+        case 'concluido': return 'bg-[#28a745] ring-[#28a745]'; // Verde (Status 2 ou >90%)
+        case 'cancelado': return 'bg-[#ef4444] ring-[#ef4444]'; // Vermelho (Status 0 ou <50%)
+        case 'parcial': return 'bg-[#fd7e14] ring-[#fd7e14]';   // Laranja (50% a 90%)
+        case 'andamento': return 'bg-[#ffc107] ring-[#ffc107]'; // Amarelo (Sobra)
+        case 'nao_iniciado': return 'bg-[#6c757d] ring-[#6c757d]'; // Cinza
+        default: return 'bg-[#6c757d] ring-[#6c757d]';
+    }
   };
 
   const SortableHeader = ({ label, sortKey, width, colorClass, borderRight = true }) => (
@@ -89,8 +87,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
 
   return (
     <div className="flex flex-col gap-2">
-      
-      {/* DESKTOP TABLE */}
       <div className="hidden md:block w-full overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-[0_2px_15px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-slate-700">
         <table className="w-full border-collapse table-fixed min-w-[1000px]">
           <thead>
@@ -111,7 +107,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
                   <div className="flex items-center justify-center gap-2">
                     <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
                     <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getStatusColor(row.status)}`}></div>
+                    <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getStatusColorClass(row)}`}></div>
                   </div>
                 </td>
                 
@@ -167,7 +163,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
         </table>
       </div>
 
-      {/* MOBILE LIST */}
       <div className="md:hidden flex flex-col gap-3">
         {currentData.map((row) => (
           <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
@@ -178,7 +173,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
                     <div className="text-xs text-gray-500 dark:text-gray-400">{row.atividade}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                    <div className={`w-3 h-3 rounded-full ${getStatusColor(row.status)}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${getStatusColorClass(row)}`}></div>
                     <span className="text-[10px] font-mono text-gray-400">{row.data}</span>
                 </div>
             </div>
@@ -186,23 +181,23 @@ const AtividadesTable = ({ data, searchTerm }) => {
             <div className="grid grid-cols-2 gap-3 mb-3">
                 <MobileInfoBlock label="Início (Prog | Real)" value={
                     <div className="flex gap-1.5 font-mono text-xs">
-                         <span className="text-gray-500">{row.inicio.prog}</span>
-                         <span className="text-gray-300">|</span>
-                         <span className={row.inicio.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white font-bold'}>{row.inicio.real}</span>
+                          <span className="text-gray-500">{row.inicio.prog}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className={row.inicio.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white font-bold'}>{row.inicio.real}</span>
                     </div>
                 } />
                  <MobileInfoBlock label="Tempo (Prog | Real)" value={
                     <div className="flex gap-1.5 font-mono text-xs">
-                         <span className="text-gray-500">{row.tempo.prog}</span>
-                         <span className="text-gray-300">|</span>
-                         <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
+                          <span className="text-gray-500">{row.tempo.prog}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
                     </div>
                 } />
                 <MobileInfoBlock label="Local" value={
-                     <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
                 } />
                  <MobileInfoBlock label="Quantidade" value={
-                     <div className="text-xs text-gray-600 dark:text-gray-300">{row.quant.real !== '0' ? row.quant.real : row.quant.prog}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">{row.quant.real !== '0' ? row.quant.real : row.quant.prog}</div>
                 } />
             </div>
 
@@ -216,7 +211,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
         ))}
       </div>
       
-      {/* PAGINATION */}
       <div className="flex justify-between items-center px-2 py-2">
         <span className="text-[10px] text-gray-400 font-medium">Mostrando {currentData.length} de {processedData.length}</span>
         <div className="flex items-center gap-1">
