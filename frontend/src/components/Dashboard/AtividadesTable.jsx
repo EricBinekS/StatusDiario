@@ -3,26 +3,12 @@ import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'luci
 import { getDerivedStatus } from '../../utils/dataUtils';
 
 const AtividadesTable = ({ data, searchTerm }) => {
+  // Ordenação inicia 'desc' para mostrar Concluídos no topo
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  const getDetalhamentoPorHorario = (row) => {
-    const now = new Date();
-    const brazilDateStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-    const brazilDate = new Date(brazilDateStr);
-    const currentHour = brazilDate.getHours();
-    const isManha = currentHour < 12;
-
-    const valStatus1 = row.status_1 || row['Status 1'] || row['status 1'];
-    const valStatus2 = row.status_2 || row['Status 2'] || row['status 2'];
-
-    if (isManha) {
-        return valStatus1 || row.detalhe || 'Sem info manhã';
-    } else {
-        return valStatus2 || row.detalhe || 'Sem info tarde';
-    }
-  };
+  // REMOVIDO: getDetalhamentoPorHorario (Lógica movida para o backend)
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -42,20 +28,42 @@ const AtividadesTable = ({ data, searchTerm }) => {
       filtered = filtered.filter(i => 
         String(i.ativo).toLowerCase().includes(lower) || 
         String(i.atividade).toLowerCase().includes(lower) || 
-        String(i.detalhe).toLowerCase().includes(lower)
+        String(i.detalhamento).toLowerCase().includes(lower) // Busca no campo novo
       );
     }
+    
     if (sortConfig.key) {
       filtered.sort((a, b) => {
+        if (sortConfig.key === 'status') {
+            const statusOrder = {
+                'cancelado': 0,
+                'nao_iniciado': 1,
+                'andamento': 2,
+                'parcial': 3,
+                'concluido': 4
+            };
+            
+            const statusA = getDerivedStatus(a);
+            const statusB = getDerivedStatus(b);
+            
+            const weightA = statusOrder[statusA] ?? 99;
+            const weightB = statusOrder[statusB] ?? 99;
+
+            if (weightA < weightB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (weightA > weightB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        }
+
         const getVal = (o, p) => p.split('.').reduce((x, y) => (x && x[y] !== undefined) ? x[y] : null, o);
         let aVal = getVal(a, sortConfig.key);
         let bVal = getVal(b, sortConfig.key);
         
-        if (sortConfig.key === 'status') {
-          if (aVal === null || aVal === undefined) aVal = -1;
-          if (bVal === null || bVal === undefined) bVal = -1;
-        }
+        if (aVal === null || aVal === undefined) aVal = -Infinity;
+        if (bVal === null || bVal === undefined) bVal = -Infinity;
         
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -70,11 +78,11 @@ const AtividadesTable = ({ data, searchTerm }) => {
   const getStatusColorClass = (row) => {
     const status = getDerivedStatus(row);
     switch (status) {
-        case 'concluido': return 'bg-[#28a745] ring-[#28a745]'; // Verde (Status 2 ou >90%)
-        case 'cancelado': return 'bg-[#ef4444] ring-[#ef4444]'; // Vermelho (Status 0 ou <50%)
-        case 'parcial': return 'bg-[#fd7e14] ring-[#fd7e14]';   // Laranja (50% a 90%)
-        case 'andamento': return 'bg-[#ffc107] ring-[#ffc107]'; // Amarelo (Sobra)
-        case 'nao_iniciado': return 'bg-[#6c757d] ring-[#6c757d]'; // Cinza
+        case 'concluido': return 'bg-[#28a745] ring-[#28a745]'; 
+        case 'cancelado': return 'bg-[#ef4444] ring-[#ef4444]'; 
+        case 'parcial': return 'bg-[#fd7e14] ring-[#fd7e14]';   
+        case 'andamento': return 'bg-[#ffc107] ring-[#ffc107]'; 
+        case 'nao_iniciado': return 'bg-[#6c757d] ring-[#6c757d]'; 
         default: return 'bg-[#6c757d] ring-[#6c757d]';
     }
   };
@@ -155,7 +163,8 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </td>
                 
                 <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-orange-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-3 text-left leading-snug">
-                  {getDetalhamentoPorHorario(row)}
+                  {/* Agora consome direto do campo detalhamento que vem do backend */}
+                  {row.detalhamento || "—"}
                 </td>
               </tr>
             ))}
@@ -204,7 +213,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
             <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
                 <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
-                    {getDetalhamentoPorHorario(row)}
+                    {row.detalhamento || "—"}
                 </p>
             </div>
           </div>

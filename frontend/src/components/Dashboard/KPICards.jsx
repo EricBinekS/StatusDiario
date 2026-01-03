@@ -10,19 +10,23 @@ const KPICards = ({ data }) => {
 
     const validData = data.filter(r => r);
 
-    let realizados = 0;
-    let parcial = 0;
-    let andamento = 0;
-    let nao_iniciado = 0;
-    let cancelados = 0;
+    let realizados = 0;     // Concluído
+    let parcial = 0;        // Parcial
+    let andamento = 0;      // Em Andamento
+    let nao_iniciado = 0;   // Não Iniciado
+    let cancelados = 0;     // Não Executado
 
     validData.forEach(row => {
         const status = getDerivedStatus(row);
-        if (status === 'concluido') realizados++;     // Inclui Status 2 OU > 90%
-        else if (status === 'parcial') parcial++;     // 50% a 90%
-        else if (status === 'andamento') andamento++; // Status 1 sem tempo calculado
-        else if (status === 'nao_iniciado') nao_iniciado++;
-        else if (status === 'cancelado') cancelados++; // Status 0 OU < 50%
+        
+        switch(status) {
+            case 'concluido': realizados++; break;
+            case 'parcial': parcial++; break;
+            case 'andamento': andamento++; break;
+            case 'nao_iniciado': nao_iniciado++; break;
+            case 'cancelado': cancelados++; break;
+            default: break;
+        }
     });
 
     const atividadesIgnoradas = [
@@ -41,7 +45,7 @@ const KPICards = ({ data }) => {
         const st = getDerivedStatus(row);
         if (st === 'concluido') pontos += 1.0;
         else if (st === 'parcial') pontos += 0.5;
-        // Cancelado e Andamento (sem tempo) somam 0
+        // Demais somam 0
     });
 
     const aderencia = totalAderencia > 0 
@@ -53,12 +57,12 @@ const KPICards = ({ data }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
-      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global" />
-      <Card label="Executado" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Realizado" />
-      <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Realizado Parcial"/>
-      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Em Andamento" />
-      <Card label="Não Iniciado" value={stats.nao_iniciado} icon={<MinusCircle size={20} />} color="gray" subtext="Aguardando" />
-      <Card label="Não Executado" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Não Realizado" />
+      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Aderência" />
+      <Card label="Concluído" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Executado" />
+      <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Executado Parcialmente" />
+      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Em Execução" />
+      <Card label="Não Iniciado" value={stats.nao_iniciado} icon={<MinusCircle size={20} />} color="gray" subtext="Não Iniciado" />
+      <Card label="Não Realizado" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Não Executado" />
     </div>
   );
 };

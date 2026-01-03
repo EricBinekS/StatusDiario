@@ -48,31 +48,47 @@ def clean_column_names(header_row):
 
 def process_dataframe(df):
     try:
-        # 1. FILTRAR LINHAS VAZIAS
+        # 1. FILTRAR LINHAS VAZIAS E RENOMEAR COLUNA ATIVO
         col_ativo = next((c for c in df.columns if 'ativo' in c), None)
         if col_ativo:
             df = df[df[col_ativo].notna()]
             df = df[df[col_ativo].astype(str).str.strip() != '']
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
 
-        # 2. MAPEAMENTO
+        # 2. MAPEAMENTO DE COLUNAS
+        # Mapeia nomes do Excel (limpos) para nomes do Banco de Dados
         rename_map = {
             'status': 'status',
             'status_operacional': 'status',
+            
             'inicia': 'inicio_prog',
             'inicio': 'inicio_real',
             'fim': 'fim_real',
             'duracao': 'tempo_prog',
             'total': 'tempo_real',
+            
             'sb': 'local_prog',
             'sb_4': 'local_real',
             'sub_5': 'sub_trecho',
             'coordenacao_da_via_14': 'trecho_da_via',
             'gerencia': 'gerencia_da_via',
+            
             'quantidade': 'producao_prog',
             'quantidade_11': 'producao_real',
+            
             'programar_para_d+1': 'tipo',
-            'data_atividade': 'data'
+            'data_atividade': 'data',
+            
+            # --- CORREÇÃO AQUI: Variações de "Prévia - 1" e "Prévia - 2" ---
+            'status_1': 'status_1',
+            'status_2': 'status_2',
+            'previa_1': 'status_1',    # Prévia-1
+            'previa__1': 'status_1',   # Prévia -1
+            'previa___1': 'status_1',  # Prévia - 1 (O mais provável)
+            'previa_2': 'status_2',    # Prévia-2
+            'previa__2': 'status_2',   # Prévia -2
+            'previa___2': 'status_2',  # Prévia - 2 (O mais provável)
+            'detalhe': 'detalhe_local'
         }
         
         actual_rename = {k: v for k, v in rename_map.items() if k in df.columns}
@@ -82,36 +98,19 @@ def process_dataframe(df):
         if 'status' in df.columns:
             def map_status(val):
                 if pd.isna(val) or str(val).strip() == "": return None
-                
-                # Limpa a string (ex: "2.0" -> "2")
                 s = str(val).strip()
                 if s.endswith('.0'): s = s[:-2]
                 
-                # Mapeamento Direto
-                if s == '2': return 2 # Concluído/Verde
-                if s == '1': return 1 # Andamento/Amarelo
-                if s == '0': return 0 # Cancelado/Vermelho
-                
-                return None # Outros valores ou vazio = Cinza
+                if s == '2': return 2 
+                if s == '1': return 1 
+                if s == '0': return 0 
+                return None
             
             df['status'] = df['status'].apply(map_status)
         else:
             df['status'] = None
 
-        # 4. LÓGICA DE DETALHE
-        col_previa_1 = next((c for c in df.columns if 'previa' in c and '1' in c), None)
-        col_previa_2 = next((c for c in df.columns if 'previa' in c and '2' in c), None)
-
-        if col_previa_2 and col_previa_1:
-            df['detalhe_local'] = df[col_previa_2].fillna(df[col_previa_1])
-        elif col_previa_2:
-            df['detalhe_local'] = df[col_previa_2]
-        elif col_previa_1:
-            df['detalhe_local'] = df[col_previa_1]
-        else:
-            df['detalhe_local'] = None
-
-        # 5. CÁLCULO FIM PROGRAMADO
+        # 4. CÁLCULO FIM PROGRAMADO
         if 'inicio_prog' in df.columns and 'tempo_prog' in df.columns and 'fim_prog' not in df.columns:
             def calc_fim(row):
                 inicio = row['inicio_prog']
@@ -131,7 +130,7 @@ def process_dataframe(df):
             
             df['fim_prog'] = df.apply(calc_fim, axis=1)
 
-        # 6. REGRA MODERNIZAÇÃO
+        # 5. REGRA MODERNIZAÇÃO
         ativos_modernizacao = [
             "ModernizaçãoTURMA2", "ModernizaçãoLASTRO2", "MOD ZYQ ZWI", "MOD ZWU ZDC",
             "MODERNIZAÇÃO TURMA 2", "MOD ZDG PAT", "MOD ZRB ZEV", "MOD ZEM",
@@ -145,31 +144,32 @@ def process_dataframe(df):
         mask_mod = df['ativo'].isin(ativos_modernizacao)
         df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
-        # 7. LIMPEZA FINAL
+        # 6. LIMPEZA FINAL E SELEÇÃO DE COLUNAS
         required_columns = [
             'status', 'gerencia_da_via', 'trecho_da_via', 'sub_trecho',
             'ativo', 'atividade', 'tipo', 'data',
             'inicio_prog', 'inicio_real', 'fim_prog', 'fim_real',
             'tempo_prog', 'tempo_real',
             'local_prog', 'local_real', 'producao_prog', 'producao_real',
-            'detalhe_local', 'row_hash'
+            'detalhe_local', 'status_1', 'status_2', 'row_hash'
         ]
 
         for col in required_columns:
             if col not in df.columns: df[col] = None
 
-        # Converter Tempos
+        # Converter colunas de tempo
         time_cols = ['inicio_prog', 'inicio_real', 'fim_prog', 'fim_real', 'tempo_prog', 'tempo_real']
         for col in time_cols:
             df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
             df[col] = df[col].replace({np.nan: None})
 
-        # Hash
+        # Gerar Hash Único
         df = df.reset_index(drop=True)
         def create_hash(row):
             return hashlib.md5(f"{row.name}-{row.get('data')}-{row.get('ativo')}".encode()).hexdigest()
         df['row_hash'] = df.apply(create_hash, axis=1)
 
+        # Retornar apenas colunas necessárias
         df = df[required_columns]
         df = df.where(pd.notnull(df), None)
 

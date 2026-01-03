@@ -1,47 +1,54 @@
-export const parseTime = (timeStr) => {
-  if (!timeStr || typeof timeStr !== 'string') return 0;
-  if (timeStr.includes('--')) return 0;
-  
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return 0;
+// Utilitário para manipulação de dados e status
+// Focado em PRODUÇÃO (Quantidade Real vs Programada)
 
-  const h = parseInt(parts[0], 10) || 0;
-  const m = parseInt(parts[1], 10) || 0;
-  return h * 60 + m;
+// Helper para converter valores de produção em números
+const parseProduction = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  // Remove caracteres não numéricos se necessário, mas mantém ponto decimal
+  const cleanValue = String(value).replace(/[^\d.-]/g, '');
+  return parseFloat(cleanValue) || 0;
 };
 
+// Determina o status lógico com base nas regras de Negócio
+// Base: Produção (Quantidades)
 export const getDerivedStatus = (row) => {
   const s = row.status;
 
-  // 1. Não Iniciado
+  // 1. Status null -> Não Iniciado
   if (s === null || s === undefined) return 'nao_iniciado';
 
-  // 2. Concluído (Pelo Status do Banco)
-  if (s === 2) return 'concluido';
-
-  // 3. Cancelado (Pelo Status do Banco)
+  // 2. Status 0 -> Não Executado
   if (s === 0) return 'cancelado';
 
-  // 4. Lógica de Porcentagem para Status 1
-  if (row.tempo && row.tempo.prog && row.tempo.real) {
-    const progMin = parseTime(row.tempo.prog);
-    const realMin = parseTime(row.tempo.real);
+  // Preparar cálculo de porcentagem de Produção
+  // Tenta ler de row.quant (estrutura do frontend) ou row.producao (estrutura do banco)
+  const progStr = row.quant?.prog ?? row.producao_prog;
+  const realStr = row.quant?.real ?? row.producao_real;
+  
+  const prodProg = parseProduction(progStr);
+  const prodReal = parseProduction(realStr);
 
-    if (progMin > 0) {
-      const ratio = realMin / progMin;
-
-      // < 50% -> Cancelado (Não Realizado)
-      if (ratio < 0.5) return 'cancelado';
-
-      // >= 50% e < 90% -> Parcial
-      if (ratio >= 0.5 && ratio < 0.9) return 'parcial';
-
-      // >= 90% -> Concluído (Executado)
-      if (ratio >= 0.9) return 'concluido';
-    }
+  let ratio = 0;
+  if (prodProg > 0) {
+    ratio = prodReal / prodProg;
   }
 
-  // 5. Em Andamento
-  // (Status 1 mas sem dados de tempo suficientes para calcular %)
+  // 3. Abaixo de 50% de execução -> Não Executado (Independente do status ser 1 ou 2)
+  if (ratio < 0.5) return 'cancelado';
+
+  // 4. Status 1 -> Em Andamento (Se chegou aqui, já é >= 50%)
+  if (s === 1) return 'andamento';
+
+  // 5. Status 2
+  if (s === 2) {
+    // Executou entre 50% e 90% -> Parcial
+    if (ratio >= 0.5 && ratio < 0.9) return 'parcial';
+    
+    // Executou acima de 90% -> Concluído
+    if (ratio >= 0.9) return 'concluido';
+  }
+
+  // Fallback (caso sobre algo não mapeado, assume andamento ou concluído dependendo do contexto)
   return 'andamento';
 };
