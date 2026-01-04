@@ -5,7 +5,6 @@ import json
 import pandas as pd
 from sqlalchemy import text
 
-# Ajuste de path para importar módulos irmãos
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
 sys.path.append(backend_dir)
@@ -14,7 +13,6 @@ from db.connection import get_db_engine
 from etl.processor import process_dataframe, clean_column_names
 
 def load_raw_files():
-    """Lê todos os Excels da pasta raw_data."""
     raw_path = os.path.join(backend_dir, "raw_data")
     map_path = os.path.join(current_dir, "mapeamento_abas.json")
     
@@ -42,7 +40,6 @@ def load_raw_files():
         try:
             temp = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
             
-            # Ajuste de cabeçalho (Linha 5 no seu Excel original)
             header = temp.iloc[4]
             data = temp.iloc[5:].copy()
             
@@ -74,21 +71,21 @@ def run():
     full_df = pd.concat(raw_dfs, ignore_index=True)
     clean_df = process_dataframe(full_df)
     
-    # ---------------------------------------------------------
-    # CORREÇÃO: Cria um ID numérico sequencial para ser a Primary Key
-    # ---------------------------------------------------------
     clean_df.reset_index(inplace=True) 
     clean_df.rename(columns={'index': 'id'}, inplace=True)
-    # ---------------------------------------------------------
 
     print(f"📊 Linhas prontas para inserção: {len(clean_df)}")
 
     try:
         with engine.begin() as conn:
-            # Salva no banco usando 'id' como índice/chave primária
-            clean_df.to_sql('atividades', conn, if_exists='replace', index=False)
+            clean_df.to_sql(
+                'atividades', 
+                conn, 
+                if_exists='replace', 
+                index=False,
+                chunksize=50
+            )
             
-            # Adiciona Primary Key explicitamente no Postgres para performance
             conn.execute(text("ALTER TABLE atividades ADD PRIMARY KEY (id);"))
             
             conn.execute(text("""
