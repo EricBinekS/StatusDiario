@@ -1,49 +1,47 @@
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+# backend/app.py
 from flask import Flask, jsonify
 from flask_cors import CORS
-import os
-import sqlalchemy
-
-from backend.db.connection import get_db_engine
+from backend.config import Config
 from backend.routes.dashboard_routes import dashboard_bp
 from backend.routes.overview_routes import overview_bp
+from backend.db.connection import get_db_engine
+import sqlalchemy
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Configuração CORS mais segura (Permite tudo por enquanto, mas centralizado)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Registro de Blueprints
 app.register_blueprint(dashboard_bp, url_prefix='/api')
 app.register_blueprint(overview_bp, url_prefix='/api')
 
 @app.route('/')
 def home():
-    routes = [str(p) for p in app.url_map.iter_rules()]
     return jsonify({
-        "status": "API Status Diário Online 🚀", 
-        "routes_available": routes
+        "status": "online",
+        "service": "Status App API 2.0",
+        "version": "1.0.0"
     })
 
-@app.route('/api/test-db')
-def test_db():
+@app.route('/health')
+def health_check():
+    """Endpoint dedicado para verificação de saúde do sistema (Health Check)"""
+    status = {"api": "online", "database": "unknown"}
+    status_code = 200
+    
     try:
         engine = get_db_engine()
         with engine.connect() as conn:
-            # Tenta executar uma query simples
-            result = conn.execute(sqlalchemy.text("SELECT 1")).scalar()
-            return jsonify({
-                "database": "Conectado ✅", 
-                "test_query_result": result
-            }), 200
+            conn.execute(sqlalchemy.text("SELECT 1"))
+            status["database"] = "connected"
     except Exception as e:
-        print(f"Erro no DB: {e}")
-        return jsonify({
-            "database": "Erro de Conexão ❌", 
-            "details": str(e)
-        }), 500
+        status["database"] = "error"
+        status["error_details"] = str(e)
+        status_code = 503
+        
+    return jsonify(status), status_code
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 8000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Para rodar corretamente sem sys.path: python -m backend.app
+    app.run(host='0.0.0.0', port=Config.PORT, debug=Config.DEBUG)

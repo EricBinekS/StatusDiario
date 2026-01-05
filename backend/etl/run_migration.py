@@ -3,79 +3,92 @@ import os
 import glob
 import json
 import pandas as pd
+import warnings  # <--- Adicionado
 from sqlalchemy import text
 
+# Silencia avisos específicos do OpenPyXL sobre validação de dados
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
+
+# Configuração de caminhos
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
-sys.path.append(backend_dir)
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
 
 from db.connection import get_db_engine
 from etl.processor import process_dataframe, clean_column_names
+from add_indexes import create_indexes
+from optimize_db import optimize_database
 
 def load_raw_files():
     raw_path = os.path.join(backend_dir, "raw_data")
     map_path = os.path.join(current_dir, "mapeamento_abas.json")
     
-    print(f"📂 Lendo arquivos de: {raw_path}")
-    
     try:
-        with open(map_path, 'r') as f:
+        with open(map_path, 'r', encoding='utf-8') as f:
             aba_map = json.load(f)
     except FileNotFoundError:
-        print("🔴 Arquivo mapeamento_abas.json não encontrado.")
+        print("🔴 Mapeamento (mapeamento_abas.json) não encontrado.")
         return []
 
     all_files = glob.glob(os.path.join(raw_path, "*.xlsx"))
     dfs = []
+
+    print(f"📂 Processando {len(all_files)} arquivos...")
 
     for file_path in all_files:
         filename = os.path.basename(file_path)
         sheet_name = aba_map.get(filename)
         
         if not sheet_name:
-            print(f"⚠️ Pulei {filename} (sem mapeamento).")
             continue
             
-        print(f"📄 Processando {filename} (Aba: {sheet_name})...")
         try:
+            # Lê apenas cabeçalho primeiro
             temp = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
             
             header = temp.iloc[4]
             data = temp.iloc[5:].copy()
-            
             data.columns = clean_column_names(header)
         
             if 'ativo' in data.columns:
                 dfs.append(data)
+                print(f"  └── ✅ {filename} (Aba: {sheet_name})")
             else:
-                print(f"⚠️ {filename}: Coluna 'ativo' não encontrada.")
+                print(f"  └── ⚠️ {filename}: Coluna 'ativo' ausente.")
                 
         except Exception as e:
-            print(f"🔴 Erro em {filename}: {e}")
+            print(f"  └── 🔴 Erro em {filename}: {e}")
 
     return dfs
 
 def run():
-    print("🚀 Iniciando Migração ETL...")
+    print("\n🚀 INICIANDO MIGRAÇÃO AUTOMATIZADA")
+    print("===================================")
     
     engine = get_db_engine()
     if not engine:
         sys.exit(1)
 
+    # 1. Carregar Dados
     raw_dfs = load_raw_files()
     if not raw_dfs:
-        print("⚠️ Nenhum dado bruto encontrado.")
+        print("⚠️ Nenhum dado para processar. Encerrando.")
         sys.exit(0)
 
-    print("⚙️ Unificando dados...")
+    # 2. Processar (ETL)
+    print("\n⚙️ Unificando e transformando dados...")
     full_df = pd.concat(raw_dfs, ignore_index=True)
     clean_df = process_dataframe(full_df)
     
     clean_df.reset_index(inplace=True) 
     clean_df.rename(columns={'index': 'id'}, inplace=True)
 
-    print(f"📊 Linhas prontas para inserção: {len(clean_df)}")
+    total_rows = len(clean_df)
+    print(f"📊 Dados prontos: {total_rows} registros.")
 
+    # 3. Inserção no Banco
+    print("💾 Inserindo no banco de dados...")
     try:
         with engine.begin() as conn:
             clean_df.to_sql(
@@ -83,7 +96,7 @@ def run():
                 conn, 
                 if_exists='replace', 
                 index=False,
-                chunksize=50
+                chunksize=2000 
             )
             
             conn.execute(text("ALTER TABLE atividades ADD PRIMARY KEY (id);"))
@@ -97,10 +110,17 @@ def run():
                 ON CONFLICT (id) DO UPDATE SET last_updated_at = NOW();
             """))
             
-        print("✅ SUCESSO: Banco de dados atualizado!")
+        print("✅ Dados inseridos com sucesso!")
+
+        # 4. Pós-Processamento
+        print("\n🔧 Executando tarefas de manutenção pós-migração...")
+        create_indexes()
+        optimize_database()
+
+        print("\n✨ MIGRAÇÃO CONCLUÍDA COM SUCESSO! ✨")
         
     except Exception as e:
-        print(f"🔴 FALHA AO SALVAR NO BANCO: {e}")
+        print(f"\n🔴 FALHA CRÍTICA NA MIGRAÇÃO: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

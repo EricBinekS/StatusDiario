@@ -1,29 +1,8 @@
 import pandas as pd
 import numpy as np
 import hashlib
-from datetime import datetime, time, timedelta
-
-def clean_text(text):
-    """Limpa string: remove acentos, espaços extras e caracteres especiais."""
-    if pd.isna(text) or text == "": return "coluna_vazia"
-    return (str(text).strip().lower()
-            .replace(' ', '_')
-            .replace('-', '_') 
-            .replace('ç', 'c')
-            .replace('ã', 'a')
-            .replace('á', 'a')
-            .replace('à', 'a')
-            .replace('é', 'e')
-            .replace('ê', 'e')
-            .replace('í', 'i')
-            .replace('ó', 'o')
-            .replace('ô', 'o')
-            .replace('ú', 'u')
-            .replace('/', '_')
-            .replace('(', '')
-            .replace(')', '')
-            .replace('.', '')
-            .replace('\n', '_'))
+import re
+from datetime import datetime, timedelta
 
 def clean_column_names(header_row):
     """Retorna nomes limpos e únicos para o cabeçalho."""
@@ -32,8 +11,23 @@ def clean_column_names(header_row):
     else:
         header_list = list(header_row)
     
-    cleaned = [clean_text(col) for col in header_list]
+    def _clean(text):
+        if pd.isna(text) or text == "": return "coluna_vazia"
+        # Limpeza agressiva:
+        # 1. Lowercase e strip
+        # 2. Substitui espaços e hifens por underline
+        # 3. Remove acentos
+        return (str(text).strip().lower()
+                .replace(' ', '_').replace('-', '_')
+                .replace('ç', 'c').replace('ã', 'a').replace('á', 'a')
+                .replace('à', 'a').replace('é', 'e').replace('ê', 'e')
+                .replace('í', 'i').replace('ó', 'o').replace('ô', 'o')
+                .replace('ú', 'u').replace('/', '_').replace('.', '')
+                .replace('(', '').replace(')', '').replace('\n', '_'))
+
+    cleaned = [_clean(col) for col in header_list]
     
+    # Garante unicidade (ex: previa, previa_1)
     seen = {}
     final_cols = []
     for col in cleaned:
@@ -46,164 +40,145 @@ def clean_column_names(header_row):
             
     return final_cols
 
+def find_column(df, candidates):
+    """Procura a primeira ocorrência de uma coluna candidata no DataFrame."""
+    # 1. Busca exata (prioridade)
+    for col in candidates:
+        if col in df.columns:
+            return col
+    
+    # 2. Busca aproximada (contém)
+    for col in df.columns:
+        for cand in candidates:
+            # O len(col) < len(cand) + 4 permite variações como previa___1 (3 underscores)
+            if cand in col and len(col) < len(cand) + 4: 
+                return col
+    return None
+
 def process_dataframe(df):
     try:
         # 1. FILTRAR LINHAS VAZIAS E RENOMEAR COLUNA ATIVO
-        col_ativo = next((c for c in df.columns if 'ativo' in c), None)
+        col_ativo = find_column(df, ['ativo', 'prefixo', 'locomotiva'])
+        
         if col_ativo:
-            df = df[df[col_ativo].notna()]
+            df = df.dropna(subset=[col_ativo])
             df = df[df[col_ativo].astype(str).str.strip() != '']
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
-
-        # 2. MAPEAMENTO DE COLUNAS
-        rename_map = {
-            'status': 'status',
-            'status_operacional': 'status',
-            'inicia': 'inicio_prog',
-            'inicio': 'inicio_real',
-            'fim': 'fim_real',
-            'duracao': 'tempo_prog',
-            'total': 'tempo_real',
-            'sb': 'local_prog',
-            'sb_4': 'local_real',
-            'sub_5': 'sub_trecho',
-            'coordenacao_da_via_14': 'trecho_da_via',
-            'gerencia': 'gerencia_da_via',
-            'quantidade': 'producao_prog',
-            'quantidade_11': 'producao_real',
-            'programar_para_d+1': 'tipo',
-            'data_atividade': 'data',
+        
+        # 2. MAPEAMENTO DE COLUNAS (Ajustado para Prévia - 1 e Prévia - 2)
+        # Nota: "Prévia - 1" vira "previa___1" após a limpeza (espaço + hífen + espaço = 3 underlines)
+        col_mappings = {
+            'status': ['status', 'status_operacional', 'farol'],
             
-            # Colunas de Prévia/Detalhe
-            'status_1': 'status_1',
-            'status_2': 'status_2',
-            'previa_1': 'status_1',    
-            'previa__1': 'status_1',   
-            'previa___1': 'status_1',  
-            'previa_2': 'status_2',    
-            'previa__2': 'status_2',   
-            'previa___2': 'status_2',  
-            'detalhe': 'detalhe_local'
+            # ADICIONADO: previa___1 e previa___2 para capturar "Prévia - 1" e "Prévia - 2"
+            'status_1': ['status_1', 'previa___1', 'previa_1', 'previa', 'comentario_1'],
+            'status_2': ['status_2', 'previa___2', 'previa_2', 'comentario_2', 'observacao_2'],
+            
+            'inicio_prog': ['inicia', 'inicio_prog', 'inicio_previsto'],
+            'inicio_real': ['inicio', 'inicio_real'],
+            'fim_real': ['fim', 'fim_real', 'termino'],
+            'tempo_prog': ['duracao', 'tempo_prog', 'janela'],
+            'tempo_real': ['total', 'tempo_real', 'tempo_gasto'],
+            'local_prog': ['sb', 'local_prog'],
+            'local_real': ['sb_4', 'local_real'],
+            'sub_trecho': ['sub_5', 'sub_trecho'],
+            'trecho_da_via': ['coordenacao_da_via_14', 'trecho_da_via', 'trecho'],
+            'gerencia_da_via': ['gerencia', 'gerencia_da_via'],
+            'producao_prog': ['quantidade', 'producao_prog'],
+            'producao_real': ['quantidade_11', 'producao_real'],
+            'tipo': ['programar_para_d+1', 'tipo', 'classificacao'],
+            'data': ['data_atividade', 'data']
         }
+
+        # Aplica renomeação
+        rename_dict = {}
+        for target, candidates in col_mappings.items():
+            found = find_column(df, candidates)
+            if found:
+                rename_dict[found] = target
         
-        actual_rename = {k: v for k, v in rename_map.items() if k in df.columns}
-        df.rename(columns=actual_rename, inplace=True)
+        df.rename(columns=rename_dict, inplace=True)
 
-        # ==============================================================================
-        #  FILTROS DE NEGÓCIO (ATIVAR/DESATIVAR AQUI)
-        # ==============================================================================
-        
-        # 1. ATIVIDADES A IGNORAR (Removidas do App)
-        #    Para voltar a exibir, basta comentar a linha correspondente.
-        ATIVIDADES_IGNORADAS = [
-            "MECANIZAÇÃO - ESMERILHADORA",
-            "DESLOCAMENTO",
-            "DETECÇÃO - RONDA 7 DIAS"
-        ]
+        # 3. FILTROS DE NEGÓCIO
+        ATIVIDADES_IGNORADAS = ["MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS"]
+        GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
 
-        # 2. GERÊNCIAS A IGNORAR (Removidas do Overview/App)
-        GERENCIAS_IGNORADAS = [
-            "MALHA CENTRAL"
-        ]
-
-        # Aplicação do Filtro de Atividades
         if 'atividade' in df.columns:
-            # Cria uma máscara booleana: Verdadeiro se NÃO contiver nenhum termo proibido
-            mask_atv = pd.Series(True, index=df.index)
-            for ignored in ATIVIDADES_IGNORADAS:
-                # case=False garante que pegue maiúsculas/minúsculas
-                # na=False ignora valores vazios
-                mask_atv &= ~df['atividade'].astype(str).str.contains(ignored, case=False, regex=False, na=False)
-            
-            df = df[mask_atv]
+            pattern = '|'.join([re.escape(x) for x in ATIVIDADES_IGNORADAS])
+            df = df[~df['atividade'].astype(str).str.contains(pattern, case=False, na=False)]
 
-        # Aplicação do Filtro de Gerência
         if 'gerencia_da_via' in df.columns:
-            mask_ger = pd.Series(True, index=df.index)
-            for ignored_ger in GERENCIAS_IGNORADAS:
-                # Verifica igualdade exata ou contém (aqui usando contains para segurança)
-                mask_ger &= ~df['gerencia_da_via'].astype(str).str.contains(ignored_ger, case=False, regex=False, na=False)
-            
-            df = df[mask_ger]
+            pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
+            df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
 
-        # ==============================================================================
-
-        # 3. TRATAMENTO DE STATUS (0, 1, 2)
+        # 4. TRATAMENTO DE STATUS
         if 'status' in df.columns:
-            def map_status(val):
-                if pd.isna(val) or str(val).strip() == "": return None
-                s = str(val).strip()
-                if s.endswith('.0'): s = s[:-2]
-                if s == '2': return 2 
-                if s == '1': return 1 
-                if s == '0': return 0 
-                return None
-            df['status'] = df['status'].apply(map_status)
+            df['status'] = pd.to_numeric(df['status'], errors='coerce')
+            df.loc[~df['status'].isin([0, 1, 2]), 'status'] = np.nan
         else:
-            df['status'] = None
+            df['status'] = np.nan
 
-        # 4. CÁLCULO FIM PROGRAMADO
-        if 'inicio_prog' in df.columns and 'tempo_prog' in df.columns and 'fim_prog' not in df.columns:
-            def calc_fim(row):
-                inicio = row['inicio_prog']
-                duracao = row['tempo_prog']
-                if isinstance(inicio, str): 
-                    try: inicio = datetime.strptime(inicio, '%H:%M:%S').time()
-                    except: pass
-                if isinstance(duracao, str):
-                    try: duracao = datetime.strptime(duracao, '%H:%M:%S').time()
-                    except: pass
-                if isinstance(inicio, (datetime, time)) and isinstance(duracao, (datetime, time)):
-                    dummy = datetime(2000, 1, 1, inicio.hour, inicio.minute)
-                    delta = timedelta(hours=duracao.hour, minutes=duracao.minute)
-                    return (dummy + delta).time()
-                return None
-            df['fim_prog'] = df.apply(calc_fim, axis=1)
+        # 5. CÁLCULO FIM PROGRAMADO
+        if 'inicio_prog' in df.columns and 'tempo_prog' in df.columns:
+            start_dt = pd.to_datetime(df['inicio_prog'].astype(str), format='%H:%M:%S', errors='coerce')
+            duration_dt = pd.to_datetime(df['tempo_prog'].astype(str), format='%H:%M:%S', errors='coerce')
+            
+            dummy_date = datetime(2000, 1, 1)
+            if not start_dt.isna().all() and not duration_dt.isna().all():
+                start_delta = pd.to_timedelta(start_dt.dt.strftime('%H:%M:%S'))
+                duration_delta = pd.to_timedelta(duration_dt.dt.strftime('%H:%M:%S'))
+                final_dt = dummy_date + start_delta + duration_delta
+                df['fim_prog'] = final_dt.dt.time
+            else:
+                df['fim_prog'] = None
+        else:
+            df['fim_prog'] = None
 
-        # 5. REGRA MODERNIZAÇÃO
+        # 6. REGRA MODERNIZAÇÃO
         ativos_modernizacao = [
             "ModernizaçãoTURMA2", "ModernizaçãoLASTRO2", "MOD ZYQ ZWI", "MOD ZWU ZDC",
             "MODERNIZAÇÃO TURMA 2", "MOD ZDG PAT", "MOD ZRB ZEV", "MOD ZEM",
-            "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN"
+            "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN", "MOD SPN"
         ]
         
         if 'ativo' not in df.columns: df['ativo'] = ''
         if 'gerencia_da_via' not in df.columns: df['gerencia_da_via'] = None
 
-        df['ativo'] = df['ativo'].astype(str).str.strip().replace('nan', '')
-        mask_mod = df['ativo'].isin(ativos_modernizacao)
+        mask_mod = df['ativo'].astype(str).str.strip().isin(ativos_modernizacao)
         df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
-        # 6. LIMPEZA FINAL E SELEÇÃO DE COLUNAS
+        # 7. LIMPEZA FINAL
+        # REMOVIDO: detalhe_local
         required_columns = [
             'status', 'gerencia_da_via', 'trecho_da_via', 'sub_trecho',
             'ativo', 'atividade', 'tipo', 'data',
             'inicio_prog', 'inicio_real', 'fim_prog', 'fim_real',
             'tempo_prog', 'tempo_real',
             'local_prog', 'local_real', 'producao_prog', 'producao_real',
-            'detalhe_local', 'status_1', 'status_2', 'row_hash'
+            'status_1', 'status_2', 'row_hash'
         ]
 
+        # Garante criação de colunas ausentes como None
         for col in required_columns:
             if col not in df.columns: df[col] = None
 
-        # Converter colunas de tempo
+        # Padroniza tempos
         time_cols = ['inicio_prog', 'inicio_real', 'fim_prog', 'fim_real', 'tempo_prog', 'tempo_real']
         for col in time_cols:
-            df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
-            df[col] = df[col].replace({np.nan: None})
+            if col in df.columns:
+                temp = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
+                df[col] = temp.replace({np.nan: None})
 
-        # Gerar Hash Único
+        # 8. HASHING
         df = df.reset_index(drop=True)
-        def create_hash(row):
-            return hashlib.md5(f"{row.name}-{row.get('data')}-{row.get('ativo')}".encode()).hexdigest()
-        df['row_hash'] = df.apply(create_hash, axis=1)
+        df['hash_source'] = (
+            df.index.astype(str) + "-" + 
+            df['data'].astype(str) + "-" + 
+            df['ativo'].astype(str)
+        )
+        df['row_hash'] = df['hash_source'].apply(lambda x: hashlib.md5(x.encode()).hexdigest())
 
-        # Retornar apenas colunas necessárias
-        df = df[required_columns]
-        df = df.where(pd.notnull(df), None)
-
-        return df
+        return df[required_columns]
 
     except Exception as e:
         print(f"❌ Erro no process_dataframe: {e}")

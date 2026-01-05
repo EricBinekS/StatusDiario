@@ -1,19 +1,27 @@
+// frontend/src/services/api.js
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-// Adicionamos o terceiro argumento 'options'
 export const fetchAPI = async (endpoint, params = {}, options = {}) => {
   const url = new URL(`${API_URL}${endpoint}`);
   
-  // Adiciona parâmetros de busca (query params)
-  Object.keys(params).forEach(key => {
-    if (params[key]) url.searchParams.append(key, params[key]);
+  // Limpa params undefined/null e adiciona à URL
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.append(key, value);
+    }
   });
 
-  // Repassa 'options' (onde vem o signal) para o fetch nativo
-  const response = await fetch(url, options);
+  const response = await fetch(url.toString(), {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
   
   if (!response.ok) {
-    throw new Error(`Erro na API (${response.status}): ${response.statusText}`);
+    const errorMessage = await response.text().catch(() => response.statusText);
+    throw new Error(`API Error ${response.status}: ${errorMessage}`);
   }
   
   return response.json();

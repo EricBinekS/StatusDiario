@@ -51,7 +51,7 @@ def get_dashboard_data(filters=None):
     except Exception:
         eh_manha = True # Fallback seguro
 
-    # 3. Query Principal
+    # 3. Query Principal (REMOVIDO detalhe_local)
     query = text("""
         SELECT 
             id, row_hash, status, gerencia_da_via, trecho_da_via, sub_trecho,
@@ -59,7 +59,7 @@ def get_dashboard_data(filters=None):
             inicio_prog, inicio_real, fim_prog, fim_real,
             tempo_prog, tempo_real,
             local_prog, local_real, producao_prog, producao_real,
-            detalhe_local, status_1, status_2
+            status_1, status_2
         FROM atividades
         WHERE data = :data_ref
         ORDER BY status ASC, inicio_prog ASC
@@ -90,50 +90,46 @@ def get_dashboard_data(filters=None):
             """Formata para DD/MM removendo ano e horas"""
             if not d: return "--/--"
             try:
-                # Se for objeto datetime/date do Python
                 if hasattr(d, 'strftime'):
-                    return d.strftime('%d/%m') # ALTERADO AQUI
+                    return d.strftime('%d/%m')
                 
-                # Se for string (ex: '2026-01-02 00:00:00')
                 s = str(d)
                 if ' ' in s: 
-                    s = s.split(' ')[0] # Remove o tempo
+                    s = s.split(' ')[0]
                 
                 if '-' in s:
                     parts = s.split('-')
                     if len(parts) == 3:
-                        # Converte YYYY-MM-DD para DD/MM
-                        return f"{parts[2]}/{parts[1]}" # ALTERADO AQUI
+                        return f"{parts[2]}/{parts[1]}"
                 return s
             except:
                 return str(d)
 
         for row in rows:
-            # Lógica de Detalhamento no Backend
+            # Lógica de Detalhamento no Backend (Atualizada)
             val_status_1 = row['status_1']
             val_status_2 = row['status_2']
-            val_detalhe = row['detalhe_local'] or ""
             
             detalhamento_final = ""
             
             if eh_manha:
-                # Manhã: Prioridade para Status 1 (Previa 1) -> Detalhe Local
-                detalhamento_final = val_status_1 if val_status_1 else val_detalhe
+                # Manhã: Prioridade para Status 1 -> Vazio
+                detalhamento_final = val_status_1 if val_status_1 else ""
             else:
-                # Tarde: Prioridade Status 2 (Previa 2) -> Status 1 -> Detalhe
+                # Tarde: Prioridade Status 2 -> Status 1 -> Vazio
                 if val_status_2:
                     detalhamento_final = val_status_2
                 elif val_status_1:
                     detalhamento_final = val_status_1
                 else:
-                    detalhamento_final = val_detalhe
+                    detalhamento_final = ""
 
             # Montagem do objeto final
             item = {
                 "id": row['id'] or row['row_hash'],
                 "row_hash": row['row_hash'],
                 "status": row['status'],
-                "data": fmt_date(row['data']), # Usa a formatação curta
+                "data": fmt_date(row['data']),
                 
                 "gerencia": fmt_val(row['gerencia_da_via']),
                 "trecho": fmt_val(row['trecho_da_via']),

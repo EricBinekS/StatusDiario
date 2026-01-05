@@ -58,11 +58,11 @@ const KPICards = ({ data }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
       <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global" />
-      <Card label="Concluído" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Status 2 (> 90%)" />
-      <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Status 2 (50-90%)" />
-      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Status 1" />
-      <Card label="Não Iniciado" value={stats.nao_iniciado} icon={<MinusCircle size={20} />} color="gray" subtext="Status Null" />
-      <Card label="Não Executado" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Status 0 ou < 50%" />
+      <Card label="Concluído" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Executado" />
+      <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Executado Parcialmente" />
+      <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Em Execução" />
+      <Card label="Não Iniciado" value={stats.nao_iniciado} icon={<MinusCircle size={20} />} color="gray" subtext="Aguardando Inicio" />
+      <Card label="Não Realizado" value={stats.cancelados} icon={<XCircle size={20} />} color="red" subtext="Não Executado" />
     </div>
   );
 };

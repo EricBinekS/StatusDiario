@@ -1,31 +1,50 @@
-name: Relatório Diário de Status
+name: Relatório Diário (Screenshot)
 
 on:
   schedule:
-    - cron: '0 11,15,20 * * *'
+    # 21:00 BRT = 00:00 UTC (Executa para o dia ATUAL)
+    - cron: '0 0 * * *'
+    
+    # 07:15 BRT = 10:15 UTC (Executa para o dia ANTERIOR)
+    - cron: '15 10 * * *'
+    
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de Data (auto, today, yesterday)'
+        required: false
+        default: 'auto'
 
 jobs:
-  screenshot-and-send:
+  take-screenshot:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v3
+    - name: Checkout do código
+      uses: actions/checkout@v4
 
-      - name: Configurar Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Instalar Dependências
-        run: |
-          pip install -r automation/requirements.txt
-          playwright install chromium
+    - name: Instalar Dependências e Playwright
+      run: |
+        pip install -r automation/requirements.txt
+        playwright install --with-deps chromium
 
-      - name: Rodar Bot de Print
-        env:
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
-          POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
-          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
-        run: python -u automation/bot.py
+    - name: Rodar Bot de Screenshot
+      env:
+        # A URL do seu front em produção (Vercel/Render)
+        # Se ainda não tiver, coloque a URL temporária ou localhost se estiver rodando túnel
+        DASHBOARD_URL: "https://seu-projeto-status.vercel.app" 
+        MODE: ${{ github.event.inputs.mode || 'auto' }}
+      run: |
+        python automation/bot.py
+        
+    - name: Upload do Screenshot (Artifact)
+      uses: actions/upload-artifact@v3
+      with:
+        name: relatorio-status
+        path: automation/screenshot.png
+        retention-days: 5

@@ -1,38 +1,30 @@
-import os
-from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-
-# Carrega variáveis de ambiente (.env ou do sistema)
-load_dotenv()
+# backend/db/connection.py
+from sqlalchemy import create_engine
+from backend.config import Config
 
 _engine = None
 
 def get_db_engine():
     """
     Retorna o Singleton do Engine do Banco de Dados.
-    Cria a conexão apenas na primeira chamada.
     """
     global _engine
     
-    if _engine is not None:
+    if _engine:
         return _engine
 
-    database_url = os.getenv("DATABASE_URL")
-    
-    if not database_url:
-        print("🔴 CRÍTICO: DATABASE_URL não definida!")
-        return None
-
+    # Validação inicial da configuração
     try:
-        # pool_recycle e pool_pre_ping evitam que o Render/Postgres derrube conexões ociosas
+        Config.check_config()
+        
         _engine = create_engine(
-            database_url, 
-            pool_size=10, 
-            pool_recycle=1800, 
-            pool_pre_ping=True
+            Config.DATABASE_URL,
+            pool_size=Config.DB_POOL_SIZE,
+            pool_recycle=Config.DB_POOL_RECYCLE,
+            pool_pre_ping=Config.DB_POOL_PRE_PING
         )
-        print("🟢 DB: Engine inicializado com sucesso.")
+        print(f"🟢 DB: Engine conectado com sucesso.")
         return _engine
     except Exception as e:
-        print(f"🔴 DB: Erro ao criar engine: {e}")
+        print(f"🔴 DB: Erro fatal ao criar engine: {e}")
         return None
