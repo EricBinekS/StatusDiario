@@ -57,10 +57,7 @@ def get_overview_data(view_mode='semana'):
     try:
         with engine.connect() as conn:
             # --- CORREÇÃO DO TIMEOUT ---
-            # Define 60 segundos (60000ms) para consultas de intervalo/período.
-            # Necessário para bancos que demoram em range queries.
             conn.execute(text("SET statement_timeout = 60000;"))
-            
             result = conn.execute(query, {"start": start_date, "end": end_date})
             rows = result.mappings().all()
         
@@ -100,7 +97,7 @@ def get_overview_data(view_mode='semana'):
             s = stats[gid][cat_key]
             s['prog_h'] += h_prog
             s['real_h'] += h_real
-            s['prog_int'] += 1
+            s['prog_int'] += 1 # Conta linhas (ocorrências)
             
             # Lógica de Realizado
             is_realized = (h_real > 0)
@@ -125,9 +122,14 @@ def get_overview_data(view_mode='semana'):
             'modernizacao': 'Modernização', 'mecanizacao': 'Mecanização'
         }
 
-        # Blocos Principais
+        # Blocos Principais (Corrigido para não mostrar cards vazios)
         for gid in [i for i in ids_order if i != 'mecanizacao']:
-            output.append(_build_final_object(gid, titles.get(gid, gid.title()), stats[gid], view_mode))
+            g_stats = stats[gid]
+            # Verifica se tem algum dado (programado ou realizado)
+            has_data = (g_stats['contrato']['prog_int'] > 0 or g_stats['oportunidade']['prog_int'] > 0)
+            
+            if has_data:
+                output.append(_build_final_object(gid, titles.get(gid, gid.title()), g_stats, view_mode))
 
         # Bloco Mecanização
         mec_stats = stats['mecanizacao']
