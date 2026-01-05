@@ -1,54 +1,49 @@
 // Utilitário para manipulação de dados e status
 // Focado em PRODUÇÃO (Quantidade Real vs Programada)
 
-// Helper para converter valores de produção em números
 const parseProduction = (value) => {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
-  // Remove caracteres não numéricos se necessário, mas mantém ponto decimal
   const cleanValue = String(value).replace(/[^\d.-]/g, '');
   return parseFloat(cleanValue) || 0;
 };
 
-// Determina o status lógico com base nas regras de Negócio
-// Base: Produção (Quantidades)
 export const getDerivedStatus = (row) => {
   const s = row.status;
 
-  // 1. Status null -> Não Iniciado
+  // 1. Status null -> Não Iniciado (Cinza)
   if (s === null || s === undefined) return 'nao_iniciado';
 
-  // 2. Status 0 -> Não Executado
+  // 2. Status 0 -> Não Executado (Vermelho)
   if (s === 0) return 'cancelado';
 
-  // Preparar cálculo de porcentagem de Produção
-  // Tenta ler de row.quant (estrutura do frontend) ou row.producao (estrutura do banco)
-  const progStr = row.quant?.prog ?? row.producao_prog;
-  const realStr = row.quant?.real ?? row.producao_real;
-  
-  const prodProg = parseProduction(progStr);
-  const prodReal = parseProduction(realStr);
-
-  let ratio = 0;
-  if (prodProg > 0) {
-    ratio = prodReal / prodProg;
-  }
-
-  // 3. Abaixo de 50% de execução -> Não Executado (Independente do status ser 1 ou 2)
-  if (ratio < 0.5) return 'cancelado';
-
-  // 4. Status 1 -> Em Andamento (Se chegou aqui, já é >= 50%)
+  // 3. Status 1 -> Em Andamento (Amarelo)
+  // REGRA: Status 1 é SEMPRE Amarelo, não importa a porcentagem.
   if (s === 1) return 'andamento';
 
-  // 5. Status 2
+  // 4. Status 2 -> Avaliação de Desempenho
   if (s === 2) {
-    // Executou entre 50% e 90% -> Parcial
+    const progStr = row.quant?.prog ?? row.producao_prog;
+    const realStr = row.quant?.real ?? row.producao_real;
+    
+    const prodProg = parseProduction(progStr);
+    const prodReal = parseProduction(realStr);
+
+    // Se não tiver meta programada, assume Concluído (Verde) padrão
+    if (prodProg <= 0) return 'concluido';
+
+    const ratio = prodReal / prodProg;
+
+    // < 50% -> Não Executado (Vermelho)
+    if (ratio < 0.5) return 'cancelado';
+
+    // 50% a 90% -> Parcial (Laranja)
     if (ratio >= 0.5 && ratio < 0.9) return 'parcial';
     
-    // Executou acima de 90% -> Concluído
-    if (ratio >= 0.9) return 'concluido';
+    // >= 90% -> Concluído (Verde)
+    return 'concluido';
   }
 
-  // Fallback (caso sobre algo não mapeado, assume andamento ou concluído dependendo do contexto)
-  return 'andamento';
+  // Fallback
+  return 'nao_iniciado';
 };

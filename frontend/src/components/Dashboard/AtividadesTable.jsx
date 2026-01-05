@@ -3,12 +3,9 @@ import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'luci
 import { getDerivedStatus } from '../../utils/dataUtils';
 
 const AtividadesTable = ({ data, searchTerm }) => {
-  // Ordenação inicia 'desc' para mostrar Concluídos no topo
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
-
-  // REMOVIDO: getDetalhamentoPorHorario (Lógica movida para o backend)
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -28,7 +25,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
       filtered = filtered.filter(i => 
         String(i.ativo).toLowerCase().includes(lower) || 
         String(i.atividade).toLowerCase().includes(lower) || 
-        String(i.detalhamento).toLowerCase().includes(lower) // Busca no campo novo
+        String(i.detalhamento).toLowerCase().includes(lower)
       );
     }
     
@@ -163,7 +160,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </td>
                 
                 <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-orange-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-3 text-left leading-snug">
-                  {/* Agora consome direto do campo detalhamento que vem do backend */}
                   {row.detalhamento || "—"}
                 </td>
               </tr>
