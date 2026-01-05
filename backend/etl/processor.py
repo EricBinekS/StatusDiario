@@ -56,43 +56,77 @@ def process_dataframe(df):
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
 
         # 2. MAPEAMENTO DE COLUNAS
-        # Mapeia nomes do Excel (limpos) para nomes do Banco de Dados
         rename_map = {
             'status': 'status',
             'status_operacional': 'status',
-            
             'inicia': 'inicio_prog',
             'inicio': 'inicio_real',
             'fim': 'fim_real',
             'duracao': 'tempo_prog',
             'total': 'tempo_real',
-            
             'sb': 'local_prog',
             'sb_4': 'local_real',
             'sub_5': 'sub_trecho',
             'coordenacao_da_via_14': 'trecho_da_via',
             'gerencia': 'gerencia_da_via',
-            
             'quantidade': 'producao_prog',
             'quantidade_11': 'producao_real',
-            
             'programar_para_d+1': 'tipo',
             'data_atividade': 'data',
             
-            # --- CORREÇÃO AQUI: Variações de "Prévia - 1" e "Prévia - 2" ---
+            # Colunas de Prévia/Detalhe
             'status_1': 'status_1',
             'status_2': 'status_2',
-            'previa_1': 'status_1',    # Prévia-1
-            'previa__1': 'status_1',   # Prévia -1
-            'previa___1': 'status_1',  # Prévia - 1 (O mais provável)
-            'previa_2': 'status_2',    # Prévia-2
-            'previa__2': 'status_2',   # Prévia -2
-            'previa___2': 'status_2',  # Prévia - 2 (O mais provável)
+            'previa_1': 'status_1',    
+            'previa__1': 'status_1',   
+            'previa___1': 'status_1',  
+            'previa_2': 'status_2',    
+            'previa__2': 'status_2',   
+            'previa___2': 'status_2',  
             'detalhe': 'detalhe_local'
         }
         
         actual_rename = {k: v for k, v in rename_map.items() if k in df.columns}
         df.rename(columns=actual_rename, inplace=True)
+
+        # ==============================================================================
+        #  FILTROS DE NEGÓCIO (ATIVAR/DESATIVAR AQUI)
+        # ==============================================================================
+        
+        # 1. ATIVIDADES A IGNORAR (Removidas do App)
+        #    Para voltar a exibir, basta comentar a linha correspondente.
+        ATIVIDADES_IGNORADAS = [
+            "MECANIZAÇÃO - ESMERILHADORA",
+            "DESLOCAMENTO",
+            "DETECÇÃO - RONDA 7 DIAS"
+        ]
+
+        # 2. GERÊNCIAS A IGNORAR (Removidas do Overview/App)
+        GERENCIAS_IGNORADAS = [
+            "MALHA CENTRAL"
+        ]
+
+        # Aplicação do Filtro de Atividades
+        if 'atividade' in df.columns:
+            # Cria uma máscara booleana: Verdadeiro se NÃO contiver nenhum termo proibido
+            mask_atv = pd.Series(True, index=df.index)
+            for ignored in ATIVIDADES_IGNORADAS:
+                # case=False garante que pegue maiúsculas/minúsculas
+                # na=False ignora valores vazios
+                mask_atv &= ~df['atividade'].astype(str).str.contains(ignored, case=False, regex=False, na=False)
+            
+            df = df[mask_atv]
+
+        # Aplicação do Filtro de Gerência
+        if 'gerencia_da_via' in df.columns:
+            mask_ger = pd.Series(True, index=df.index)
+            for ignored_ger in GERENCIAS_IGNORADAS:
+                # Verifica igualdade exata ou contém (aqui usando contains para segurança)
+                mask_ger &= ~df['gerencia_da_via'].astype(str).str.contains(ignored_ger, case=False, regex=False, na=False)
+            
+            df = df[mask_ger]
+
+        # ==============================================================================
 
         # 3. TRATAMENTO DE STATUS (0, 1, 2)
         if 'status' in df.columns:
@@ -100,12 +134,10 @@ def process_dataframe(df):
                 if pd.isna(val) or str(val).strip() == "": return None
                 s = str(val).strip()
                 if s.endswith('.0'): s = s[:-2]
-                
                 if s == '2': return 2 
                 if s == '1': return 1 
                 if s == '0': return 0 
                 return None
-            
             df['status'] = df['status'].apply(map_status)
         else:
             df['status'] = None
@@ -121,13 +153,11 @@ def process_dataframe(df):
                 if isinstance(duracao, str):
                     try: duracao = datetime.strptime(duracao, '%H:%M:%S').time()
                     except: pass
-                    
                 if isinstance(inicio, (datetime, time)) and isinstance(duracao, (datetime, time)):
                     dummy = datetime(2000, 1, 1, inicio.hour, inicio.minute)
                     delta = timedelta(hours=duracao.hour, minutes=duracao.minute)
                     return (dummy + delta).time()
                 return None
-            
             df['fim_prog'] = df.apply(calc_fim, axis=1)
 
         # 5. REGRA MODERNIZAÇÃO
