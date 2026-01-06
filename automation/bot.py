@@ -3,37 +3,39 @@ import sys
 import requests
 import base64
 import time
-import argparse  # <--- Adicionado para ler argumentos do terminal
+import argparse
 from datetime import datetime, timedelta
 import pytz
 from playwright.sync_api import sync_playwright
 
-# --- CONFIGURAÇÕES PADRÃO ---
-# Pega URL do ambiente ou usa localhost como fallback
+# --- CONFIGURAÇÕES ---
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:5173") 
 WEBHOOK_URL = os.environ.get("POWER_AUTOMATE_URL")
-# Email padrão (Produção)
 DEFAULT_RECIPIENT = os.environ.get("RECIPIENT_EMAIL", "eric.bine@rumolog.com")
 MODE = os.environ.get("MODE", "auto")
 
-# Removemos "MALHA CENTRAL" da lista para não gerar print dela
+# Removemos MALHA CENTRAL para não tirar print
 GERENCIAS = ["FERRONORTE", "SP NORTE", "SP SUL"]
 
 def get_target_date():
     """
-    Define a data do relatório baseado no horário atual (BRT).
-    - Manhã (antes das 12h): Pega dia ANTERIOR.
-    - Tarde/Noite: Pega dia ATUAL.
+    Define a data do relatório baseada no horário atual (BRT).
+    - Manhã (< 12h): Retorna Ontem (D-1)
+    - Tarde (>= 12h): Retorna Hoje (D0)
     """
-    tz_br = pytz.timezone('America/Sao_Paulo')
-    now = datetime.now(tz_br)
-    
+    try:
+        tz_br = pytz.timezone('America/Sao_Paulo')
+        now = datetime.now(tz_br)
+    except:
+        # Fallback se pytz falhar
+        now = datetime.now()
+
     if MODE == 'today':
         return now.strftime('%Y-%m-%d')
     elif MODE == 'yesterday':
         return (now - timedelta(days=1)).strftime('%Y-%m-%d')
     
-    # Modo AUTO (Lógica do Cron)
+    # Lógica Automática (CRON)
     if now.hour < 12:
         print(f"🕒 Execução Matinal ({now.strftime('%H:%M')}). Selecionando Dia ANTERIOR.")
         target_date = now - timedelta(days=1)
@@ -48,48 +50,51 @@ def run(email_destino=None):
         print("❌ ERRO CRÍTICO: 'DASHBOARD_URL' não definida.")
         sys.exit(1)
     
-    # Se não foi passado email manual, usa o do ambiente
     final_email = email_destino if email_destino else DEFAULT_RECIPIENT
-
+    
+    # 1. CALCULA A DATA
     target_date = get_target_date()
+    
+    # 2. MONTA A URL COM O PARÂMETRO
     full_url = f"{DASHBOARD_URL}/?data={target_date}"
     
     screenshots_data = [] 
 
     with sync_playwright() as p:
-        print("🚀 Iniciando Browser...")
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={"width": 1920, "height": 1400})
         page = context.new_page()
 
-        print(f"🌍 Acessando: {full_url}")
+        print(f"🚀 Acessando: {full_url}")
         page.goto(full_url)
         
+        # Espera carregamento inicial
         try:
             page.wait_for_selector("text=Carregando", state="detached", timeout=60000)
         except:
-            print("⚠️ Timeout esperando loading sumir, prosseguindo...")
+            print("⚠️ Timeout esperando loading inicial.")
         
-        # Oculta Malha Central
+        # Injeção de CSS para ocultar Malha Central (Segurança Visual)
         page.add_style_tag(content="""
             div[data-gerencia="MALHA CENTRAL"], 
             tr:contains("MALHA CENTRAL"),
             .card-malha-central { display: none !important; }
         """)
         
-        time.sleep(5) 
+        time.sleep(3)
 
         for gerencia in GERENCIAS:
             print(f"🔄 Processando: {gerencia}")
             
             try:
+                # LÓGICA DE UI (Abrir Menu, Filtrar, Aplicar)
                 filter_group = page.locator("div.group", has_text="Gerência").first
                 if filter_group.is_visible():
                     filter_btn = filter_group.locator("div").last 
                     filter_btn.click()
                     
                     page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
-                    
+
                     btn_limpar = page.locator("button:has-text('Limpar')").last
                     if btn_limpar.is_visible() and btn_limpar.is_enabled():
                         btn_limpar.click()
@@ -97,16 +102,22 @@ def run(email_destino=None):
                     
                     page.fill("input[placeholder='Buscar...']", gerencia)
                     time.sleep(1) 
+
                     page.locator(f"div:has-text('{gerencia}')").last.click()
-
                     page.click("button:has-text('Aplicar')")
-                    page.keyboard.press("Escape")
+                    
+                    # Carregamento pós-filtro
+                    time.sleep(1)
+                    if page.is_visible("text=Carregando dados..."):
+                        page.wait_for_selector("text=Carregando dados...", state="detached")
                     time.sleep(2)
-                else:
-                    print(f"⚠️ Botão de filtro não encontrado para {gerencia}")
-
+                    
+                    # Fecha menu
+                    page.keyboard.press("Escape")
+                
                 print(f"📸 Capturado: {gerencia}")
                 
+                # Captura apenas o conteúdo do dashboard se existir
                 if page.locator("#dashboard-content").is_visible():
                     screenshot_bytes = page.locator("#dashboard-content").screenshot()
                 else:
@@ -120,7 +131,7 @@ def run(email_destino=None):
             except Exception as e:
                 print(f"❌ Erro na gerência {gerencia}: {e}")
                 page.reload()
-                time.sleep(5)
+                time.sleep(3)
 
         browser.close()
     
@@ -131,7 +142,7 @@ def run(email_destino=None):
 
 def enviar_email_unificado(lista_prints, data_ref, email_destino):
     if not WEBHOOK_URL:
-        print("⚠️ Webhook (POWER_AUTOMATE_URL) não configurado. Pulando envio de email.")
+        print("⚠️ Webhook não configurado.")
         return
 
     print(f"📧 Enviando email para: {email_destino}")
@@ -141,16 +152,18 @@ def enviar_email_unificado(lista_prints, data_ref, email_destino):
     <html>
     <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
         <div style="max-width: 800px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px; border: 1px solid #e0e0e0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+            
             <div style="border-bottom: 2px solid #0056b3; padding-bottom: 15px; margin-bottom: 30px; text-align: center;">
                 <h2 style="color: #0056b3; margin: 0; font-size: 24px;">Relatório Diário de Status</h2>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">Consolidado - Data Base: <strong>{data_fmt}</strong></p>
-                <p style="font-size: 10px; color: #999;">Destinatário: {email_destino}</p>
+                <p style="font-size: 10px; color: #999;">Enviado para: {email_destino}</p>
             </div>
     """
 
     for item in lista_prints:
         nome = item['nome']
         b64_img = base64.b64encode(item['img']).decode('utf-8')
+        
         html_body += f"""
             <div style="margin-bottom: 40px;">
                 <h3 style="color: #333; border-left: 4px solid #0056b3; padding-left: 10px; margin-bottom: 15px;">{nome}</h3>
@@ -171,24 +184,22 @@ def enviar_email_unificado(lista_prints, data_ref, email_destino):
 
     payload = {
         "recipient": email_destino,
-        "subject": f"📊 Relatório Consolidado PCM - {data_fmt} (Teste Manual)" if email_destino != DEFAULT_RECIPIENT else f"📊 Relatório Consolidado PCM - {data_fmt}",
+        "subject": f"📊 Relatório Consolidado PCM - {data_fmt}",
         "htmlContent": html_body
     }
 
     try:
         response = requests.post(WEBHOOK_URL, json=payload)
         if response.status_code in [200, 202]:
-            print(f"✅ Email enviado com sucesso!")
+            print(f"✅ Email UNIFICADO enviado com sucesso!")
         else:
             print(f"⚠️ Erro Power Automate: {response.text}")
     except Exception as e:
-        print(f"❌ Erro de conexão ao enviar email: {e}")
+        print(f"❌ Erro de conexão: {e}")
 
 if __name__ == "__main__":
-    # Configuração de Argumentos via Linha de Comando
-    parser = argparse.ArgumentParser(description='Bot de Relatórios Status Diário')
-    parser.add_argument('--email', type=str, help='Email de destino para teste manual', default=None)
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--email', type=str, help='Email de teste', default=None)
     args = parser.parse_args()
     
     run(email_destino=args.email)

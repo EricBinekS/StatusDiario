@@ -11,10 +11,17 @@ const DashboardPage = () => {
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef(null); 
 
+  // --- NOVA LÓGICA DE DATA ---
+  // 1. Captura parâmetros da URL (enviados pelo Bot)
+  const searchParams = new URLSearchParams(window.location.search);
+  const urlDate = searchParams.get('data');
+
   const [filters, setFilters] = useState({
-    data: new Date().toISOString().split('T')[0],
+    // 2. Se a URL tiver ?data=YYYY-MM-DD, usa ela. Senão, usa Hoje.
+    data: urlDate || new Date().toISOString().split('T')[0],
     gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: []
   });
+  // ---------------------------
 
   const { data: apiData, loading, error, refetch } = useDashboard(filters.data);
 
@@ -45,7 +52,11 @@ const DashboardPage = () => {
   }, [apiData, filters, searchTerm]);
 
   const handleClearFilters = () => {
-    setFilters(prev => ({ ...prev, gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] }));
+    // Ao limpar, mantemos a data atual ou da URL para não "quebrar" a navegação do usuário
+    setFilters(prev => ({ 
+        ...prev, 
+        gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] 
+    }));
     setSearchTerm('');
   };
 
@@ -57,7 +68,7 @@ const DashboardPage = () => {
     try {
         const canvas = await html2canvas(dashboardRef.current, {
             scale: 3, 
-            backgroundColor: null, // Deixa transparente para pegar a cor da div (ou force '#f4f6f8' se quiser sempre claro)
+            backgroundColor: null, 
             logging: false,
             useCORS: true,
             allowTaint: true, 
@@ -66,11 +77,10 @@ const DashboardPage = () => {
                 style.innerHTML = `* { -webkit-font-smoothing: antialiased !important; -moz-osx-font-smoothing: grayscale !important; }`;
                 clonedDoc.head.appendChild(style);
                 
-                // Força fundo claro na exportação para garantir legibilidade, se desejar
                 const element = clonedDoc.getElementById('dashboard-content');
                 if(element) {
                     element.style.backgroundColor = '#f4f6f8';
-                    element.classList.remove('dark'); // Remove dark mode da captura se quiser sempre claro
+                    element.classList.remove('dark'); 
                 }
             }
         });
@@ -107,7 +117,6 @@ const DashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filtros Fora da área de print para não sair na foto se não quiser */}
       <FiltersSection 
         filters={filters} 
         setFilters={setFilters} 
@@ -117,8 +126,6 @@ const DashboardPage = () => {
         isExporting={isExporting}    
       />
 
-      {/* ÁREA DE CONTEÚDO (Cards + Tabela) */}
-      {/* Adicionei dark:bg-slate-900 e id para o export */}
       <div ref={dashboardRef} id="dashboard-content" className="flex flex-col bg-[#f4f6f8] dark:bg-slate-900 transition-colors p-1 rounded-xl"> 
         {loading ? (
             <div className="flex flex-col items-center justify-center h-64 opacity-50">
