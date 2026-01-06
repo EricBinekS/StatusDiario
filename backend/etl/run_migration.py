@@ -3,24 +3,29 @@ import os
 import glob
 import json
 import pandas as pd
-import warnings  # <--- Adicionado
+import warnings
 from sqlalchemy import text
 
-# Silencia avisos específicos do OpenPyXL sobre validação de dados
+# Silencia avisos do OpenPyXL
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
-# Configuração de caminhos
-current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_dir = os.path.dirname(current_dir)
-if backend_dir not in sys.path:
-    sys.path.append(backend_dir)
+# --- CORREÇÃO DE PATH ---
+# Garante que a raiz do projeto esteja no sys.path para permitir imports absolutos (ex: backend.config)
+current_dir = os.path.dirname(os.path.abspath(__file__)) # .../backend/etl
+backend_dir = os.path.dirname(current_dir)             # .../backend
+project_root = os.path.dirname(backend_dir)            # .../ (Raiz)
 
-from db.connection import get_db_engine
-from etl.processor import process_dataframe, clean_column_names
-from add_indexes import create_indexes
-from optimize_db import optimize_database
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Agora usamos imports absolutos (padrão App 3.0)
+from backend.db.connection import get_db_engine
+from backend.etl.processor import process_dataframe, clean_column_names
+from backend.add_indexes import create_indexes
+from backend.optimize_db import optimize_database
 
 def load_raw_files():
+    # Caminhos absolutos baseados no backend_dir
     raw_path = os.path.join(backend_dir, "raw_data")
     map_path = os.path.join(current_dir, "mapeamento_abas.json")
     
@@ -34,7 +39,7 @@ def load_raw_files():
     all_files = glob.glob(os.path.join(raw_path, "*.xlsx"))
     dfs = []
 
-    print(f"📂 Processando {len(all_files)} arquivos...")
+    print(f"📂 Processando {len(all_files)} arquivos de: {raw_path}")
 
     for file_path in all_files:
         filename = os.path.basename(file_path)
@@ -63,8 +68,8 @@ def load_raw_files():
     return dfs
 
 def run():
-    print("\n🚀 INICIANDO MIGRAÇÃO AUTOMATIZADA")
-    print("===================================")
+    print("\n🚀 INICIANDO MIGRAÇÃO AUTOMATIZADA (App 3.0)")
+    print("===========================================")
     
     engine = get_db_engine()
     if not engine:
