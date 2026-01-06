@@ -2,10 +2,10 @@ name: Relatório Diário (Screenshot)
 
 on:
   schedule:
-    # 21:00 BRT = 00:00 UTC (Executa para o dia ATUAL)
+    # 21:00 BRT = 00:00 UTC (Executa para o dia ATUAL - Noite)
     - cron: '0 0 * * *'
     
-    # 07:15 BRT = 10:15 UTC (Executa para o dia ANTERIOR)
+    # 07:15 BRT = 10:15 UTC (Executa para o dia ANTERIOR - Manhã)
     - cron: '15 10 * * *'
     
   workflow_dispatch:
@@ -14,6 +14,15 @@ on:
         description: 'Modo de Data (auto, today, yesterday)'
         required: false
         default: 'auto'
+        type: choice
+        options:
+          - auto
+          - today
+          - yesterday
+      test_email:
+        description: 'Email de Teste (Opcional - Deixe vazio p/ usar padrão)'
+        required: false
+        type: string
 
 jobs:
   take-screenshot:
@@ -36,14 +45,30 @@ jobs:
     - name: Rodar Bot de Screenshot
       env:
         # A URL do seu front em produção (Vercel/Render)
-        # Se ainda não tiver, coloque a URL temporária ou localhost se estiver rodando túnel
-        DASHBOARD_URL: "https://seu-projeto-status.vercel.app" 
-        MODE: ${{ github.event.inputs.mode || 'auto' }}
+        DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+        POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
+        # Email padrão (Produção) usado quando não há input manual
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        # Modo de data
+        MODE: ${{ inputs.mode || 'auto' }}
       run: |
-        python automation/bot.py
+        # Inicia o comando base
+        CMD="python automation/bot.py"
+        
+        # Verifica se foi passado um email de teste via input manual
+        if [ -n "${{ inputs.test_email }}" ]; then
+          echo "🧪 Modo de Teste Ativado: Enviando para ${{ inputs.test_email }}"
+          CMD="$CMD --email ${{ inputs.test_email }}"
+        else
+          echo "📧 Modo Padrão: Enviando para destinatário oficial."
+        fi
+        
+        # Executa o comando final
+        $CMD
         
     - name: Upload do Screenshot (Artifact)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
+      if: always() # Faz upload mesmo se o script falhar (bom para debug)
       with:
         name: relatorio-status
         path: automation/screenshot.png
