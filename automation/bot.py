@@ -156,7 +156,6 @@ def enviar_email_unificado(lista_prints, data_ref, email_destino):
             <div style="border-bottom: 2px solid #0056b3; padding-bottom: 15px; margin-bottom: 30px; text-align: center;">
                 <h2 style="color: #0056b3; margin: 0; font-size: 24px;">Relatório Diário de Status</h2>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">Consolidado - Data Base: <strong>{data_fmt}</strong></p>
-                <p style="font-size: 10px; color: #999;">Enviado para: {email_destino}</p>
             </div>
     """
 
