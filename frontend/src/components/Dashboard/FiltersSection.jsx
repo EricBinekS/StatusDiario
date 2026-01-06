@@ -8,15 +8,15 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
   const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
   const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
 
+  // Adicionado 'status' no final da lista
   const filterConfig = [
     { key: 'gerencia', label: 'Gerência' }, { key: 'trecho', label: 'Trecho' },
     { key: 'sub', label: 'Sub' }, { key: 'ativo', label: 'Ativo' },
     { key: 'atividade', label: 'Atividade' }, { key: 'tipo', label: 'Tipo' },
+    { key: 'status', label: 'Status' },
   ];
 
   return (
-    // CORREÇÃO MOBILE: flex-col no mobile, md:flex-row no desktop
-    // CORREÇÃO DARK: dark:bg-slate-800 dark:border-slate-700
     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 transition-colors">
       
       <div className="flex-grow flex flex-col gap-2">
@@ -28,16 +28,27 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
           </div>
         )}
         
-        {/* Grid de filtros responsivo */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-center">
+        {/* GRID ADJUSTMENT: 
+           - Total de itens: 1 (Data) + 7 (Filtros) = 8 colunas.
+           - lg:grid-cols-[1.2fr_1fr_1fr_0.6fr_1fr_1.2fr_0.8fr_1fr]
+             * Date: 1.2fr (mais espaço)
+             * Sub: 0.6fr (reduzido conforme permitido)
+             * Atividade: 1.2fr (textos longos)
+             * Tipo: 0.8fr (textos curtos)
+             * Resto: 1fr
+        */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1.2fr_1fr_1fr_0.6fr_1fr_1.2fr_0.8fr_1fr] gap-2 items-center">
+          
+          {/* Campo DATA */}
           <div className="flex flex-col gap-1 relative group">
              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">Data Base</label>
              <div className="relative">
                 <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                {/* CORREÇÃO INPUT DARK: dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 */}
                 <input type="date" value={filters.data} onChange={(e) => setFilters(prev => ({ ...prev, data: e.target.value }))} className="w-full h-8 pl-8 pr-2 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium" />
              </div>
           </div>
+
+          {/* Demais Filtros */}
           {filterConfig.map(({ key, label }) => (
             <div key={key} className="flex flex-col gap-1 relative group">
               <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">{label}</label>
@@ -54,7 +65,7 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
         </div>
       </div>
       
-      {/* Botão de Copiar (Ajustado para Mobile) */}
+      {/* Botão de Copiar */}
       <div className="flex items-center justify-center md:border-l border-gray-100 dark:border-slate-700 md:pl-4 md:min-w-[100px] w-full md:w-auto">
         <button 
           onClick={onExport} 

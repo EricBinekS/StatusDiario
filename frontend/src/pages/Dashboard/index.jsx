@@ -5,41 +5,75 @@ import KPICards from '../../components/Dashboard/KPICards';
 import { useDashboard } from '../../hooks/useDashboard'; 
 import { Loader2, AlertCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { getDerivedStatus } from '../../utils/dataUtils'; // <--- Importante: Usar a mesma lógica dos Cards
+
+// Mapeia o retorno técnico do getDerivedStatus para o Texto do Filtro
+const STATUS_DISPLAY_MAP = {
+  'concluido': 'Concluído',
+  'parcial': 'Parcial',
+  'andamento': 'Em Andamento',
+  'nao_iniciado': 'Não Iniciado',
+  'cancelado': 'Não Realizado' // O "X" vermelho dos cards
+};
 
 const DashboardPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef(null); 
 
-  // --- NOVA LÓGICA DE DATA ---
   // 1. Captura parâmetros da URL (enviados pelo Bot)
   const searchParams = new URLSearchParams(window.location.search);
   const urlDate = searchParams.get('data');
 
   const [filters, setFilters] = useState({
-    // 2. Se a URL tiver ?data=YYYY-MM-DD, usa ela. Senão, usa Hoje.
+    // Se a URL tiver ?data=YYYY-MM-DD, usa ela. Senão, usa Hoje.
     data: urlDate || new Date().toISOString().split('T')[0],
-    gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: []
+    gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: []
   });
-  // ---------------------------
 
   const { data: apiData, loading, error, refetch } = useDashboard(filters.data);
 
   const options = useMemo(() => {
     if (!apiData || apiData.length === 0) return {};
     const extract = (key) => [...new Set(apiData.map(item => item[key]).filter(Boolean))].sort();
+    
     return {
-      gerencia: extract('gerencia'), trecho: extract('trecho'), sub: extract('sub'),
-      ativo: extract('ativo'), atividade: extract('atividade'), tipo: extract('tipo')
+      gerencia: extract('gerencia'), 
+      trecho: extract('trecho'), 
+      sub: extract('sub'),
+      ativo: extract('ativo'), 
+      atividade: extract('atividade'), 
+      tipo: extract('tipo'),
+      // As 5 opções fixas que você pediu
+      status: ["Concluído", "Parcial", "Em Andamento", "Não Iniciado", "Não Realizado"]
     };
   }, [apiData]);
 
   const filteredData = useMemo(() => {
     if (!apiData) return [];
+    
     return apiData.filter(row => {
-      const checkFilter = (key) => (!filters[key] || filters[key].length === 0) || filters[key].includes(row[key]);
-      if (!checkFilter('gerencia') || !checkFilter('trecho') || !checkFilter('sub') || 
-          !checkFilter('ativo') || !checkFilter('atividade') || !checkFilter('tipo')) return false;
+      // Helper para checar array de filtros
+      const checkFilter = (key, rowValue) => {
+        return (!filters[key] || filters[key].length === 0) || filters[key].includes(rowValue);
+      };
+
+      // --- LÓGICA DE STATUS CORRIGIDA ---
+      // 1. Calcula o status real (ex: 'nao_iniciado', 'parcial') usando a regra do sistema
+      const technicalStatus = getDerivedStatus(row);
+      // 2. Converte para o nome bonito (ex: 'Não Iniciado')
+      const displayStatus = STATUS_DISPLAY_MAP[technicalStatus] || "Desconhecido";
+
+      // Verificações Padrão
+      if (!checkFilter('gerencia', row.gerencia)) return false;
+      if (!checkFilter('trecho', row.trecho)) return false;
+      if (!checkFilter('sub', row.sub)) return false;
+      if (!checkFilter('ativo', row.ativo)) return false;
+      if (!checkFilter('atividade', row.atividade)) return false;
+      if (!checkFilter('tipo', row.tipo)) return false;
+      
+      // Verificação do Status usando o nome mapeado
+      if (!checkFilter('status', displayStatus)) return false;
 
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
@@ -52,10 +86,10 @@ const DashboardPage = () => {
   }, [apiData, filters, searchTerm]);
 
   const handleClearFilters = () => {
-    // Ao limpar, mantemos a data atual ou da URL para não "quebrar" a navegação do usuário
+    // Ao limpar, mantemos a data atual/URL
     setFilters(prev => ({ 
         ...prev, 
-        gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [] 
+        gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: [] 
     }));
     setSearchTerm('');
   };

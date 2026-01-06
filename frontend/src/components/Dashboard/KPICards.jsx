@@ -10,6 +10,7 @@ const KPICards = ({ data }) => {
 
     const validData = data.filter(r => r);
 
+    // Contadores para os Cards Individuais (Mantém contagem total para exibição)
     let realizados = 0;
     let parcial = 0;
     let andamento = 0;
@@ -29,27 +30,38 @@ const KPICards = ({ data }) => {
         }
     });
 
+    // --- CÁLCULO DE ADERÊNCIA (LÓGICA AJUSTADA) ---
+    
     const atividadesIgnoradas = [
       "DESLOCAMENTO", "DETECÇÃO - CARRO CONTROLE", "DETECÇÃO - RONDA 7 DIAS",
       "DETECÇÃO - ULTRASSOM - SPERRY", "INSPEÇÃO RIV", "INSPEÇÃO AUTO DE LINHA"
     ];
 
-    const dataAderencia = validData.filter(r => 
+    // 1. Filtra atividades ignoradas (Mecanização, Deslocamento, etc)
+    const dataConsiderada = validData.filter(r => 
         r.atividade && !atividadesIgnoradas.some(ign => r.atividade.toUpperCase().includes(ign))
     );
     
-    const totalAderencia = dataAderencia.length;
     let pontos = 0;
+    let totalValido = 0; // Novo denominador que exclui 'Andamento' e 'Não Iniciado'
 
-    dataAderencia.forEach(row => {
+    dataConsiderada.forEach(row => {
         const st = getDerivedStatus(row);
-        if (st === 'concluido') pontos += 1.0;
-        else if (st === 'parcial') pontos += 0.5;
-        // Cancelado, Andamento e Não Iniciado somam 0
+        
+        // Regra de Ouro: Só conta para o cálculo se já teve um desfecho (Bom ou Ruim)
+        // Ignora 'andamento' e 'nao_iniciado'
+        if (['concluido', 'parcial', 'cancelado'].includes(st)) {
+             totalValido++; // Entra para o denominador
+             
+             // Pontuação para o numerador
+             if (st === 'concluido') pontos += 1.0;
+             else if (st === 'parcial') pontos += 0.5;
+             // 'cancelado' soma 0 pontos, mas contou no totalValido (pune a média)
+        }
     });
 
-    const aderencia = totalAderencia > 0 
-        ? ((pontos / totalAderencia) * 100).toFixed(1) 
+    const aderencia = totalValido > 0 
+        ? ((pontos / totalValido) * 100).toFixed(1) 
         : 0;
 
     return { aderencia, realizados, parcial, andamento, nao_iniciado, cancelados };
@@ -57,7 +69,7 @@ const KPICards = ({ data }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
-      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Execução Global" />
+      <Card label="Aderência" value={`${stats.aderencia}%`} icon={<PieChart size={20} />} color="purple" subtext="Base Calculada" />
       <Card label="Concluído" value={stats.realizados} icon={<CheckCircle2 size={20} />} color="green" subtext="Executado" />
       <Card label="Parcial" value={stats.parcial} icon={<AlertTriangle size={20} />} color="orange" subtext="Executado Parcialmente" />
       <Card label="Em Andamento" value={stats.andamento} icon={<Clock size={20} />} color="yellow" subtext="Em Execução" />
