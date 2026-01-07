@@ -138,7 +138,7 @@ def process_dataframe(df):
         ativos_modernizacao = [
             "ModernizaçãoTURMA2", "ModernizaçãoLASTRO2", "MOD ZYQ ZWI", "MOD ZWU ZDC",
             "MODERNIZAÇÃO TURMA 2", "MOD ZDG PAT", "MOD ZRB ZEV", "MOD ZEM",
-            "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN", "MOD SPN"
+            "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN", "MOD SPN",
         ]
         
         if 'ativo' not in df.columns: df['ativo'] = ''
@@ -146,6 +146,27 @@ def process_dataframe(df):
 
         mask_mod = df['ativo'].astype(str).str.strip().isin(ativos_modernizacao)
         df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
+
+        # 6.1 REGRA MODERNIZAÇÃO POR ATIVIDADE
+        atividades_modernizacao = [
+            "MODERNIZAÇÃO - PEDRA - DESCARGA",
+            "MODERNIZAÇÃO - OUTRA ATIVIDADE",
+            "MODERNIZAÇÃO - SOLDA",
+            "MODERNIZAÇÃO - RECOLHIMENTO DE DORMENTE",
+            "MODERNIZAÇÃO - TRILHO - DESCARGA",
+            "MODERNIZAÇÃO - SOCADORA",
+            "MODERNIZAÇÃO - DORMENTE - DESCARGA",
+            "MODERNIZAÇÃO - SUBSTITUIÇÃO DE DORMENTE",
+            "MODERNIZAÇÃO - PEDRA - CARGA",
+            "MODERNIZAÇÃO - DESCARGA - TRILHO"
+        ]
+
+        if 'atividade' not in df.columns:
+            df['atividade'] = ''
+
+        mask_mod_atividade = df['atividade'].astype(str).str.strip().isin(atividades_modernizacao)
+        df.loc[mask_mod_atividade, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
+
 
         # 7. LIMPEZA FINAL
         # REMOVIDO: detalhe_local
