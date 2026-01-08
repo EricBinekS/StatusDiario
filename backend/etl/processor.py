@@ -100,7 +100,7 @@ def process_dataframe(df):
         df.rename(columns=rename_dict, inplace=True)
 
         # 3. FILTROS DE NEGÓCIO
-        ATIVIDADES_IGNORADAS = ["MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS, INSPEÇÃO AUTO DE LINHA"]
+        ATIVIDADES_IGNORADAS = ["MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", "INSPEÇÃO AUTO DE LINHA"]
         GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
 
         if 'atividade' in df.columns:
