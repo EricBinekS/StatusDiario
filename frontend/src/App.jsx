@@ -1,7 +1,7 @@
 // frontend/src/App.jsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { useIsAuthenticated } from "@azure/msal-react";
 import MainLayout from './layouts/MainLayout';
 import DashboardPage from './pages/Dashboard/index';
 import OverviewPage from './pages/Overview/index';
@@ -9,8 +9,12 @@ import LoginPage from './pages/Login/index';
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
+  const [searchParams] = useSearchParams();
   
-  if (!isAuthenticated) {
+  const botKey = searchParams.get('bot_key');
+  const isBotAuthorized = botKey === import.meta.env.VITE_BOT_BYPASS_KEY;
+  
+  if (!isAuthenticated && !isBotAuthorized) {
     return <Navigate to="/login" replace />;
   }
 
@@ -19,11 +23,9 @@ const ProtectedRoute = ({ children }) => {
 
 const PublicRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
-  
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+     return <Navigate to="/" replace />;
   }
-
   return children;
 };
 

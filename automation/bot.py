@@ -8,26 +8,19 @@ from datetime import datetime, timedelta
 import pytz
 from playwright.sync_api import sync_playwright
 
-# --- CONFIGURAÇÕES ---
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:5173") 
 WEBHOOK_URL = os.environ.get("POWER_AUTOMATE_URL")
 DEFAULT_RECIPIENT = os.environ.get("RECIPIENT_EMAIL", "eric.bine@rumolog.com")
 MODE = os.environ.get("MODE", "auto")
+BOT_BYPASS_KEY = os.environ.get("BOT_BYPASS_KEY")
 
-# Removemos MALHA CENTRAL para não tirar print
 GERENCIAS = ["FERRONORTE", "SP NORTE", "SP SUL"]
 
 def get_target_date():
-    """
-    Define a data do relatório baseada no horário atual (BRT).
-    - Manhã (< 12h): Retorna Ontem (D-1)
-    - Tarde (>= 12h): Retorna Hoje (D0)
-    """
     try:
         tz_br = pytz.timezone('America/Sao_Paulo')
         now = datetime.now(tz_br)
     except:
-        # Fallback se pytz falhar
         now = datetime.now()
 
     if MODE == 'today':
@@ -35,28 +28,24 @@ def get_target_date():
     elif MODE == 'yesterday':
         return (now - timedelta(days=1)).strftime('%Y-%m-%d')
     
-    # Lógica Automática (CRON)
     if now.hour < 12:
-        print(f"🕒 Execução Matinal ({now.strftime('%H:%M')}). Selecionando Dia ANTERIOR.")
         target_date = now - timedelta(days=1)
     else:
-        print(f"🌙 Execução Noturna ({now.strftime('%H:%M')}). Selecionando Dia ATUAL.")
         target_date = now
 
     return target_date.strftime('%Y-%m-%d')
 
 def run(email_destino=None):
     if not DASHBOARD_URL:
-        print("❌ ERRO CRÍTICO: 'DASHBOARD_URL' não definida.")
         sys.exit(1)
     
     final_email = email_destino if email_destino else DEFAULT_RECIPIENT
-    
-    # 1. CALCULA A DATA
     target_date = get_target_date()
     
-    # 2. MONTA A URL COM O PARÂMETRO
-    full_url = f"{DASHBOARD_URL}/?data={target_date}"
+    if BOT_BYPASS_KEY:
+        full_url = f"{DASHBOARD_URL}/?data={target_date}&bot_key={BOT_BYPASS_KEY}"
+    else:
+        full_url = f"{DASHBOARD_URL}/?data={target_date}"
     
     screenshots_data = [] 
 
@@ -65,16 +54,13 @@ def run(email_destino=None):
         context = browser.new_context(viewport={"width": 1920, "height": 1400})
         page = context.new_page()
 
-        print(f"🚀 Acessando: {full_url}")
         page.goto(full_url)
         
-        # Espera carregamento inicial
         try:
             page.wait_for_selector("text=Carregando", state="detached", timeout=60000)
         except:
-            print("⚠️ Timeout esperando loading inicial.")
+            pass
         
-        # Injeção de CSS para ocultar Malha Central (Segurança Visual)
         page.add_style_tag(content="""
             div[data-gerencia="MALHA CENTRAL"], 
             tr:contains("MALHA CENTRAL"),
@@ -84,10 +70,7 @@ def run(email_destino=None):
         time.sleep(3)
 
         for gerencia in GERENCIAS:
-            print(f"🔄 Processando: {gerencia}")
-            
             try:
-                # LÓGICA DE UI (Abrir Menu, Filtrar, Aplicar)
                 filter_group = page.locator("div.group", has_text="Gerência").first
                 if filter_group.is_visible():
                     filter_btn = filter_group.locator("div").last 
@@ -106,18 +89,13 @@ def run(email_destino=None):
                     page.locator(f"div:has-text('{gerencia}')").last.click()
                     page.click("button:has-text('Aplicar')")
                     
-                    # Carregamento pós-filtro
                     time.sleep(1)
                     if page.is_visible("text=Carregando dados..."):
                         page.wait_for_selector("text=Carregando dados...", state="detached")
                     time.sleep(2)
                     
-                    # Fecha menu
                     page.keyboard.press("Escape")
                 
-                print(f"📸 Capturado: {gerencia}")
-                
-                # Captura apenas o conteúdo do dashboard se existir
                 if page.locator("#dashboard-content").is_visible():
                     screenshot_bytes = page.locator("#dashboard-content").screenshot()
                 else:
@@ -128,8 +106,7 @@ def run(email_destino=None):
                     "img": screenshot_bytes
                 })
 
-            except Exception as e:
-                print(f"❌ Erro na gerência {gerencia}: {e}")
+            except Exception:
                 page.reload()
                 time.sleep(3)
 
@@ -137,15 +114,11 @@ def run(email_destino=None):
     
     if screenshots_data:
         enviar_email_unificado(screenshots_data, target_date, final_email)
-    else:
-        print("⚠️ Nenhuma imagem capturada. Email não enviado.")
 
 def enviar_email_unificado(lista_prints, data_ref, email_destino):
     if not WEBHOOK_URL:
-        print("⚠️ Webhook não configurado.")
         return
 
-    print(f"📧 Enviando email para: {email_destino}")
     data_fmt = datetime.strptime(data_ref, '%Y-%m-%d').strftime("%d/%m/%Y")
     
     html_body = f"""
@@ -188,13 +161,9 @@ def enviar_email_unificado(lista_prints, data_ref, email_destino):
     }
 
     try:
-        response = requests.post(WEBHOOK_URL, json=payload)
-        if response.status_code in [200, 202]:
-            print(f"✅ Email UNIFICADO enviado com sucesso!")
-        else:
-            print(f"⚠️ Erro Power Automate: {response.text}")
-    except Exception as e:
-        print(f"❌ Erro de conexão: {e}")
+        requests.post(WEBHOOK_URL, json=payload)
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
