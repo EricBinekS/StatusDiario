@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getDerivedStatus } from '../../utils/dataUtils';
+import LiveTimer from './LiveTimer';
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
@@ -106,9 +107,18 @@ const AtividadesTable = ({ data, searchTerm }) => {
             </tr>
           </thead>
           <tbody className="text-[11px] text-[#333] dark:text-slate-300">
-            {currentData.map((row) => (
-              <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-blue-50/30 dark:hover:bg-slate-700/50 transition-colors group">
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
+            {currentData.map((row) => {
+              const statusAtual = getDerivedStatus(row); 
+              const temInicio = row.inicio.real && row.inicio.real !== '--:--';
+              const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
+              
+              const isBloco = row.tempo.prog === '00:01';
+              
+              const showTimer = isAndamento && temInicio && !isBloco;
+
+              return (
+              <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors group">
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
                     <span className="text-gray-300 dark:text-slate-600">|</span>
@@ -116,34 +126,52 @@ const AtividadesTable = ({ data, searchTerm }) => {
                   </div>
                 </td>
                 
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                   <div className="flex flex-col items-center leading-tight">
                     <span className="font-bold text-[#0f172a] dark:text-white">{row.ativo}</span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-0.5">{row.atividade}</span>
                   </div>
                 </td>
                 
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                   <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
                     <span className="text-gray-600 dark:text-gray-400">{row.inicio.prog}</span>
                     <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <span className={row.inicio.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200 font-bold'}> 
+                    <span className={temInicio ? 'text-gray-700 dark:text-gray-200 font-bold' : 'text-gray-400 dark:text-slate-600'}> 
                       {row.inicio.real}
                     </span>
                   </div>
                 </td>
                 
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
-                    <span className="text-gray-600 dark:text-gray-400">{row.tempo.prog}</span>
-                    <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
-                      {row.tempo.real}
-                    </span>
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                  <div className="flex justify-center items-center h-full">
+                    {/* 👇 AQUI ESTÁ A CORREÇÃO: Badge Cinza Claro/Escuro */}
+                    {isBloco ? (
+                        <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 uppercase tracking-widest select-none">
+                            BLOCO
+                        </span>
+                    ) : (
+                        <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
+                            <span className="text-gray-600 dark:text-gray-400">{row.tempo.prog}</span>
+                            <span className="text-gray-300 dark:text-slate-600">|</span>
+                            
+                            {showTimer ? (
+                                <LiveTimer 
+                                    startTime={row.inicio.real} 
+                                    dateRef={row.data} 
+                                    scheduledDuration={row.tempo.prog} 
+                                />
+                            ) : (
+                                <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
+                                {row.tempo.real}
+                                </span>
+                            )}
+                        </div>
+                    )}
                   </div>
                 </td>
                 
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                   <div className="flex justify-center gap-1.5 text-[10px]">
                     <span className="text-gray-600 dark:text-gray-400">{row.local.prog}</span>
                     <span className="text-gray-300 dark:text-slate-600">|</span>
@@ -151,7 +179,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
                   </div>
                 </td>
                 
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-blue-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                   <div className="flex justify-center gap-1.5 font-medium tabular-nums">
                     <span className="text-gray-600 dark:text-gray-400">{row.quant.prog}</span>
                     <span className="text-gray-300 dark:text-slate-600">|</span>
@@ -159,17 +187,24 @@ const AtividadesTable = ({ data, searchTerm }) => {
                   </div>
                 </td>
                 
-                <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-orange-50/30 dark:group-hover:bg-slate-700/50 py-1.5 px-3 text-left leading-snug">
+                <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-3 text-left leading-snug">
                   {row.detalhamento || "—"}
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
 
       <div className="md:hidden flex flex-col gap-3">
-        {currentData.map((row) => (
+        {currentData.map((row) => {
+             const statusAtual = getDerivedStatus(row);
+             const temInicio = row.inicio.real && row.inicio.real !== '--:--';
+             const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
+             const isBloco = row.tempo.prog === '00:01';
+             const showTimer = isAndamento && temInicio && !isBloco;
+
+             return (
           <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
             <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
                 <div>
@@ -188,15 +223,32 @@ const AtividadesTable = ({ data, searchTerm }) => {
                     <div className="flex gap-1.5 font-mono text-xs">
                           <span className="text-gray-500">{row.inicio.prog}</span>
                           <span className="text-gray-300">|</span>
-                          <span className={row.inicio.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white font-bold'}>{row.inicio.real}</span>
+                          <span className={temInicio ? 'text-slate-800 dark:text-white font-bold' : 'text-gray-400'}>{row.inicio.real}</span>
                     </div>
                 } />
+                 
                  <MobileInfoBlock label="Tempo (Prog | Real)" value={
-                    <div className="flex gap-1.5 font-mono text-xs">
-                          <span className="text-gray-500">{row.tempo.prog}</span>
-                          <span className="text-gray-300">|</span>
-                          <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
-                    </div>
+                    isBloco ? (
+                        // 👇 CORREÇÃO TAMBÉM NO MOBILE
+                        <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 inline-block uppercase tracking-widest select-none">
+                            BLOCO
+                        </span>
+                    ) : (
+                        <div className="flex gap-1.5 font-mono text-xs">
+                            <span className="text-gray-500">{row.tempo.prog}</span>
+                            <span className="text-gray-300">|</span>
+                            
+                            {showTimer ? (
+                                <LiveTimer 
+                                    startTime={row.inicio.real} 
+                                    dateRef={row.data} 
+                                    scheduledDuration={row.tempo.prog} 
+                                />
+                            ) : (
+                                <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
+                            )}
+                        </div>
+                    )
                 } />
                 <MobileInfoBlock label="Local" value={
                       <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
@@ -213,7 +265,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </p>
             </div>
           </div>
-        ))}
+        )})}
       </div>
       
       <div className="flex justify-between items-center px-2 py-2">
