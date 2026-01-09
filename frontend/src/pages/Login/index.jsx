@@ -14,50 +14,35 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
             
-            {/* Background Decorativo Suave */}
             <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-50"></div>
 
-            {/* CARD DE LOGIN 
-                Responsividade:
-                - Mobile/Notebook: max-w-md (450px)
-                - Monitores Grandes (2xl): Escala 110% para não ficar pequeno demais
-            */}
             <div className="w-full max-w-md 2xl:max-w-lg bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden z-10 border border-slate-100 transition-all duration-300 transform 2xl:scale-105">
                 
                 <div className="p-8 md:p-10 flex flex-col items-center text-center">
                     
-                    {/* Área das Logos (Aumentada) */}
                     <div className="flex items-center justify-center gap-6 mb-8 w-full">
-                         {/* Logo Rumo (Maior destaque) */}
                          <img 
                             src="/rumo-logo.svg" 
                             alt="Rumo Logística" 
                             className="h-16 md:h-20 w-auto object-contain" 
                          />
-                         
-                         {/* Separador Vertical Sutil */}
-                         <div className="h-10 w-px bg-slate-200"></div> 
-                         
-                         {/* Logo PCM (Secundário) */}
+                        
                          <img 
                             src="/logo_pcm.svg" 
                             alt="PCM" 
-                            className="h-10 md:h-12 w-auto object-contain opacity-90" 
+                            className="h-12 md:h-16 w-auto object-contain" 
                          />
                     </div>
 
-                    {/* Textos */}
                     <h2 className="text-2xl font-bold text-slate-800 mb-2">Status Diário</h2>
                     <p className="text-slate-500 mb-8 text-sm leading-relaxed max-w-[280px]">
                         Monitoramento de aderência e controle operacional.
                     </p>
 
-                    {/* Botão de Login Microsoft (Mais compacto) */}
                     <button
                         onClick={handleLogin}
                         className="w-full group bg-[#2F2F2F] hover:bg-[#1a1a1a] text-white font-medium py-3 px-5 rounded-lg flex items-center justify-center gap-3 transition-all duration-200 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
                     >
-                        {/* Logo Microsoft */}
                         <div className="bg-white/10 p-1 rounded group-hover:bg-white/20 transition-colors">
                             <svg className="w-4 h-4" viewBox="0 0 21 21" fill="none">
                                 <path d="M10.5 0L0 0V10.5H10.5V0Z" fill="#F25022"/>
@@ -77,9 +62,6 @@ const LoginPage = () => {
                     </div>
                 </div>
                 
-                {/* Rodapé com Gradiente Rumo Oficial 
-                    Cores: #003865 -> #32A6E6 -> #1E9F7F -> #7FE06C
-                */}
                 <div 
                     className="h-2 w-full"
                     style={{
@@ -87,30 +69,8 @@ const LoginPage = () => {
                     }}
                 ></div>
             </div>
-
-            {/* DEBUG TEMPORÁRIO - REMOVA DEPOIS */}
-            <div className="mt-4 p-4 bg-red-100 text-red-800 text-xs rounded border border-red-200 font-mono text-left max-w-md w-full z-20">
-                <p className="font-bold border-b border-red-200 mb-2 pb-1">Diagnóstico do Robô:</p>
-                <div className="space-y-1">
-                    <p>URL tem chave? <span className="font-bold">{new URLSearchParams(window.location.search).has('bot_key') ? "SIM" : "NÃO"}</span></p>
-                    
-                    <p>Site leu variável? <span className="font-bold">{import.meta.env.VITE_BOT_BYPASS_KEY ? "SIM" : "NÃO (Undefined)"}</span></p>
-                    
-                    <p>Chaves conferem? <span className={
-                        new URLSearchParams(window.location.search).get('bot_key') === import.meta.env.VITE_BOT_BYPASS_KEY 
-                        ? "font-bold text-green-700" 
-                        : "font-bold text-red-700"
-                    }>
-                        {new URLSearchParams(window.location.search).get('bot_key') === import.meta.env.VITE_BOT_BYPASS_KEY 
-                        ? "SIM (Acesso Liberado)" 
-                        : "NÃO (Bloqueado)"}
-                    </span></p>
-                </div>
-            </div>
-            {/* FIM DO DEBUG */}
             
-            {/* Copyright */}
-            <div className="mt-4 text-slate-400 text-xs text-center font-medium opacity-60">
+            <div className="mt-8 text-slate-400 text-xs text-center font-medium opacity-60">
                 &copy; {new Date().getFullYear()} Rumo Logística S.A.
             </div>
         </div>
