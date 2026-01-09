@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from "@azure/msal-react";
@@ -12,7 +11,7 @@ const ProtectedRoute = ({ children }) => {
   const [searchParams] = useSearchParams();
   
   const botKey = searchParams.get('bot_key');
-  const isBotAuthorized = botKey === import.meta.env.VITE_BOT_BYPASS_KEY;
+  const isBotAuthorized = botKey && (botKey === import.meta.env.VITE_BOT_BYPASS_KEY);
   
   if (!isAuthenticated && !isBotAuthorized) {
     return <Navigate to="/login" replace />;
@@ -23,9 +22,11 @@ const ProtectedRoute = ({ children }) => {
 
 const PublicRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
+  
   if (isAuthenticated) {
-     return <Navigate to="/" replace />;
+    return <Navigate to="/" replace />;
   }
+
   return children;
 };
 

@@ -4,6 +4,7 @@ import requests
 import base64
 import time
 import argparse
+from urllib.parse import quote  # Importante para codificar caracteres especiais
 from datetime import datetime, timedelta
 import pytz
 from playwright.sync_api import sync_playwright
@@ -42,11 +43,18 @@ def run(email_destino=None):
     final_email = email_destino if email_destino else DEFAULT_RECIPIENT
     target_date = get_target_date()
     
-    if BOT_BYPASS_KEY:
-        full_url = f"{DASHBOARD_URL}/?data={target_date}&bot_key={BOT_BYPASS_KEY}"
-    else:
-        full_url = f"{DASHBOARD_URL}/?data={target_date}"
+    # Remove barra final da URL para evitar duplicidade (http://...//?data)
+    clean_base_url = DASHBOARD_URL.rstrip('/')
     
+    if BOT_BYPASS_KEY:
+        # quote() garante que espaços e símbolos na senha sejam convertidos para URL (ex: espaço -> %20)
+        safe_key = quote(BOT_BYPASS_KEY)
+        full_url = f"{clean_base_url}/?data={target_date}&bot_key={safe_key}"
+        print(f"🔑 Chave de bypass detectada. Acessando modo robô...")
+    else:
+        full_url = f"{clean_base_url}/?data={target_date}"
+        print(f"⚠️ Sem chave de bypass. Tentando acesso normal...")
+
     screenshots_data = [] 
 
     with sync_playwright() as p:
@@ -54,69 +62,89 @@ def run(email_destino=None):
         context = browser.new_context(viewport={"width": 1920, "height": 1400})
         page = context.new_page()
 
-        page.goto(full_url)
+        print(f"🚀 Acessando URL (Mascarada): {full_url.replace(BOT_BYPASS_KEY if BOT_BYPASS_KEY else 'N/A', '***')}")
         
         try:
-            page.wait_for_selector("text=Carregando", state="detached", timeout=60000)
-        except:
-            pass
-        
-        page.add_style_tag(content="""
-            div[data-gerencia="MALHA CENTRAL"], 
-            tr:contains("MALHA CENTRAL"),
-            .card-malha-central { display: none !important; }
-        """)
-        
-        time.sleep(3)
-
-        for gerencia in GERENCIAS:
+            page.goto(full_url, timeout=60000)
+            
+            # Tenta esperar o carregamento, mas segue se der timeout (às vezes já carregou)
             try:
-                filter_group = page.locator("div.group", has_text="Gerência").first
-                if filter_group.is_visible():
-                    filter_btn = filter_group.locator("div").last 
-                    filter_btn.click()
-                    
-                    page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
+                page.wait_for_selector("text=Carregando", state="detached", timeout=15000)
+            except:
+                pass
+            
+            # Injeção de CSS para ocultar Malha Central
+            page.add_style_tag(content="""
+                div[data-gerencia="MALHA CENTRAL"], 
+                tr:contains("MALHA CENTRAL"),
+                .card-malha-central { display: none !important; }
+            """)
+            
+            time.sleep(5) # Espera técnica para garantir renderização dos gráficos
 
-                    btn_limpar = page.locator("button:has-text('Limpar')").last
-                    if btn_limpar.is_visible() and btn_limpar.is_enabled():
-                        btn_limpar.click()
-                        time.sleep(0.5)
-                    
-                    page.fill("input[placeholder='Buscar...']", gerencia)
-                    time.sleep(1) 
+            for gerencia in GERENCIAS:
+                try:
+                    # Lógica de Filtro
+                    filter_group = page.locator("div.group", has_text="Gerência").first
+                    if filter_group.is_visible():
+                        filter_btn = filter_group.locator("div").last 
+                        filter_btn.click()
+                        
+                        page.wait_for_selector("input[placeholder='Buscar...']", state="visible", timeout=5000)
 
-                    page.locator(f"div:has-text('{gerencia}')").last.click()
-                    page.click("button:has-text('Aplicar')")
-                    
-                    time.sleep(1)
-                    if page.is_visible("text=Carregando dados..."):
-                        page.wait_for_selector("text=Carregando dados...", state="detached")
-                    time.sleep(2)
-                    
-                    page.keyboard.press("Escape")
-                
-                if page.locator("#dashboard-content").is_visible():
-                    screenshot_bytes = page.locator("#dashboard-content").screenshot()
-                else:
-                    screenshot_bytes = page.screenshot(full_page=True)
-                
-                screenshots_data.append({
-                    "nome": gerencia,
-                    "img": screenshot_bytes
-                })
+                        btn_limpar = page.locator("button:has-text('Limpar')").last
+                        if btn_limpar.is_visible() and btn_limpar.is_enabled():
+                            btn_limpar.click()
+                            time.sleep(0.5)
+                        
+                        page.fill("input[placeholder='Buscar...']", gerencia)
+                        time.sleep(1) 
 
-            except Exception:
-                page.reload()
-                time.sleep(3)
+                        page.locator(f"div:has-text('{gerencia}')").last.click()
+                        page.click("button:has-text('Aplicar')")
+                        
+                        # Espera loading do filtro sumir
+                        time.sleep(1)
+                        if page.is_visible("text=Carregando dados..."):
+                            try:
+                                page.wait_for_selector("text=Carregando dados...", state="detached", timeout=10000)
+                            except:
+                                pass
+                        time.sleep(2)
+                        
+                        page.keyboard.press("Escape")
+                    
+                    # Screenshot
+                    if page.locator("#dashboard-content").is_visible():
+                        screenshot_bytes = page.locator("#dashboard-content").screenshot()
+                    else:
+                        screenshot_bytes = page.screenshot(full_page=True)
+                    
+                    screenshots_data.append({
+                        "nome": gerencia,
+                        "img": screenshot_bytes
+                    })
+                    print(f"📸 Capturado: {gerencia}")
 
-        browser.close()
+                except Exception as e:
+                    print(f"❌ Erro na gerência {gerencia}: {e}")
+                    page.reload()
+                    time.sleep(5)
+
+        except Exception as e:
+            print(f"🔥 Erro fatal ao carregar página: {e}")
+        
+        finally:
+            browser.close()
     
     if screenshots_data:
         enviar_email_unificado(screenshots_data, target_date, final_email)
+    else:
+        print("⚠️ Nenhuma imagem capturada. Abortando envio.")
 
 def enviar_email_unificado(lista_prints, data_ref, email_destino):
     if not WEBHOOK_URL:
+        print("⚠️ Webhook URL não configurada. Pulando envio.")
         return
 
     data_fmt = datetime.strptime(data_ref, '%Y-%m-%d').strftime("%d/%m/%Y")
@@ -161,9 +189,10 @@ def enviar_email_unificado(lista_prints, data_ref, email_destino):
     }
 
     try:
-        requests.post(WEBHOOK_URL, json=payload)
-    except Exception:
-        pass
+        r = requests.post(WEBHOOK_URL, json=payload)
+        print(f"✅ Email enviado! Status: {r.status_code}")
+    except Exception as e:
+        print(f"❌ Falha no envio do email: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
