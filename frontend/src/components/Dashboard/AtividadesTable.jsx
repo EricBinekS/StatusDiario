@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { getDerivedStatus } from '../../utils/dataUtils';
 import LiveTimer from './LiveTimer';
+import MobileActivityCard from './MobileActivityCard'; // <--- 1. Importar o novo componente
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
@@ -62,7 +63,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
     return filtered;
   }, [data, sortConfig, searchTerm]);
 
-  // Cores das Bolinhas de Status
+  // Cores das Bolinhas de Status (Desktop)
   const getStatusColorClass = (row) => {
     const status = getDerivedStatus(row);
     switch (status) {
@@ -185,7 +186,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
                       </div>
                     </td>
                     
-                    {/* Tooltip Nativo */}
                     <td 
                       className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-3 text-left leading-snug cursor-help"
                       title={row.detalhamento} 
@@ -199,7 +199,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
         </table>
       </div>
 
-      {/* --- VERSÃO MOBILE (Cartões) --- */}
+      {/* --- VERSÃO MOBILE (Modularizada) --- */}
       <div className="md:hidden flex flex-col gap-3">
         {processedData.length === 0 ? (
              <div className="py-12 text-center text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
@@ -209,86 +209,14 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </div>
             </div>
         ) : (
-            processedData.map((row) => {
-                const statusAtual = getDerivedStatus(row);
-                const temInicio = row.inicio.real && row.inicio.real !== '--:--';
-                const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
-                const isBloco = row.tempo.prog === '00:01';
-                const showTimer = isAndamento && temInicio && !isBloco;
-
-                return (
-            <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-                <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
-                    <div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atividade</span>
-                        <div className="font-bold text-slate-800 dark:text-white text-sm">{row.ativo}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{row.atividade}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                        <div className={`w-3 h-3 rounded-full ${getStatusColorClass(row)}`}></div>
-                        <span className="text-[10px] font-mono text-gray-400">{row.data}</span>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                    <MobileInfoBlock label="Início (Prog | Real)" value={
-                        <div className="flex gap-1.5 font-mono text-xs">
-                            <span className="text-gray-500">{row.inicio.prog}</span>
-                            <span className="text-gray-300">|</span>
-                            <span className={temInicio ? 'text-slate-800 dark:text-white font-bold' : 'text-gray-400'}>{row.inicio.real}</span>
-                        </div>
-                    } />
-                    
-                    <MobileInfoBlock label="Tempo (Prog | Real)" value={
-                        isBloco ? (
-                            <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 inline-block uppercase tracking-widest select-none">
-                                BLOCO
-                            </span>
-                        ) : (
-                            <div className="flex gap-1.5 font-mono text-xs">
-                                <span className="text-gray-500">{row.tempo.prog}</span>
-                                <span className="text-gray-300">|</span>
-                                {showTimer ? (
-                                    <LiveTimer 
-                                        startTime={row.inicio.real} 
-                                        dateRef={row.data} 
-                                        scheduledDuration={row.tempo.prog} 
-                                    />
-                                ) : (
-                                    <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
-                                )}
-                            </div>
-                        )
-                    } />
-                    <MobileInfoBlock label="Local" value={
-                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
-                    } />
-                    <MobileInfoBlock label="Quantidade" value={
-                        <div className="text-xs text-gray-600 dark:text-gray-300">{row.quant.real !== '0' ? row.quant.real : row.quant.prog}</div>
-                    } />
-                </div>
-
-                <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
-                    <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
-                        {row.detalhamento || "—"}
-                    </p>
-                </div>
-            </div>
-            )})
+            // 2. Usando o Componente Novo
+            processedData.map((row) => (
+                <MobileActivityCard key={row.id} row={row} />
+            ))
         )}
       </div>
-      
-      {/* Rodapé de Paginação foi REMOVIDO aqui */}
     </div>
   );
 };
-
-const MobileInfoBlock = ({ label, value }) => (
-    <div>
-        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">{label}</span>
-        {value}
-    </div>
-);
 
 export default AtividadesTable;

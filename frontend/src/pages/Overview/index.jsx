@@ -1,63 +1,31 @@
 import React, { useState } from 'react';
-import OverviewCard from '../../components/Overview/OverviewCard';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useOverview } from '../../hooks/useOverview';
-import { CalendarDays, CalendarRange, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import OverviewCard from '../../components/Overview/OverviewCard';
+import OverviewHeader from '../../components/Overview/OverviewHeader';
+
+// 1. IMPORTAR CONFIG E TELA COMUM
+import { MAINTENANCE_CONFIG } from '../../config/maintenanceConfig';
+import MaintenanceScreen from '../../components/Common/MaintenanceScreen';
 
 const OverviewPage = () => {
+  // 2. USAR A CONFIGURAÇÃO CENTRAL
+  if (MAINTENANCE_CONFIG.overview) {
+    return <MaintenanceScreen moduleName="Gerencial" />;
+  }
+
   const [viewMode, setViewMode] = useState('semana');
   const { data: apiData, loading, error, refetch } = useOverview(viewMode);
 
   return (
     <div className="flex flex-col w-full h-full min-h-[calc(100vh-100px)]">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 px-1">
-        <div>
-          {/* Título: dark:text-white */}
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Visão Gerencial</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Acompanhamento consolidado</p>
-        </div>
+      <OverviewHeader 
+        viewMode={viewMode} 
+        setViewMode={setViewMode} 
+        onRefresh={refetch} 
+        loading={loading} 
+      />
 
-        <div className="flex items-center gap-3">
-          {/* Botão de Refresh: dark:hover:text-blue-400 dark:hover:bg-slate-800 */}
-          <button 
-            onClick={refetch}
-            className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all"
-            title="Atualizar dados"
-          >
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          </button>
-
-          {/* Seletor de Período */}
-          {/* Container: bg-white -> dark:bg-slate-800 | border-gray-200 -> dark:border-slate-700 */}
-          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
-            <button
-              onClick={() => setViewMode('semana')}
-              // Botão Ativo: bg-blue-50 -> dark:bg-blue-900/30 | text-blue-700 -> dark:text-blue-300
-              // Botão Inativo: text-gray-500 -> dark:text-gray-400
-              className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                viewMode === 'semana' 
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              <CalendarDays size={14} /> Semana
-            </button>
-            <button
-              onClick={() => setViewMode('mes')}
-              className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                viewMode === 'mes' 
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              <CalendarRange size={14} /> Mês
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Conteúdo Principal */}
       <div className="flex-grow">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 opacity-60">
@@ -79,11 +47,7 @@ const OverviewPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-4">
             {apiData.map((gerencia) => (
-              <OverviewCard 
-                key={gerencia.id} 
-                gerencia={gerencia} 
-                viewMode={viewMode}
-              />
+              <OverviewCard key={gerencia.id} gerencia={gerencia} viewMode={viewMode} />
             ))}
           </div>
         )}
