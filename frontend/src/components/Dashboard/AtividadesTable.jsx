@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { getDerivedStatus } from '../../utils/dataUtils';
 import LiveTimer from './LiveTimer';
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
 
+  // --- LÓGICA DE ORDENAÇÃO ---
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -21,6 +20,8 @@ const AtividadesTable = ({ data, searchTerm }) => {
 
   const processedData = useMemo(() => {
     let filtered = [...data];
+    
+    // 1. Filtragem por Texto
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter(i => 
@@ -30,38 +31,29 @@ const AtividadesTable = ({ data, searchTerm }) => {
       );
     }
     
+    // 2. Ordenação
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         if (sortConfig.key === 'status') {
-            const statusOrder = {
-                'cancelado': 0,
-                'nao_iniciado': 1,
-                'andamento': 2,
-                'parcial': 3,
-                'concluido': 4
-            };
-            
+            const statusOrder = { 'cancelado': 0, 'nao_iniciado': 1, 'andamento': 2, 'parcial': 3, 'concluido': 4 };
             const statusA = getDerivedStatus(a);
             const statusB = getDerivedStatus(b);
-            
             const weightA = statusOrder[statusA] ?? 99;
             const weightB = statusOrder[statusB] ?? 99;
-
             if (weightA < weightB) return sortConfig.direction === 'asc' ? -1 : 1;
             if (weightA > weightB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         }
-
+        // Ordenação Genérica
         const getVal = (o, p) => p.split('.').reduce((x, y) => (x && x[y] !== undefined) ? x[y] : null, o);
         let aVal = getVal(a, sortConfig.key);
         let bVal = getVal(b, sortConfig.key);
         
-        if (aVal === null || aVal === undefined) aVal = -Infinity;
-        if (bVal === null || bVal === undefined) bVal = -Infinity;
-        
+        if (aVal === null) aVal = -Infinity;
+        if (bVal === null) bVal = -Infinity;
         if (typeof aVal === 'string') aVal = aVal.toLowerCase();
         if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-
+        
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -70,9 +62,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
     return filtered;
   }, [data, sortConfig, searchTerm]);
 
-  const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const currentData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
+  // Cores das Bolinhas de Status
   const getStatusColorClass = (row) => {
     const status = getDerivedStatus(row);
     switch (status) {
@@ -93,6 +83,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* --- VERSÃO DESKTOP --- */}
       <div className="hidden md:block w-full overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-[0_2px_15px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-slate-700">
         <table className="w-full border-collapse table-fixed min-w-[1000px]">
           <thead>
@@ -106,176 +97,189 @@ const AtividadesTable = ({ data, searchTerm }) => {
               <th className="w-[32%] bg-[#fc9254] dark:bg-orange-300/80 py-3 px-1 text-[#062e4e] dark:text-slate-900 font-bold">Detalhamento</th>
             </tr>
           </thead>
+          
           <tbody className="text-[11px] text-[#333] dark:text-slate-300">
-            {currentData.map((row) => {
-              const statusAtual = getDerivedStatus(row); 
-              const temInicio = row.inicio.real && row.inicio.real !== '--:--';
-              const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
-              
-              const isBloco = row.tempo.prog === '00:01';
-              
-              const showTimer = isAndamento && temInicio && !isBloco;
-
-              return (
-              <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors group">
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
-                    <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getStatusColorClass(row)}`}></div>
-                  </div>
-                </td>
-                
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex flex-col items-center leading-tight">
-                    <span className="font-bold text-[#0f172a] dark:text-white">{row.ativo}</span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-0.5">{row.atividade}</span>
-                  </div>
-                </td>
-                
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
-                    <span className="text-gray-600 dark:text-gray-400">{row.inicio.prog}</span>
-                    <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <span className={temInicio ? 'text-gray-700 dark:text-gray-200 font-bold' : 'text-gray-400 dark:text-slate-600'}> 
-                      {row.inicio.real}
-                    </span>
-                  </div>
-                </td>
-                
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex justify-center items-center h-full">
-                    {/* 👇 AQUI ESTÁ A CORREÇÃO: Badge Cinza Claro/Escuro */}
-                    {isBloco ? (
-                        <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 uppercase tracking-widest select-none">
-                            BLOCO
-                        </span>
-                    ) : (
-                        <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
-                            <span className="text-gray-600 dark:text-gray-400">{row.tempo.prog}</span>
-                            <span className="text-gray-300 dark:text-slate-600">|</span>
-                            
-                            {showTimer ? (
-                                <LiveTimer 
-                                    startTime={row.inicio.real} 
-                                    dateRef={row.data} 
-                                    scheduledDuration={row.tempo.prog} 
-                                />
-                            ) : (
-                                <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
-                                {row.tempo.real}
-                                </span>
-                            )}
+            {processedData.length === 0 ? (
+                <tr>
+                    <td colSpan="7" className="py-12 text-center text-gray-400 dark:text-gray-500">
+                        <div className="flex flex-col items-center gap-2">
+                           <Search size={24} className="opacity-40" />
+                           <span className="text-xs font-medium">Nenhuma atividade encontrada com esses filtros.</span>
                         </div>
-                    )}
-                  </div>
-                </td>
-                
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex justify-center gap-1.5 text-[10px]">
-                    <span className="text-gray-600 dark:text-gray-400">{row.local.prog}</span>
-                    <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <span className="font-bold text-gray-700 dark:text-gray-200">{row.local.real}</span>
-                  </div>
-                </td>
-                
-                <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
-                  <div className="flex justify-center gap-1.5 font-medium tabular-nums">
-                    <span className="text-gray-600 dark:text-gray-400">{row.quant.prog}</span>
-                    <span className="text-gray-300 dark:text-slate-600">|</span>
-                    <span className="font-bold text-gray-700 dark:text-gray-200">{row.quant.real}</span>
-                  </div>
-                </td>
-                
-                <td className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-3 text-left leading-snug">
-                  {row.detalhamento || "—"}
-                </td>
-              </tr>
-            )})}
+                    </td>
+                </tr>
+            ) : (
+                processedData.map((row) => {
+                  const statusAtual = getDerivedStatus(row); 
+                  const temInicio = row.inicio.real && row.inicio.real !== '--:--';
+                  const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
+                  const isBloco = row.tempo.prog === '00:01';
+                  const showTimer = isAndamento && temInicio && !isBloco;
+
+                  return (
+                  <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors group">
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
+                        <span className="text-gray-300 dark:text-slate-600">|</span>
+                        <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getStatusColorClass(row)}`}></div>
+                      </div>
+                    </td>
+                    
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="font-bold text-[#0f172a] dark:text-white">{row.ativo}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-0.5">{row.atividade}</span>
+                      </div>
+                    </td>
+                    
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                      <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
+                        <span className="text-gray-600 dark:text-gray-400">{row.inicio.prog}</span>
+                        <span className="text-gray-300 dark:text-slate-600">|</span>
+                        <span className={temInicio ? 'text-gray-700 dark:text-gray-200 font-bold' : 'text-gray-400 dark:text-slate-600'}> 
+                          {row.inicio.real}
+                        </span>
+                      </div>
+                    </td>
+                    
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                      <div className="flex justify-center items-center h-full">
+                        {isBloco ? (
+                            <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 uppercase tracking-widest select-none">
+                                BLOCO
+                            </span>
+                        ) : (
+                            <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
+                                <span className="text-gray-600 dark:text-gray-400">{row.tempo.prog}</span>
+                                <span className="text-gray-300 dark:text-slate-600">|</span>
+                                {showTimer ? (
+                                    <LiveTimer 
+                                        startTime={row.inicio.real} 
+                                        dateRef={row.data} 
+                                        scheduledDuration={row.tempo.prog} 
+                                    />
+                                ) : (
+                                    <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
+                                    {row.tempo.real}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                      </div>
+                    </td>
+                    
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                      <div className="flex justify-center gap-1.5 text-[10px]">
+                        <span className="text-gray-600 dark:text-gray-400">{row.local.prog}</span>
+                        <span className="text-gray-300 dark:text-slate-600">|</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">{row.local.real}</span>
+                      </div>
+                    </td>
+                    
+                    <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
+                      <div className="flex justify-center gap-1.5 font-medium tabular-nums">
+                        <span className="text-gray-600 dark:text-gray-400">{row.quant.prog}</span>
+                        <span className="text-gray-300 dark:text-slate-600">|</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">{row.quant.real}</span>
+                      </div>
+                    </td>
+                    
+                    {/* Tooltip Nativo */}
+                    <td 
+                      className="bg-[#fffbf7] dark:bg-slate-800/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-3 text-left leading-snug cursor-help"
+                      title={row.detalhamento} 
+                    >
+                      {row.detalhamento || "—"}
+                    </td>
+                  </tr>
+                )})
+            )}
           </tbody>
         </table>
       </div>
 
+      {/* --- VERSÃO MOBILE (Cartões) --- */}
       <div className="md:hidden flex flex-col gap-3">
-        {currentData.map((row) => {
-             const statusAtual = getDerivedStatus(row);
-             const temInicio = row.inicio.real && row.inicio.real !== '--:--';
-             const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
-             const isBloco = row.tempo.prog === '00:01';
-             const showTimer = isAndamento && temInicio && !isBloco;
-
-             return (
-          <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-            <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
-                <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atividade</span>
-                    <div className="font-bold text-slate-800 dark:text-white text-sm">{row.ativo}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{row.atividade}</div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                    <div className={`w-3 h-3 rounded-full ${getStatusColorClass(row)}`}></div>
-                    <span className="text-[10px] font-mono text-gray-400">{row.data}</span>
+        {processedData.length === 0 ? (
+             <div className="py-12 text-center text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
+                <div className="flex flex-col items-center gap-2">
+                    <Search size={24} className="opacity-40" />
+                    <span className="text-xs font-medium">Nenhuma atividade encontrada.</span>
                 </div>
             </div>
+        ) : (
+            processedData.map((row) => {
+                const statusAtual = getDerivedStatus(row);
+                const temInicio = row.inicio.real && row.inicio.real !== '--:--';
+                const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
+                const isBloco = row.tempo.prog === '00:01';
+                const showTimer = isAndamento && temInicio && !isBloco;
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-                <MobileInfoBlock label="Início (Prog | Real)" value={
-                    <div className="flex gap-1.5 font-mono text-xs">
-                          <span className="text-gray-500">{row.inicio.prog}</span>
-                          <span className="text-gray-300">|</span>
-                          <span className={temInicio ? 'text-slate-800 dark:text-white font-bold' : 'text-gray-400'}>{row.inicio.real}</span>
+                return (
+            <div key={row.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+                <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
+                    <div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atividade</span>
+                        <div className="font-bold text-slate-800 dark:text-white text-sm">{row.ativo}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{row.atividade}</div>
                     </div>
-                } />
-                 
-                 <MobileInfoBlock label="Tempo (Prog | Real)" value={
-                    isBloco ? (
-                        // 👇 CORREÇÃO TAMBÉM NO MOBILE
-                        <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 inline-block uppercase tracking-widest select-none">
-                            BLOCO
-                        </span>
-                    ) : (
-                        <div className="flex gap-1.5 font-mono text-xs">
-                            <span className="text-gray-500">{row.tempo.prog}</span>
-                            <span className="text-gray-300">|</span>
-                            
-                            {showTimer ? (
-                                <LiveTimer 
-                                    startTime={row.inicio.real} 
-                                    dateRef={row.data} 
-                                    scheduledDuration={row.tempo.prog} 
-                                />
-                            ) : (
-                                <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
-                            )}
-                        </div>
-                    )
-                } />
-                <MobileInfoBlock label="Local" value={
-                      <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
-                } />
-                 <MobileInfoBlock label="Quantidade" value={
-                      <div className="text-xs text-gray-600 dark:text-gray-300">{row.quant.real !== '0' ? row.quant.real : row.quant.prog}</div>
-                } />
-            </div>
+                    <div className="flex flex-col items-end gap-1">
+                        <div className={`w-3 h-3 rounded-full ${getStatusColorClass(row)}`}></div>
+                        <span className="text-[10px] font-mono text-gray-400">{row.data}</span>
+                    </div>
+                </div>
 
-            <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
-                <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
-                    {row.detalhamento || "—"}
-                </p>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                    <MobileInfoBlock label="Início (Prog | Real)" value={
+                        <div className="flex gap-1.5 font-mono text-xs">
+                            <span className="text-gray-500">{row.inicio.prog}</span>
+                            <span className="text-gray-300">|</span>
+                            <span className={temInicio ? 'text-slate-800 dark:text-white font-bold' : 'text-gray-400'}>{row.inicio.real}</span>
+                        </div>
+                    } />
+                    
+                    <MobileInfoBlock label="Tempo (Prog | Real)" value={
+                        isBloco ? (
+                            <span className="bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600 inline-block uppercase tracking-widest select-none">
+                                BLOCO
+                            </span>
+                        ) : (
+                            <div className="flex gap-1.5 font-mono text-xs">
+                                <span className="text-gray-500">{row.tempo.prog}</span>
+                                <span className="text-gray-300">|</span>
+                                {showTimer ? (
+                                    <LiveTimer 
+                                        startTime={row.inicio.real} 
+                                        dateRef={row.data} 
+                                        scheduledDuration={row.tempo.prog} 
+                                    />
+                                ) : (
+                                    <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>{row.tempo.real}</span>
+                                )}
+                            </div>
+                        )
+                    } />
+                    <MobileInfoBlock label="Local" value={
+                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{row.local.real !== '-' ? row.local.real : row.local.prog}</div>
+                    } />
+                    <MobileInfoBlock label="Quantidade" value={
+                        <div className="text-xs text-gray-600 dark:text-gray-300">{row.quant.real !== '0' ? row.quant.real : row.quant.prog}</div>
+                    } />
+                </div>
+
+                <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
+                    <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
+                        {row.detalhamento || "—"}
+                    </p>
+                </div>
             </div>
-          </div>
-        )})}
+            )})
+        )}
       </div>
       
-      <div className="flex justify-between items-center px-2 py-2">
-        <span className="text-[10px] text-gray-400 font-medium">Mostrando {currentData.length} de {processedData.length}</span>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 dark:text-white disabled:opacity-30 transition-colors"><ChevronLeft size={16} /></button>
-          <span className="text-xs font-bold text-gray-600 dark:text-gray-300 px-2">{currentPage} / {totalPages || 1}</span>
-          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 dark:text-white disabled:opacity-30 transition-colors"><ChevronRight size={16} /></button>
-        </div>
-      </div>
+      {/* Rodapé de Paginação foi REMOVIDO aqui */}
     </div>
   );
 };

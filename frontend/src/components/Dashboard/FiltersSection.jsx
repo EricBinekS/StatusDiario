@@ -5,10 +5,12 @@ import MultiSelectFilterPlaceholder from './MultiSelectFilterPlaceholder';
 
 const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExporting }) => {
   const [activeFilter, setActiveFilter] = useState(null);
+  
   const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
+  
+  // Verifica se tem filtros ativos (exceto data)
   const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
 
-  // Adicionado 'status' no final da lista
   const filterConfig = [
     { key: 'gerencia', label: 'Gerência' }, { key: 'trecho', label: 'Trecho' },
     { key: 'sub', label: 'Sub' }, { key: 'ativo', label: 'Ativo' },
@@ -28,15 +30,6 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
           </div>
         )}
         
-        {/* GRID ADJUSTMENT: 
-           - Total de itens: 1 (Data) + 7 (Filtros) = 8 colunas.
-           - lg:grid-cols-[1.2fr_1fr_1fr_0.6fr_1fr_1.2fr_0.8fr_1fr]
-             * Date: 1.2fr (mais espaço)
-             * Sub: 0.6fr (reduzido conforme permitido)
-             * Atividade: 1.2fr (textos longos)
-             * Tipo: 0.8fr (textos curtos)
-             * Resto: 1fr
-        */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1.2fr_1fr_1fr_0.6fr_1fr_1.2fr_0.8fr_1fr] gap-2 items-center">
           
           {/* Campo DATA */}
@@ -82,4 +75,5 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
     </div>
   );
 };
+
 export default FiltersSection;

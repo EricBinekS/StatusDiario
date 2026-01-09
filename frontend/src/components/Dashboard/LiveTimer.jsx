@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 
 const LiveTimer = ({ startTime, dateRef, scheduledDuration }) => {
   const [duration, setDuration] = useState('--:--');
-  // Começa verde por padrão (text-emerald-600)
-  const [colorClass, setColorClass] = useState('text-emerald-600 dark:text-emerald-400');
+  // Estado inicial
+  const [colorClass, setColorClass] = useState('text-amber-600 dark:text-amber-400');
+  const [barColorClass, setBarColorClass] = useState('bg-amber-500');
+  const [progressPercent, setProgressPercent] = useState(0);
 
   useEffect(() => {
+    // 1. Parser da Data
     const constructStartDate = () => {
       if (!startTime || startTime === '--:--' || !dateRef) return null;
 
@@ -15,7 +18,6 @@ const LiveTimer = ({ startTime, dateRef, scheduledDuration }) => {
         const cleanTime = String(startTime).trim();
         const now = new Date();
 
-        // --- PARSER DE DATA (IGUAL AO ANTERIOR) ---
         if (cleanDate.includes('/')) {
             const parts = cleanDate.split('/');
             day = parseInt(parts[0], 10);
@@ -50,7 +52,7 @@ const LiveTimer = ({ startTime, dateRef, scheduledDuration }) => {
 
     const startObj = constructStartDate();
 
-    // --- PARSER DO TEMPO PROGRAMADO (Ex: "02:00" -> 120 min) ---
+    // 2. Parser do Tempo Programado
     let maxMinutes = 0;
     if (scheduledDuration && scheduledDuration !== '--:--') {
         try {
@@ -73,29 +75,34 @@ const LiveTimer = ({ startTime, dateRef, scheduledDuration }) => {
 
       if (diffMinutes < 0) {
         setDuration("00:00");
+        setProgressPercent(0);
         return;
       }
 
-      // --- LÓGICA DAS CORES ---
+      // --- LÓGICA DE CORES: 0-80% Amarelo | >80% Verde ---
       if (maxMinutes > 0) {
-          // Se já estourou o tempo (Vermelho)
-          if (diffMinutes > maxMinutes) {
-              setColorClass('text-red-600 dark:text-red-500 animate-pulse'); // Vermelho alerta
-          } 
-          // Se está nos ultimos 10% do tempo (Laranja)
-          // Ex: Meta 60min. 90% = 54min. Se atual >= 54, fica laranja.
-          else if (diffMinutes >= (maxMinutes * 0.9)) {
-              setColorClass('text-orange-500 dark:text-orange-400');
-          } 
-          // Tempo confortável (Verde)
-          else {
+          const percent = (diffMinutes / maxMinutes) * 100;
+          setProgressPercent(Math.min(100, percent));
+
+          // Se já passou de 80% do tempo programado, fica Verde
+          if (diffMinutes >= (maxMinutes * 0.8)) {
               setColorClass('text-emerald-600 dark:text-emerald-400');
+              setBarColorClass('bg-emerald-500');
+          } 
+          // Caso contrário (início/meio da atividade), fica Amarelo
+          else {
+              setColorClass('text-amber-600 dark:text-amber-400');
+              setBarColorClass('bg-amber-500');
           }
+      } else {
+          // Sem meta definida: Padrão Amarelo (Em andamento)
+          setColorClass('text-amber-600 dark:text-amber-400');
+          setBarColorClass('bg-amber-500');
+          setProgressPercent(0);
       }
 
       const h = Math.floor(diffMinutes / 60);
       const m = diffMinutes % 60;
-
       setDuration(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
     };
 
@@ -106,9 +113,20 @@ const LiveTimer = ({ startTime, dateRef, scheduledDuration }) => {
   }, [startTime, dateRef, scheduledDuration]);
 
   return (
-    <span className={`font-bold tabular-nums transition-colors duration-500 ${colorClass}`}>
-      {duration}
-    </span>
+    <div className="flex flex-col items-center justify-center w-[60px]">
+      <span className={`font-bold tabular-nums text-xs transition-colors duration-300 ${colorClass}`}>
+        {duration}
+      </span>
+
+      {progressPercent > 0 && (
+        <div className="w-full h-0.5 bg-gray-200 dark:bg-slate-600 rounded-full mt-0.5 overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all duration-500 ease-out ${barColorClass}`}
+            style={{ width: `${progressPercent}%` }}
+          ></div>
+        </div>
+      )}
+    </div>
   );
 };
 

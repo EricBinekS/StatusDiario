@@ -3,17 +3,16 @@ import FiltersSection from '../../components/Dashboard/FiltersSection';
 import AtividadesTable from '../../components/Dashboard/AtividadesTable';
 import KPICards from '../../components/Dashboard/KPICards';
 import { useDashboard } from '../../hooks/useDashboard'; 
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, MessageCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { getDerivedStatus } from '../../utils/dataUtils'; // <--- Importante: Usar a mesma lógica dos Cards
+import { getDerivedStatus } from '../../utils/dataUtils';
 
-// Mapeia o retorno técnico do getDerivedStatus para o Texto do Filtro
 const STATUS_DISPLAY_MAP = {
   'concluido': 'Concluído',
   'parcial': 'Parcial',
   'andamento': 'Em Andamento',
   'nao_iniciado': 'Não Iniciado',
-  'cancelado': 'Não Realizado' // O "X" vermelho dos cards
+  'cancelado': 'Não Realizado'
 };
 
 const DashboardPage = () => {
@@ -21,50 +20,73 @@ const DashboardPage = () => {
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef(null); 
 
-  // 1. Captura parâmetros da URL (enviados pelo Bot)
   const searchParams = new URLSearchParams(window.location.search);
   const urlDate = searchParams.get('data');
+  const today = new Date().toISOString().split('T')[0];
 
   const [filters, setFilters] = useState({
-    // Se a URL tiver ?data=YYYY-MM-DD, usa ela. Senão, usa Hoje.
-    data: urlDate || new Date().toISOString().split('T')[0],
+    dataInicio: urlDate || today,
+    dataFim: urlDate || today,
     gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: []
   });
 
-  const { data: apiData, loading, error, refetch } = useDashboard(filters.data);
+  const { data: apiData = [], loading, error, refetch } = useDashboard(filters.dataInicio, filters.dataFim);
 
+  // --- LÓGICA DE CASCATA (CROSS-FILTERING) ---
   const options = useMemo(() => {
     if (!apiData || apiData.length === 0) return {};
-    const extract = (key) => [...new Set(apiData.map(item => item[key]).filter(Boolean))].sort();
-    
+
+    const getOptionsFor = (targetKey) => {
+        const filteredData = apiData.filter(row => {
+            return Object.keys(filters).every(filterKey => {
+                if (filterKey === targetKey || filterKey === 'dataInicio' || filterKey === 'dataFim') return true;
+
+                const selectedValues = filters[filterKey];
+                if (!selectedValues || selectedValues.length === 0) return true;
+
+                let rowValue;
+                if (filterKey === 'status') {
+                    const techStatus = getDerivedStatus(row);
+                    rowValue = STATUS_DISPLAY_MAP[techStatus] || "Desconhecido";
+                } else {
+                    rowValue = row[filterKey];
+                }
+                return selectedValues.includes(String(rowValue));
+            });
+        });
+
+        const uniqueValues = new Set();
+        filteredData.forEach(item => {
+            const val = item[targetKey];
+            if (val) uniqueValues.add(val);
+        });
+
+        return [...uniqueValues].sort();
+    };
+
     return {
-      gerencia: extract('gerencia'), 
-      trecho: extract('trecho'), 
-      sub: extract('sub'),
-      ativo: extract('ativo'), 
-      atividade: extract('atividade'), 
-      tipo: extract('tipo'),
-      // As 5 opções fixas que você pediu
+      gerencia: getOptionsFor('gerencia'), 
+      trecho: getOptionsFor('trecho'), 
+      sub: getOptionsFor('sub'),
+      ativo: getOptionsFor('ativo'), 
+      atividade: getOptionsFor('atividade'), 
+      tipo: getOptionsFor('tipo'),
       status: ["Concluído", "Parcial", "Em Andamento", "Não Iniciado", "Não Realizado"]
     };
-  }, [apiData]);
+  }, [apiData, filters]);
 
+  // --- FILTRAGEM ---
   const filteredData = useMemo(() => {
     if (!apiData) return [];
     
     return apiData.filter(row => {
-      // Helper para checar array de filtros
       const checkFilter = (key, rowValue) => {
-        return (!filters[key] || filters[key].length === 0) || filters[key].includes(rowValue);
+        return (!filters[key] || filters[key].length === 0) || filters[key].includes(String(rowValue));
       };
 
-      // --- LÓGICA DE STATUS CORRIGIDA ---
-      // 1. Calcula o status real (ex: 'nao_iniciado', 'parcial') usando a regra do sistema
       const technicalStatus = getDerivedStatus(row);
-      // 2. Converte para o nome bonito (ex: 'Não Iniciado')
       const displayStatus = STATUS_DISPLAY_MAP[technicalStatus] || "Desconhecido";
 
-      // Verificações Padrão
       if (!checkFilter('gerencia', row.gerencia)) return false;
       if (!checkFilter('trecho', row.trecho)) return false;
       if (!checkFilter('sub', row.sub)) return false;
@@ -72,8 +94,7 @@ const DashboardPage = () => {
       if (!checkFilter('atividade', row.atividade)) return false;
       if (!checkFilter('tipo', row.tipo)) return false;
       
-      // Verificação do Status usando o nome mapeado
-      if (!checkFilter('status', displayStatus)) return false;
+      if (filters.status && filters.status.length > 0 && !filters.status.includes(displayStatus)) return false;
 
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
@@ -86,7 +107,6 @@ const DashboardPage = () => {
   }, [apiData, filters, searchTerm]);
 
   const handleClearFilters = () => {
-    // Ao limpar, mantemos a data atual/URL
     setFilters(prev => ({ 
         ...prev, 
         gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: [] 
@@ -150,11 +170,11 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 pb-4">
       <FiltersSection 
         filters={filters} 
         setFilters={setFilters} 
-        options={options}
+        options={options} 
         onClear={handleClearFilters}
         onExport={handleExportImage} 
         isExporting={isExporting}    
@@ -171,11 +191,32 @@ const DashboardPage = () => {
             <KPICards data={filteredData} />
             <AtividadesTable data={filteredData} searchTerm={searchTerm} />
             <div className="text-right text-[10px] text-gray-400 mt-2 font-medium px-2">
-                Exibindo {filteredData.length} registros (Total do dia: {apiData.length})
+                Exibindo {filteredData.length} registros (Total do período: {apiData.length})
             </div>
             </>
         )}
       </div>
+
+      {/* --- RODAPÉ COMPACTO v3.2 --- */}
+      <footer className="mt-2 flex flex-col md:flex-row justify-between items-center gap-2 border-t border-gray-200 dark:border-slate-700 pt-3 px-2">
+        <div className="text-[10px] text-gray-400 dark:text-slate-500 font-medium">
+          <span>Desenvolvido por <strong className="text-gray-600 dark:text-slate-400">Eric Binek</strong></span>
+          <span className="mx-1.5 opacity-50">•</span>
+          <span>v3.2</span>
+          <span className="mx-1.5 opacity-50">•</span>
+          <span>{new Date().getFullYear()}</span>
+        </div>
+
+        <a 
+            href="https://wa.me/5541998630158?text=Ol%C3%A1%2C%20estou%20com%20d%C3%BAvidas%20no%20Dashboard." 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 group no-underline"
+        >
+            <MessageCircle size={14} className="text-white fill-white/20" />
+            <span className="font-bold text-[10px] tracking-wide">Suporte WhatsApp</span>
+        </a>
+      </footer>
     </div>
   );
 };
