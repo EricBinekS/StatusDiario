@@ -4,7 +4,6 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { getDerivedStatus } from '../../utils/dataUtils';
 import { MAINTENANCE_CONFIG } from '../../config/maintenanceConfig';
 
-// Importando os novos componentes/hooks
 import FiltersSection from '../../components/Dashboard/FiltersSection';
 import DashboardContent from '../../components/Dashboard/DashboardContent';
 import MaintenanceScreen from '../../components/Common/MaintenanceScreen';
@@ -19,35 +18,36 @@ const STATUS_DISPLAY_MAP = {
 };
 
 const DashboardPage = () => {
-  // 1. Verificação de Manutenção
   if (MAINTENANCE_CONFIG.dashboard) {
     return <MaintenanceScreen moduleName="Operacional (Dashboard)" />;
   }
 
-  // 2. Estados e Dados
   const [searchTerm, setSearchTerm] = useState('');
   const dashboardRef = useRef(null); 
-  const { isExporting, handleExportImage } = useDashboardExport(dashboardRef); // Hook customizado
+  const { isExporting, handleExportImage } = useDashboardExport(dashboardRef);
 
   const searchParams = new URLSearchParams(window.location.search);
   const urlDate = searchParams.get('data');
   const today = new Date().toISOString().split('T')[0];
 
+  // 1. CORREÇÃO: Usar apenas 'data'
   const [filters, setFilters] = useState({
-    dataInicio: urlDate || today,
-    dataFim: urlDate || today,
+    data: urlDate || today, 
     gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: []
   });
 
-  const { data: apiData = [], loading, error, refetch } = useDashboard(filters.dataInicio, filters.dataFim);
+  // 2. CORREÇÃO: Passar apenas filters.data para o hook
+  const { data: apiData = [], loading, error, refetch } = useDashboard(filters.data);
 
-  // 3. Lógica de Filtros (Options Cascata)
+  // Lógica de Cascata
   const options = useMemo(() => {
     if (!apiData || apiData.length === 0) return {};
     const getOptionsFor = (targetKey) => {
         const filteredData = apiData.filter(row => {
             return Object.keys(filters).every(filterKey => {
-                if (filterKey === targetKey || filterKey === 'dataInicio' || filterKey === 'dataFim') return true;
+                // 3. CORREÇÃO: Ignorar 'data' na lógica de cascata
+                if (filterKey === targetKey || filterKey === 'data') return true;
+                
                 const selectedValues = filters[filterKey];
                 if (!selectedValues || selectedValues.length === 0) return true;
                 
@@ -70,13 +70,13 @@ const DashboardPage = () => {
     };
   }, [apiData, filters]);
 
-  // 4. Lógica de Filtragem de Dados (Tabela)
+  // Filtragem Final
   const filteredData = useMemo(() => {
     if (!apiData) return [];
     return apiData.filter(row => {
-      // Filtros Dropdown
       const passFilters = Object.keys(filters).every(key => {
-         if (key === 'dataInicio' || key === 'dataFim' || !filters[key].length) return true;
+         // 4. CORREÇÃO: Ignorar a chave 'data' aqui, pois a API já trouxe o dia certo
+         if (key === 'data' || !filters[key].length) return true;
          
          let rowVal = String(row[key]);
          if (key === 'status') {
@@ -87,7 +87,6 @@ const DashboardPage = () => {
       });
       if (!passFilters) return false;
 
-      // Filtro de Texto
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
         return String(row.ativo || '').toLowerCase().includes(lower) ||
@@ -103,7 +102,6 @@ const DashboardPage = () => {
     setSearchTerm('');
   };
 
-  // 5. Renderização
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-96 text-red-500 bg-white dark:bg-slate-800 rounded-xl shadow-sm m-4 border border-red-100 dark:border-red-900">
@@ -116,7 +114,6 @@ const DashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-3 pb-4">
-      {/* Seção de Filtros */}
       <FiltersSection 
         filters={filters} 
         setFilters={setFilters} 
@@ -126,7 +123,6 @@ const DashboardPage = () => {
         isExporting={isExporting}    
       />
 
-      {/* Área de Conteúdo (KPIs + Tabela) */}
       <DashboardContent 
         ref={dashboardRef}
         loading={loading}

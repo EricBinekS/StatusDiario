@@ -34,7 +34,7 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
           
           {/* Campo DATA */}
           <div className="flex flex-col gap-1 relative group">
-             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">Data Base</label>
+             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">Data</label>
              <div className="relative">
                 <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input type="date" value={filters.data} onChange={(e) => setFilters(prev => ({ ...prev, data: e.target.value }))} className="w-full h-8 pl-8 pr-2 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium" />

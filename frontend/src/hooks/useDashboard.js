@@ -1,4 +1,3 @@
-// frontend/src/hooks/useDashboard.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchAPI } from '../services/api'; 
 
@@ -8,11 +7,9 @@ export const useDashboard = (selectedDate) => {
   const [error, setError] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
   
-  // Ref para persistir o controller entre renderizações sem causar re-renders
   const abortControllerRef = useRef(null);
 
   const fetchData = useCallback(async () => {
-    // 1. Cancelar requisições anteriores pendentes
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -25,11 +22,10 @@ export const useDashboard = (selectedDate) => {
     setError(null);
 
     try {
-      // Executa ambas as chamadas em paralelo para performance
       const dateQuery = selectedDate || new Date().toISOString().split('T')[0];
       
       const [dashboardRes, updateRes] = await Promise.all([
-        fetchAPI(`/dashboard`, { data: dateQuery }, { signal }).catch(err => {
+        fetchAPI(`/dashboard?data=${dateQuery}`, {}, { signal }).catch(err => {
             if (err.name !== 'AbortError') throw err; 
         }),
         fetchAPI(`/last-update`, {}, { signal }).catch(err => {
