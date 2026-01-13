@@ -6,7 +6,7 @@ const LoginPage = () => {
     const { instance } = useMsal();
 
     const handleLogin = () => {
-        instance.loginPopup(loginRequest).catch(e => {
+        instance.loginRedirect(loginRequest).catch(e => {
             console.error(e);
         });
     };
