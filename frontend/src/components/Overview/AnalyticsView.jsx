@@ -17,7 +17,6 @@ const COLORS = {
 const AnalyticsView = ({ data, viewMode }) => {
   
   // 1. Gráfico de Barras: Comparativo por Gerência
-  // ESSE DEVE MANTER MECANIZAÇÃO (Para comparação)
   const barData = useMemo(() => {
     return data.map(item => ({
       name: item.title,
@@ -31,11 +30,10 @@ const AnalyticsView = ({ data, viewMode }) => {
   }, [data]);
 
   // 2. Gráfico de Rosca: Status Global
-  // ESSE DEVE REMOVER MECANIZAÇÃO (Para não duplicar contagem)
   const statusData = useMemo(() => {
     let counts = { concluido: 0, parcial: 0, andamento: 0, nao_iniciado: 0, cancelado: 0 };
     
-    // Filtro aplicado aqui:
+    // Filtro para não duplicar Mecanização
     const cleanData = data.filter(g => g.id !== 'mecanizacao_extra' && g.id !== 'mecanizacao_consolidad');
 
     cleanData.forEach(group => {
@@ -58,12 +56,11 @@ const AnalyticsView = ({ data, viewMode }) => {
     ].filter(d => d.value > 0);
   }, [data]);
 
-  // 3. Gráfico de Área/Barra: Evolução Temporal
-  // ESSE DEVE REMOVER MECANIZAÇÃO (Para a hora global bater com o dashboard)
+  // 3. Gráfico de Evolução Temporal
   const trendData = useMemo(() => {
     const timeMap = {};
     
-    // Filtro aplicado aqui também:
+    // Remove Mecanização da soma global
     const cleanData = data.filter(g => g.id !== 'mecanizacao_extra' && g.id !== 'mecanizacao_consolidad');
 
     cleanData.forEach(group => {
@@ -79,9 +76,12 @@ const AnalyticsView = ({ data, viewMode }) => {
 
     const values = Object.values(timeMap);
     
-    // Ordenação
     if (viewMode === 'hoje') {
-        return values.sort((a, b) => parseInt(a.name) - parseInt(b.name));
+        // --- FILTRO ADICIONADO AQUI ---
+        // Remove '00h' (meia-noite) e 'N/I' (Não Iniciado)
+        return values
+            .filter(item => item.name !== '00h' && item.name !== 'N/I')
+            .sort((a, b) => parseInt(a.name) - parseInt(b.name));
     } else {
         const daysOrder = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
         return values.sort((a, b) => {
@@ -189,7 +189,7 @@ const AnalyticsView = ({ data, viewMode }) => {
         </div>
       </div>
 
-      {/* 3. Desempenho por Gerência (Bar) - ESTE MANTÉM MECANIZAÇÃO */}
+      {/* 3. Desempenho por Gerência (Bar) */}
       <div className="lg:col-span-3 bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm h-96 flex flex-col">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Desempenho Geral por Gerência (Horas)</h3>
         <div className="flex-grow">
