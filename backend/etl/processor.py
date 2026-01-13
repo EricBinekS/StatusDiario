@@ -108,7 +108,7 @@ def process_dataframe(df):
             pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
             df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
 
-        # 4. TRATAMENTO DE STATUS
+        # 4. TRATAMENTO DE STATUS (REGRA DE PRODUÇÃO APLICADA AQUI)
         if 'status' not in df.columns:
             df['status'] = 'NAO_INICIADO'
         else:
@@ -120,14 +120,33 @@ def process_dataframe(df):
                 
                 if st == 0: return 'CANCELADO'
                 if st == 1: return 'ANDAMENTO'
+                
+                # Regra de Auditoria (Status 2) baseada em PRODUÇÃO
                 if st == 2:
-                    h_prog = parse_time_to_hours(row.get('tempo_prog'))
-                    h_real = parse_time_to_hours(row.get('tempo_real'))
-                    if h_prog == 0: return 'CONCLUIDO' if h_real > 0 else 'CANCELADO'
-                    percent = h_real / h_prog
+                    def parse_prod(val):
+                        try:
+                            if pd.isna(val) or str(val).strip() == '': return 0.0
+                            return float(str(val).replace(',', '.'))
+                        except:
+                            return 0.0
+
+                    # Pega Produção Programada vs Real
+                    p_prog = parse_prod(row.get('producao_prog'))
+                    p_real = parse_prod(row.get('producao_real'))
+                    
+                    # Se não tinha meta de produção (0), mas produziu algo -> Concluído
+                    # Se não tinha meta e não produziu nada -> Cancelado (ou mantemos concluido se for apenas encerramento?)
+                    # Regra anterior adaptada: 
+                    if p_prog == 0: 
+                        return 'CONCLUIDO' if p_real > 0 else 'CANCELADO'
+                    
+                    # Cálculo de Percentual de Aderência à Produção
+                    percent = p_real / p_prog
+                    
                     if percent <= 0.50: return 'CANCELADO'
                     elif percent <= 0.90: return 'PARCIAL'
                     else: return 'CONCLUIDO'
+                
                 return 'NAO_INICIADO'
 
             df['status'] = df.apply(apply_status_rules, axis=1)
@@ -175,7 +194,6 @@ def process_dataframe(df):
         df.loc[mask_mod_atividade, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
         # 7. LIMPEZA E PREPARAÇÃO FINAL
-        # --- AQUI ESTÁ A CORREÇÃO: ADICIONAR updated_at ---
         df['updated_at'] = datetime.now()
 
         required_columns = [
