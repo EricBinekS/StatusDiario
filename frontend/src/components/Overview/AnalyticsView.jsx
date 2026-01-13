@@ -4,7 +4,6 @@ import {
   CartesianGrid, Legend, Cell, PieChart, Pie, AreaChart, Area 
 } from 'recharts';
 
-// CORES IGUAIS AO KPICards
 const COLORS = {
   concluido: '#22c55e',     
   parcial: '#f97316',       
@@ -17,7 +16,8 @@ const COLORS = {
 
 const AnalyticsView = ({ data, viewMode }) => {
   
-  // 1. Gráfico de Barras: Comparativo por Gerência (Horas)
+  // 1. Gráfico de Barras: Comparativo por Gerência
+  // ESSE DEVE MANTER MECANIZAÇÃO (Para comparação)
   const barData = useMemo(() => {
     return data.map(item => ({
       name: item.title,
@@ -31,10 +31,14 @@ const AnalyticsView = ({ data, viewMode }) => {
   }, [data]);
 
   // 2. Gráfico de Rosca: Status Global
+  // ESSE DEVE REMOVER MECANIZAÇÃO (Para não duplicar contagem)
   const statusData = useMemo(() => {
     let counts = { concluido: 0, parcial: 0, andamento: 0, nao_iniciado: 0, cancelado: 0 };
     
-    data.forEach(group => {
+    // Filtro aplicado aqui:
+    const cleanData = data.filter(g => g.id !== 'mecanizacao_extra' && g.id !== 'mecanizacao_consolidad');
+
+    cleanData.forEach(group => {
       ['contrato', 'oportunidade'].forEach(type => {
         const bd = group.types[type].kpis.breakdown;
         counts.concluido += bd.concluido || 0;
@@ -55,10 +59,14 @@ const AnalyticsView = ({ data, viewMode }) => {
   }, [data]);
 
   // 3. Gráfico de Área/Barra: Evolução Temporal
+  // ESSE DEVE REMOVER MECANIZAÇÃO (Para a hora global bater com o dashboard)
   const trendData = useMemo(() => {
     const timeMap = {};
     
-    data.forEach(group => {
+    // Filtro aplicado aqui também:
+    const cleanData = data.filter(g => g.id !== 'mecanizacao_extra' && g.id !== 'mecanizacao_consolidad');
+
+    cleanData.forEach(group => {
       ['contrato', 'oportunidade'].forEach(type => {
         const charts = group.types[type].chartData || [];
         charts.forEach(point => {
@@ -71,12 +79,10 @@ const AnalyticsView = ({ data, viewMode }) => {
 
     const values = Object.values(timeMap);
     
-    // Ordenação inteligente
+    // Ordenação
     if (viewMode === 'hoje') {
-        // Ordena por hora (ex: "09h", "10h")
         return values.sort((a, b) => parseInt(a.name) - parseInt(b.name));
     } else {
-        // Ordena por dia da semana
         const daysOrder = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
         return values.sort((a, b) => {
             const idxA = daysOrder.indexOf(a.name);
@@ -147,7 +153,6 @@ const AnalyticsView = ({ data, viewMode }) => {
         <div className="flex-grow">
             <ResponsiveContainer width="100%" height="100%">
             
-            {/* SWITCH INTELIGENTE: Se for 'hoje', usa Barras (discreto). Se não, usa Área (contínuo) */}
             {viewMode === 'hoje' ? (
                 <BarChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -184,7 +189,7 @@ const AnalyticsView = ({ data, viewMode }) => {
         </div>
       </div>
 
-      {/* 3. Desempenho por Gerência (Bar) */}
+      {/* 3. Desempenho por Gerência (Bar) - ESTE MANTÉM MECANIZAÇÃO */}
       <div className="lg:col-span-3 bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm h-96 flex flex-col">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Desempenho Geral por Gerência (Horas)</h3>
         <div className="flex-grow">

@@ -9,6 +9,7 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
   const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
   const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
 
+  // RESTAURADO: trecho e sub
   const filterConfig = [
     { key: 'gerencia', label: 'Gerência' }, 
     { key: 'trecho', label: 'Trecho' },
@@ -19,7 +20,6 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
     { key: 'status', label: 'Status' },
   ];
 
-  // Opções fixas para o banco novo
   const STATUS_OPTS = [
     { value: 'CONCLUIDO', label: 'Concluído' },
     { value: 'PARCIAL', label: 'Parcial' },
@@ -30,7 +30,6 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
 
   return (
     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 transition-colors">
-      
       <div className="flex-grow flex flex-col gap-2">
         {hasFilters && (
           <div className="flex justify-end mb-1">
@@ -40,9 +39,9 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
           </div>
         )}
         
+        {/* Ajustado grid para caber Trecho e Sub novamente */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1.2fr_1fr_1fr_0.6fr_1fr_1.2fr_0.8fr_1fr] gap-2 items-center">
           
-          {/* Campo DATA */}
           <div className="flex flex-col gap-1 relative group">
              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">Data</label>
              <div className="relative">
@@ -51,11 +50,8 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
              </div>
           </div>
 
-          {/* Demais Filtros */}
           {filterConfig.map(({ key, label }) => {
-            // Usa as opções fixas se for Status, senão usa as opções dinâmicas
             const currentOptions = key === 'status' ? STATUS_OPTS : (options[key] || []);
-
             return (
                 <div key={key} className="flex flex-col gap-1 relative group">
                 <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">{label}</label>
@@ -73,18 +69,13 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
         </div>
       </div>
       
-      {/* Botão de Copiar */}
       <div className="flex items-center justify-center md:border-l border-gray-100 dark:border-slate-700 md:pl-4 md:min-w-[100px] w-full md:w-auto">
         <button 
           onClick={onExport} 
           disabled={isExporting}
           className="flex items-center justify-center gap-2 px-3 py-1.5 h-8 text-[10px] font-bold text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:text-blue-700 dark:hover:text-white hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-lg transition-all w-full disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isExporting ? (
-             <><Loader2 size={14} className="animate-spin" /> Copiando...</>
-          ) : (
-             <><Copy size={14} /> Copiar</>
-          )}
+          {isExporting ? <><Loader2 size={14} className="animate-spin" /> Copiando...</> : <><Copy size={14} /> Copiar</>}
         </button>
       </div>
     </div>

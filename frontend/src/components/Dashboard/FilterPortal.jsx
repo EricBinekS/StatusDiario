@@ -4,22 +4,38 @@ import { X, Search, Check } from 'lucide-react';
 const FilterPortal = ({ title, options = [], selected = [], onChange, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Lógica para lidar com Opções que podem ser String ou Objeto {value, label}
+  const normalizedOptions = useMemo(() => {
+    return options.map(opt => {
+        if (typeof opt === 'object' && opt !== null) {
+            return { value: opt.value, label: opt.label, original: opt };
+        }
+        return { value: opt, label: opt, original: opt };
+    });
+  }, [options]);
+
   const filteredOptions = useMemo(() => 
-    options?.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase())) || [], 
-  [options, searchTerm]);
+    normalizedOptions.filter(opt => 
+        String(opt.label).toLowerCase().includes(searchTerm.toLowerCase())
+    ), 
+  [normalizedOptions, searchTerm]);
 
-  const isAllSelected = filteredOptions.length > 0 && filteredOptions.every(opt => selected.includes(opt));
+  const isAllSelected = filteredOptions.length > 0 && filteredOptions.every(opt => selected.includes(opt.value));
 
-  const toggleOption = (opt) => {
-    if (selected.includes(opt)) onChange(selected.filter(s => s !== opt));
-    else onChange([...selected, opt]);
+  const toggleOption = (val) => {
+    if (selected.includes(val)) onChange(selected.filter(s => s !== val));
+    else onChange([...selected, val]);
   };
 
   const handleSelectAll = () => {
     if (isAllSelected) {
-      onChange(selected.filter(s => !filteredOptions.includes(s)));
+      // Remove os que estão visíveis no filtro atual
+      const visibleValues = filteredOptions.map(o => o.value);
+      onChange(selected.filter(s => !visibleValues.includes(s)));
     } else {
-      const newSelected = [...new Set([...selected, ...filteredOptions])];
+      // Adiciona os visíveis
+      const visibleValues = filteredOptions.map(o => o.value);
+      const newSelected = [...new Set([...selected, ...visibleValues])];
       onChange(newSelected);
     }
   };
@@ -38,7 +54,6 @@ const FilterPortal = ({ title, options = [], selected = [], onChange, onClose })
         </div>
       </div>
 
-      {/* AQUI ESTÃO AS MUDANÇAS DO SCROLLBAR */}
       <div className="max-h-56 overflow-y-auto p-1 bg-white dark:bg-slate-800 
         [&::-webkit-scrollbar]:w-1.5 
         [&::-webkit-scrollbar-track]:bg-transparent 
@@ -47,12 +62,13 @@ const FilterPortal = ({ title, options = [], selected = [], onChange, onClose })
         [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
       >
         {filteredOptions.length > 0 ? (
-          filteredOptions.map(opt => (
-            <div key={opt} onClick={() => toggleOption(opt)} className={`flex items-center px-2 py-2 text-xs rounded-md cursor-pointer select-none transition-all duration-150 ${selected.includes(opt) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'}`}>
-              <div className={`w-4 h-4 rounded border mr-2 flex-shrink-0 flex items-center justify-center transition-all ${selected.includes(opt) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-700'}`}>
-                {selected.includes(opt) && <Check size={10} className="text-white stroke-[3px]" />}
+          filteredOptions.map(({ value, label }) => (
+            // CORREÇÃO AQUI: Usamos value e label extraídos, nunca o objeto direto
+            <div key={value} onClick={() => toggleOption(value)} className={`flex items-center px-2 py-2 text-xs rounded-md cursor-pointer select-none transition-all duration-150 ${selected.includes(value) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'}`}>
+              <div className={`w-4 h-4 rounded border mr-2 flex-shrink-0 flex items-center justify-center transition-all ${selected.includes(value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-700'}`}>
+                {selected.includes(value) && <Check size={10} className="text-white stroke-[3px]" />}
               </div>
-              <span className="truncate leading-tight">{opt}</span>
+              <span className="truncate leading-tight">{label}</span>
             </div>
           ))
         ) : (

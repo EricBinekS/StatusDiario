@@ -13,7 +13,6 @@ def get_last_migration_time():
         return None
 
 def is_valid_entry(value):
-    """ Validação de Dados (ETL Check) """
     if value is None: return False
     s = str(value).strip()
     if not s: return False
@@ -27,10 +26,10 @@ def get_dashboard_data(filters=None):
 
     filters = filters or {}
     
-    # REMOVIDO 'trecho' DA QUERY
+    # ADICIONADO: trecho_da_via e sub_trecho
     sql = """
         SELECT 
-            id, gerencia_da_via, atividade, tipo, data, status,
+            id, gerencia_da_via, trecho_da_via, sub_trecho, atividade, tipo, data, status,
             inicio_prog, inicio_real, fim_prog, fim_real,
             tempo_prog, tempo_real,
             local_prog, local_real,
@@ -57,6 +56,7 @@ def get_dashboard_data(filters=None):
             sql += " AND gerencia_da_via IN :gerencias"
             params['gerencias'] = tuple(gerencias)
 
+    # Lógica para filtro de status e tipo
     if filters.get('status'):
         status_list = [s.upper() for s in filters['status']]
         if status_list:
@@ -80,29 +80,26 @@ def get_dashboard_data(filters=None):
             for row in rows:
                 item = dict(row)
 
-                # --- ETAPA DE ETL / LIMPEZA ---
-                # Validando apenas Gerência (Trecho removido)
+                # Validação básica
                 if not is_valid_entry(item.get('gerencia_da_via')):
                     continue
-                # ------------------------------
                 
+                # Mapeamento para o Frontend (padronizando nomes se necessário)
+                # O frontend espera 'trecho' e 'sub' nos filtros? Vamos garantir.
+                item['trecho'] = item.get('trecho_da_via')
+                item['sub'] = item.get('sub_trecho')
+                
+                # Formata Data
                 if isinstance(item.get('data'), (datetime,)):
                     item['data'] = item['data'].strftime('%Y-%m-%d')
                 else:
                     item['data'] = str(item['data'])
                 
-                time_cols = [
-                    'inicio_prog', 'inicio_real', 
-                    'fim_prog', 'fim_real', 
-                    'tempo_prog', 'tempo_real'
-                ]
-                
+                # Formata Horas (HH:MM)
+                time_cols = ['inicio_prog', 'inicio_real', 'fim_prog', 'fim_real', 'tempo_prog', 'tempo_real']
                 for col in time_cols:
                     val = item.get(col)
-                    if val is None:
-                        item[col] = None 
-                    else:
-                        item[col] = str(val)[:5]
+                    item[col] = str(val)[:5] if val is not None else None
                 
                 data.append(item)
                 

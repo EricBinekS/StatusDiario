@@ -26,20 +26,11 @@ def get_status_key(db_status):
     return mapping.get(s, 'nao_iniciado')
 
 def is_valid_entry(value):
-    """ 
-    Valida se o valor é útil. 
-    Retorna False se for None, vazio, ou conter apenas caracteres especiais/traços.
-    """
     if value is None: return False
     s = str(value).strip()
     if not s: return False
-    
-    # Lista de valores "lixo" comuns
     if s in ['-', '--', '.', '?', 'N/A', 'NULL', '0']: return False
-    
-    # Regex para pegar casos como "---" ou " . " (apenas caracteres não alfanuméricos)
     if re.match(r'^[\W_]+$', s): return False
-    
     return True
 
 def process_row_for_target(row, target, day_label):
@@ -69,21 +60,14 @@ def process_row_for_target(row, target, day_label):
     day_point["prog"] += h_prog
     day_point["real"] += h_real
 
-    # Aderência
-    IGNORED_ACTIVITIES = [
-        "DESLOCAMENTO", "DETECÇÃO - CARRO CONTROLE", "DETECÇÃO - RONDA 7 DIAS",
-        "DETECÇÃO - ULTRASSOM - SPERRY", "INSPEÇÃO RIV", "INSPEÇÃO AUTO DE LINHA"
-    ]
-    ativ = (row['atividade'] or '').upper()
-    is_ignored = any(ign in ativ for ign in IGNORED_ACTIVITIES)
-    
-    if not is_ignored:
-        if status_key in ['concluido', 'parcial', 'cancelado']:
-            group["meta_calc"]["total_valid"] += 1
-            if status_key == 'concluido':
-                group["meta_calc"]["points"] += 1.0
-            elif status_key == 'parcial':
-                group["meta_calc"]["points"] += 0.5
+    # REMOVIDO: IGNORED_ACTIVITIES
+    # Aderência calcula para todas as atividades que chegam aqui
+    if status_key in ['concluido', 'parcial', 'cancelado']:
+        group["meta_calc"]["total_valid"] += 1
+        if status_key == 'concluido':
+            group["meta_calc"]["points"] += 1.0
+        elif status_key == 'parcial':
+            group["meta_calc"]["points"] += 0.5
 
 def get_overview_data(view_mode='semana'):
     engine = get_db_engine()
@@ -104,7 +88,6 @@ def get_overview_data(view_mode='semana'):
         next_month = today.replace(day=28) + timedelta(days=4)
         end_date = next_month - timedelta(days=next_month.day)
 
-    # REMOVIDO 'trecho' DA QUERY PARA EVITAR ERRO
     sql = """
         SELECT 
             gerencia_da_via, atividade, tipo, data, status,
@@ -129,11 +112,8 @@ def get_overview_data(view_mode='semana'):
             rows = result.mappings().all()
 
             for row in rows:
-                # --- ETAPA DE ETL / LIMPEZA ---
-                # Validando apenas Gerência, pois Trecho não existe na tabela
                 if not is_valid_entry(row['gerencia_da_via']):
                     continue
-                # ------------------------------
 
                 gerencia_raw = row['gerencia_da_via'].upper()
                 ger_id = gerencia_raw.replace(' ', '_').lower()
@@ -141,7 +121,6 @@ def get_overview_data(view_mode='semana'):
                 if ger_id not in agg:
                     agg[ger_id] = init_gerencia_structure(ger_id, gerencia_raw)
                 
-                # Label do Gráfico
                 if view_mode == 'hoje':
                     time_val = row.get('inicio_real')
                     if time_val:
@@ -160,7 +139,6 @@ def get_overview_data(view_mode='semana'):
 
                 process_row_for_target(row, agg[ger_id], day_label)
 
-                # Mecanização
                 ativ_upper = (row['atividade'] or '').upper()
                 is_mecanizacao = any(k in ativ_upper for k in ATIVIDADES_MECANIZACAO)
                 
