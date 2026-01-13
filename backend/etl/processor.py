@@ -13,10 +13,6 @@ def clean_column_names(header_row):
     
     def _clean(text):
         if pd.isna(text) or text == "": return "coluna_vazia"
-        # Limpeza agressiva:
-        # 1. Lowercase e strip
-        # 2. Substitui espaços e hifens por underline
-        # 3. Remove acentos
         return (str(text).strip().lower()
                 .replace(' ', '_').replace('-', '_')
                 .replace('ç', 'c').replace('ã', 'a').replace('á', 'a')
@@ -27,7 +23,6 @@ def clean_column_names(header_row):
 
     cleaned = [_clean(col) for col in header_list]
     
-    # Garante unicidade (ex: previa, previa_1)
     seen = {}
     final_cols = []
     for col in cleaned:
@@ -42,18 +37,25 @@ def clean_column_names(header_row):
 
 def find_column(df, candidates):
     """Procura a primeira ocorrência de uma coluna candidata no DataFrame."""
-    # 1. Busca exata (prioridade)
     for col in candidates:
         if col in df.columns:
             return col
-    
-    # 2. Busca aproximada (contém)
     for col in df.columns:
         for cand in candidates:
-            # O len(col) < len(cand) + 4 permite variações como previa___1 (3 underscores)
             if cand in col and len(col) < len(cand) + 4: 
                 return col
     return None
+
+def parse_time_to_hours(val):
+    if pd.isna(val) or val == '': return 0.0
+    try:
+        val_str = str(val).strip()
+        if ':' in val_str:
+            parts = val_str.split(':')
+            return float(parts[0]) + float(parts[1])/60.0
+        return float(str(val).replace(',', '.'))
+    except:
+        return 0.0
 
 def process_dataframe(df):
     try:
@@ -65,15 +67,11 @@ def process_dataframe(df):
             df = df[df[col_ativo].astype(str).str.strip() != '']
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
         
-        # 2. MAPEAMENTO DE COLUNAS (Ajustado para Prévia - 1 e Prévia - 2)
-        # Nota: "Prévia - 1" vira "previa___1" após a limpeza (espaço + hífen + espaço = 3 underlines)
+        # 2. MAPEAMENTO DE COLUNAS
         col_mappings = {
             'status': ['status', 'status_operacional', 'farol'],
-            
-            # ADICIONADO: previa___1 e previa___2 para capturar "Prévia - 1" e "Prévia - 2"
             'status_1': ['status_1', 'previa___1', 'previa_1', 'previa', 'comentario_1'],
             'status_2': ['status_2', 'previa___2', 'previa_2', 'comentario_2', 'observacao_2'],
-            
             'inicio_prog': ['inicia', 'inicio_prog', 'inicio_previsto'],
             'inicio_real': ['inicio', 'inicio_real'],
             'fim_real': ['fim', 'fim_real', 'termino'],
@@ -90,7 +88,6 @@ def process_dataframe(df):
             'data': ['data_atividade', 'data']
         }
 
-        # Aplica renomeação
         rename_dict = {}
         for target, candidates in col_mappings.items():
             found = find_column(df, candidates)
@@ -112,11 +109,28 @@ def process_dataframe(df):
             df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
 
         # 4. TRATAMENTO DE STATUS
-        if 'status' in df.columns:
-            df['status'] = pd.to_numeric(df['status'], errors='coerce')
-            df.loc[~df['status'].isin([0, 1, 2]), 'status'] = np.nan
+        if 'status' not in df.columns:
+            df['status'] = 'NAO_INICIADO'
         else:
-            df['status'] = np.nan
+            def apply_status_rules(row):
+                raw = row.get('status')
+                if pd.isna(raw) or str(raw).strip() == '': return 'NAO_INICIADO'
+                try: st = int(float(raw))
+                except: return 'NAO_INICIADO'
+                
+                if st == 0: return 'CANCELADO'
+                if st == 1: return 'ANDAMENTO'
+                if st == 2:
+                    h_prog = parse_time_to_hours(row.get('tempo_prog'))
+                    h_real = parse_time_to_hours(row.get('tempo_real'))
+                    if h_prog == 0: return 'CONCLUIDO' if h_real > 0 else 'CANCELADO'
+                    percent = h_real / h_prog
+                    if percent <= 0.50: return 'CANCELADO'
+                    elif percent <= 0.90: return 'PARCIAL'
+                    else: return 'CONCLUIDO'
+                return 'NAO_INICIADO'
+
+            df['status'] = df.apply(apply_status_rules, axis=1)
 
         # 5. CÁLCULO FIM PROGRAMADO
         if 'inicio_prog' in df.columns and 'tempo_prog' in df.columns:
@@ -149,41 +163,33 @@ def process_dataframe(df):
 
         # 6.1 REGRA MODERNIZAÇÃO POR ATIVIDADE
         atividades_modernizacao = [
-            "MODERNIZAÇÃO - PEDRA - DESCARGA",
-            "MODERNIZAÇÃO - OUTRA ATIVIDADE",
-            "MODERNIZAÇÃO - SOLDA",
-            "MODERNIZAÇÃO - RECOLHIMENTO DE DORMENTE",
-            "MODERNIZAÇÃO - TRILHO - DESCARGA",
-            "MODERNIZAÇÃO - SOCADORA",
-            "MODERNIZAÇÃO - DORMENTE - DESCARGA",
-            "MODERNIZAÇÃO - SUBSTITUIÇÃO DE DORMENTE",
-            "MODERNIZAÇÃO - PEDRA - CARGA",
-            "MODERNIZAÇÃO - DESCARGA - TRILHO"
+            "MODERNIZAÇÃO - PEDRA - DESCARGA", "MODERNIZAÇÃO - OUTRA ATIVIDADE",
+            "MODERNIZAÇÃO - SOLDA", "MODERNIZAÇÃO - RECOLHIMENTO DE DORMENTE",
+            "MODERNIZAÇÃO - TRILHO - DESCARGA", "MODERNIZAÇÃO - SOCADORA",
+            "MODERNIZAÇÃO - DORMENTE - DESCARGA", "MODERNIZAÇÃO - SUBSTITUIÇÃO DE DORMENTE",
+            "MODERNIZAÇÃO - PEDRA - CARGA", "MODERNIZAÇÃO - DESCARGA - TRILHO"
         ]
 
-        if 'atividade' not in df.columns:
-            df['atividade'] = ''
-
+        if 'atividade' not in df.columns: df['atividade'] = ''
         mask_mod_atividade = df['atividade'].astype(str).str.strip().isin(atividades_modernizacao)
         df.loc[mask_mod_atividade, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
+        # 7. LIMPEZA E PREPARAÇÃO FINAL
+        # --- AQUI ESTÁ A CORREÇÃO: ADICIONAR updated_at ---
+        df['updated_at'] = datetime.now()
 
-        # 7. LIMPEZA FINAL
-        # REMOVIDO: detalhe_local
         required_columns = [
             'status', 'gerencia_da_via', 'trecho_da_via', 'sub_trecho',
             'ativo', 'atividade', 'tipo', 'data',
             'inicio_prog', 'inicio_real', 'fim_prog', 'fim_real',
             'tempo_prog', 'tempo_real',
             'local_prog', 'local_real', 'producao_prog', 'producao_real',
-            'status_1', 'status_2', 'row_hash'
+            'status_1', 'status_2', 'row_hash', 'updated_at' 
         ]
 
-        # Garante criação de colunas ausentes como None
         for col in required_columns:
             if col not in df.columns: df[col] = None
 
-        # Padroniza tempos
         time_cols = ['inicio_prog', 'inicio_real', 'fim_prog', 'fim_real', 'tempo_prog', 'tempo_real']
         for col in time_cols:
             if col in df.columns:

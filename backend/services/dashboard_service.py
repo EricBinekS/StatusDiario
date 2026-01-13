@@ -1,191 +1,113 @@
 from sqlalchemy import text
 from backend.db.connection import get_db_engine
-from datetime import datetime, time
-import pytz
-
-def get_dashboard_data(filters=None):
-    engine = get_db_engine()
-    if not engine:
-        return []
-
-    # 1. Determina a data alvo
-    target_date = None
-    if filters and filters.get('data'):
-        target_date = filters.get('data')
-    else:
-        # Se não vier data, busca a mais recente no banco
-        try:
-            with engine.connect() as conn:
-                conn.execute(text("SET statement_timeout = 5000;"))
-                target_date = conn.execute(text("SELECT MAX(data) FROM atividades")).scalar()
-        except Exception as e:
-            print(f"Erro ao buscar data máxima: {e}")
-
-    if not target_date:
-        target_date = datetime.now().strftime('%Y-%m-%d')
-
-    # 2. Configuração de Fuso Horário e Lógica de Detalhamento
-    # Define o fuso de Brasília e o horário de corte (12:00)
-    tz_brazil = pytz.timezone('America/Sao_Paulo')
-    agora = datetime.now(tz_brazil)
-    meio_dia = time(12, 0, 0)
-    
-    try:
-        # Converte a data alvo (string ou date) para objeto date
-        if isinstance(target_date, str):
-            data_ref_date = datetime.strptime(target_date, '%Y-%m-%d').date()
-        else:
-            data_ref_date = target_date
-
-        hoje_date = agora.date()
-        
-        eh_manha = False
-        if data_ref_date == hoje_date:
-            # É hoje: verifica se é antes do meio-dia
-            if agora.time() < meio_dia:
-                eh_manha = True
-        elif data_ref_date > hoje_date:
-             # É futuro: considera manhã (previsão inicial)
-             eh_manha = True
-        # Se for passado (data_ref < hoje), eh_manha fica False
-    except Exception:
-        eh_manha = True # Fallback seguro
-
-    # 3. Query Principal (REMOVIDO detalhe_local)
-    query = text("""
-        SELECT 
-            id, row_hash, status, gerencia_da_via, trecho_da_via, sub_trecho,
-            ativo, atividade, tipo, data,
-            inicio_prog, inicio_real, fim_prog, fim_real,
-            tempo_prog, tempo_real,
-            local_prog, local_real, producao_prog, producao_real,
-            status_1, status_2
-        FROM atividades
-        WHERE data = :data_ref
-        ORDER BY status ASC, inicio_prog ASC
-    """)
-
-    try:
-        with engine.connect() as conn:
-            # Blindagem contra timeout (60s para carga pesada)
-            conn.execute(text("SET statement_timeout = 60000;"))
-            
-            result = conn.execute(query, {"data_ref": target_date})
-            rows = result.mappings().all()
-        
-        if not rows:
-            return []
-
-        dashboard_data = []
-
-        # --- FUNÇÕES DE FORMATAÇÃO ---
-        def fmt_val(v):
-            return str(v) if v is not None else ""
-            
-        def fmt_time(t):
-            if not t: return "--:--"
-            return str(t)[:5] # Pega HH:MM
-
-        def fmt_date(d):
-            """Formata para DD/MM removendo ano e horas"""
-            if not d: return "--/--"
-            try:
-                if hasattr(d, 'strftime'):
-                    return d.strftime('%d/%m')
-                
-                s = str(d)
-                if ' ' in s: 
-                    s = s.split(' ')[0]
-                
-                if '-' in s:
-                    parts = s.split('-')
-                    if len(parts) == 3:
-                        return f"{parts[2]}/{parts[1]}"
-                return s
-            except:
-                return str(d)
-
-        for row in rows:
-            # Lógica de Detalhamento no Backend (Atualizada)
-            val_status_1 = row['status_1']
-            val_status_2 = row['status_2']
-            
-            detalhamento_final = ""
-            
-            if eh_manha:
-                # Manhã: Prioridade para Status 1 -> Vazio
-                detalhamento_final = val_status_1 if val_status_1 else ""
-            else:
-                # Tarde: Prioridade Status 2 -> Status 1 -> Vazio
-                if val_status_2:
-                    detalhamento_final = val_status_2
-                elif val_status_1:
-                    detalhamento_final = val_status_1
-                else:
-                    detalhamento_final = ""
-
-            # Montagem do objeto final
-            item = {
-                "id": row['id'] or row['row_hash'],
-                "row_hash": row['row_hash'],
-                "status": row['status'],
-                "data": fmt_date(row['data']),
-                
-                "gerencia": fmt_val(row['gerencia_da_via']),
-                "trecho": fmt_val(row['trecho_da_via']),
-                "sub": fmt_val(row['sub_trecho']),
-                "tipo": fmt_val(row['tipo']),
-                "ativo": fmt_val(row['ativo']) or "N/A",
-                "atividade": fmt_val(row['atividade']),
-                
-                "detalhamento": detalhamento_final,
-                
-                "inicio": {
-                    "prog": fmt_time(row['inicio_prog']),
-                    "real": fmt_time(row['inicio_real'])
-                },
-                "fim": {
-                    "prog": fmt_time(row['fim_prog']),
-                    "real": fmt_time(row['fim_real'])
-                },
-                "tempo": {
-                    "prog": fmt_time(row['tempo_prog']),
-                    "real": fmt_time(row['tempo_real'])
-                },
-                "local": {
-                    "prog": row['local_prog'] or "-",
-                    "real": row['local_real'] or "-"
-                },
-                "quant": {
-                    "prog": row['producao_prog'] or 0,
-                    "real": row['producao_real'] or 0
-                }
-            }
-            dashboard_data.append(item)
-
-        return dashboard_data
-
-    except Exception as e:
-        print(f"Erro no DashboardService (get_dashboard_data): {e}")
-        return []
+from datetime import datetime
+import re
 
 def get_last_migration_time():
     engine = get_db_engine()
-    if not engine:
-        return {"last_updated_at": None}
-
-    query = text("SELECT last_updated_at FROM migration_log ORDER BY last_updated_at DESC LIMIT 1")
-    
+    if not engine: return None
     try:
         with engine.connect() as conn:
-            conn.execute(text("SET statement_timeout = 5000;"))
-            result = conn.execute(query).scalar()
+            return conn.execute(text("SELECT last_updated_at FROM migration_log WHERE id = 1")).scalar()
+    except:
+        return None
+
+def is_valid_entry(value):
+    """ Validação de Dados (ETL Check) """
+    if value is None: return False
+    s = str(value).strip()
+    if not s: return False
+    if s in ['-', '--', '.', '?', 'N/A', 'NULL', '0']: return False
+    if re.match(r'^[\W_]+$', s): return False
+    return True
+
+def get_dashboard_data(filters=None):
+    engine = get_db_engine()
+    if not engine: return []
+
+    filters = filters or {}
+    
+    # REMOVIDO 'trecho' DA QUERY
+    sql = """
+        SELECT 
+            id, gerencia_da_via, atividade, tipo, data, status,
+            inicio_prog, inicio_real, fim_prog, fim_real,
+            tempo_prog, tempo_real,
+            local_prog, local_real,
+            producao_prog, producao_real,
+            status_1 as detalhamento,
+            ativo
+        FROM atividades
+        WHERE 1=1
+    """
+    
+    params = {}
+
+    if filters.get('dateRange'):
+        start = filters['dateRange'].get('start')
+        end = filters['dateRange'].get('end')
+        if start and end:
+            sql += " AND data >= :start_date AND data <= :end_date"
+            params['start_date'] = start
+            params['end_date'] = end
+
+    if filters.get('gerencia'):
+        gerencias = [g.upper() for g in filters['gerencia']]
+        if gerencias:
+            sql += " AND gerencia_da_via IN :gerencias"
+            params['gerencias'] = tuple(gerencias)
+
+    if filters.get('status'):
+        status_list = [s.upper() for s in filters['status']]
+        if status_list:
+            sql += " AND status IN :status_list"
+            params['status_list'] = tuple(status_list)
+
+    if filters.get('tipo'):
+        tipo_term = filters['tipo'].upper()
+        if tipo_term == 'CONTRATO': sql += " AND tipo LIKE '%CONTRATO%'"
+        elif tipo_term == 'OPORTUNIDADE': sql += " AND tipo NOT LIKE '%CONTRATO%'"
+
+    sql += " ORDER BY data DESC, inicio_prog ASC LIMIT 2000"
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SET statement_timeout = 60000;"))
+            result = conn.execute(text(sql), params)
+            rows = result.mappings().all()
             
-            if result:
-                iso_time = result.isoformat()
-                if not iso_time.endswith('Z') and '+' not in iso_time:
-                    iso_time += 'Z'
-                return {"last_updated_at": iso_time}
-            return {"last_updated_at": None}
-    except Exception:
-        return {"last_updated_at": None}
+            data = []
+            for row in rows:
+                item = dict(row)
+
+                # --- ETAPA DE ETL / LIMPEZA ---
+                # Validando apenas Gerência (Trecho removido)
+                if not is_valid_entry(item.get('gerencia_da_via')):
+                    continue
+                # ------------------------------
+                
+                if isinstance(item.get('data'), (datetime,)):
+                    item['data'] = item['data'].strftime('%Y-%m-%d')
+                else:
+                    item['data'] = str(item['data'])
+                
+                time_cols = [
+                    'inicio_prog', 'inicio_real', 
+                    'fim_prog', 'fim_real', 
+                    'tempo_prog', 'tempo_real'
+                ]
+                
+                for col in time_cols:
+                    val = item.get(col)
+                    if val is None:
+                        item[col] = None 
+                    else:
+                        item[col] = str(val)[:5]
+                
+                data.append(item)
+                
+            return data
+
+    except Exception as e:
+        print(f"🔴 Erro no DashboardService: {e}")
+        return []

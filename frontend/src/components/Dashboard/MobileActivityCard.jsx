@@ -1,9 +1,8 @@
 import React from 'react';
 import LiveTimer from './LiveTimer';
-import { getDerivedStatus } from '../../utils/dataUtils';
+import { getDerivedStatus, formatDateShort } from '../../utils/dataUtils';
 
 const MobileActivityCard = ({ row }) => {
-  // Lógica de Cores (Duplicada aqui para garantir encapsulamento visual)
   const getStatusColorClass = (rowData) => {
     const status = getDerivedStatus(rowData);
     switch (status) {
@@ -16,15 +15,23 @@ const MobileActivityCard = ({ row }) => {
     }
   };
 
+  const inicioReal = row.inicio_real || '--:--';
+  const inicioProg = row.inicio_prog || '--:--';
+  const tempoReal = row.tempo_real || '--:--';
+  const tempoProg = row.tempo_prog || '--:--';
+  const localReal = row.local_real || '-';
+  const localProg = row.local_prog || '-';
+  const quantReal = row.producao_real || '-';
+  const quantProg = row.producao_prog || '-';
+
   const statusAtual = getDerivedStatus(row);
-  const temInicio = row.inicio.real && row.inicio.real !== '--:--';
-  const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
-  const isBloco = row.tempo.prog === '00:01';
+  const temInicio = inicioReal && inicioReal !== '--:--';
+  const isAndamento = statusAtual === 'andamento';
+  const isBloco = tempoProg === '00:01';
   const showTimer = isAndamento && temInicio && !isBloco;
 
   return (
     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-      {/* Cabeçalho do Card */}
       <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-slate-700 pb-2">
         <div>
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atividade</span>
@@ -33,18 +40,17 @@ const MobileActivityCard = ({ row }) => {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className={`w-3 h-3 rounded-full ${getStatusColorClass(row)}`}></div>
-          <span className="text-[10px] font-mono text-gray-400">{row.data}</span>
+          <span className="text-[10px] font-mono text-gray-400">{formatDateShort(row.data)}</span>
         </div>
       </div>
 
-      {/* Grid de Informações */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <MobileInfoBlock label="Início (Prog | Real)" value={
           <div className="flex gap-1.5 font-mono text-xs">
-            <span className="text-gray-500">{row.inicio.prog}</span>
+            <span className="text-gray-500">{inicioProg}</span>
             <span className="text-gray-300">|</span>
             <span className={temInicio ? 'text-slate-800 dark:text-white font-bold' : 'text-gray-400'}>
-              {row.inicio.real}
+              {inicioReal}
             </span>
           </div>
         } />
@@ -56,17 +62,17 @@ const MobileActivityCard = ({ row }) => {
             </span>
           ) : (
             <div className="flex gap-1.5 font-mono text-xs">
-              <span className="text-gray-500">{row.tempo.prog}</span>
+              <span className="text-gray-500">{tempoProg}</span>
               <span className="text-gray-300">|</span>
               {showTimer ? (
                 <LiveTimer 
-                  startTime={row.inicio.real} 
+                  startTime={inicioReal} 
                   dateRef={row.data} 
-                  scheduledDuration={row.tempo.prog} 
+                  scheduledDuration={tempoProg} 
                 />
               ) : (
-                <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>
-                  {row.tempo.real}
+                <span className={`font-bold ${tempoReal === '--:--' ? 'text-gray-400' : 'text-slate-800 dark:text-white'}`}>
+                  {tempoReal}
                 </span>
               )}
             </div>
@@ -75,18 +81,17 @@ const MobileActivityCard = ({ row }) => {
         
         <MobileInfoBlock label="Local" value={
           <div className="text-xs text-gray-600 dark:text-gray-300 truncate">
-            {row.local.real !== '-' ? row.local.real : row.local.prog}
+            {localReal !== '-' ? localReal : localProg}
           </div>
         } />
         
         <MobileInfoBlock label="Quantidade" value={
           <div className="text-xs text-gray-600 dark:text-gray-300">
-            {row.quant.real !== '0' ? row.quant.real : row.quant.prog}
+            {quantReal !== '-' ? quantReal : quantProg}
           </div>
         } />
       </div>
 
-      {/* Detalhamento */}
       <div className="bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg border border-gray-100 dark:border-slate-700">
         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Detalhamento</span>
         <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
@@ -97,7 +102,6 @@ const MobileActivityCard = ({ row }) => {
   );
 };
 
-// Subcomponente simples para manter o layout alinhado
 const MobileInfoBlock = ({ label, value }) => (
   <div>
     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">{label}</span>

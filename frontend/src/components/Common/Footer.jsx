@@ -7,7 +7,7 @@ const Footer = () => {
       <div className="text-[10px] text-gray-400 dark:text-slate-500 font-medium">
         <span>Desenvolvido por <strong className="text-gray-600 dark:text-slate-400">Eric Binek</strong></span>
         <span className="mx-1.5 opacity-50">•</span>
-        <span>v3.2</span>
+        <span>v4.0</span>
         <span className="mx-1.5 opacity-50">•</span>
         <span>{new Date().getFullYear()}</span>
       </div>

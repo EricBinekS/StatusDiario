@@ -2,181 +2,212 @@
 
 ## Visão Geral
 
-O **Status Diário** é uma aplicação web desenvolvida para o
-monitoramento e análise de intervalos de manutenção ferroviária. O
-sistema processa dados operacionais para fornecer duas visualizações
-estratégicas: um Painel Operacional para acompanhamento em tempo real de
-atividades e um Overview Gerencial para análise de indicadores de
-aderência (Programado vs. Realizado) por gerência e tipo de atividade.
+O **Status Diário** é uma aplicação web desenvolvida para o monitoramento e análise de intervalos de manutenção ferroviária. O sistema processa dados operacionais para fornecer duas visualizações estratégicas:
+
+* **Painel Operacional**: acompanhamento em tempo real das atividades.
+* **Overview Gerencial**: análise de indicadores de aderência (*Programado vs. Realizado*) por gerência e tipo de atividade.
+
+---
 
 ## Arquitetura do Sistema
 
-O projeto segue uma arquitetura separada (Client-Server), onde o
-Frontend e o Backend são implantados de forma independente.
+O projeto adota uma arquitetura **Client–Server**, com Frontend e Backend implantados de forma independente. O Banco de Dados utiliza uma estrutura otimizada em **tabela única (`atividades`)**, reduzindo complexidade e melhorando a performance.
 
 ### Stack Tecnológica
 
-### Frontend
+#### Frontend
 
--   **Framework:** React (via Vite)
--   **Estilização:** Tailwind CSS
--   **Visualização de Dados:** Recharts
--   **Gerenciamento de Estado:** React Hooks e Context API
+* **Framework:** React (Vite)
+* **Estilização:** Tailwind CSS (com suporte a Dark Mode)
+* **Visualização de Dados:** Recharts (gráficos) e Lucide React (ícones)
+* **Gerenciamento de Estado:** React Hooks e Context API
+* **Autenticação:** MSAL (Microsoft Authentication Library) integrado ao Azure AD
 
-### Backend
+#### Backend
 
--   **Linguagem:** Python
--   **Framework Web:** Flask
--   **Processamento de Dados:** Pandas
--   **ORM:** SQLAlchemy
--   **Banco de Dados:** PostgreSQL
+* **Linguagem:** Python
+* **Framework Web:** Flask (API REST)
+* **Banco de Dados:** PostgreSQL
+* **ORM:** SQLAlchemy (consultas diretas e performáticas)
 
-### Infraestrutura e DevOps
+#### Infraestrutura e DevOps
 
--   **Frontend Hosting:** Vercel
--   **Backend Hosting:** Render
--   **CI/CD:** GitHub Actions (automação de relatórios e migração de
-    dados)
+* **Frontend Hosting:** Vercel
+* **Backend Hosting:** Render
+* **CI/CD:** GitHub Actions (deploy e automações)
 
-------------------------------------------------------------------------
+---
 
 ## Funcionalidades Principais
 
 ### 1. Painel Operacional (Dashboard)
 
--   Tabela interativa com dados de manutenção.
--   Filtros dinâmicos (Data, Gerência, Trecho, Ativo, Status).
--   Cálculo automático de aderência com base nos filtros aplicados.
+* **Tabela Interativa:** lista detalhada de atividades com status visual (indicadores coloridos).
+* **Live Timer:** cronômetro em tempo real para atividades *Em Andamento*.
+* **Filtros Dinâmicos:** data, gerência, trecho, ativo, status e tipo (Contrato/Oportunidade).
+* **Cards de KPI:** contadores rápidos por status (Realizado, Parcial, Cancelado, etc).
 
 ### 2. Overview Gerencial
 
--   Visualização gráfica de KPIs (Key Performance Indicators).
--   Gráficos de aderência segregados por tipo (Contrato e Oportunidade).
--   Filtros temporais com alternância entre visualização Semanal e
-    Mensal.
+* **KPIs Globais:** aderência percentual total e horas (Programado vs. Realizado).
+* **Gráficos Analíticos:**
 
-### 3. Processamento de Regras de Negócio
+  * Evolução diária/semanal (horas programadas vs realizadas).
+  * Status global (gráfico de rosca com distribuição dos apontamentos).
+* **Cards por Gerência:** visão segregada com metas individuais para Contrato e Oportunidade.
+* **Visão de Mecanização:** card consolidado transversal agrupando atividades de maquinário pesado.
 
--   Classificação automática de gerências baseada em ativos.
--   Segregação de visualização para atividades de mecanização.
-
-------------------------------------------------------------------------
+---
 
 ## Instalação e Configuração Local
 
 ### Pré-requisitos
 
--   Node.js (v18 ou superior)
--   Python (v3.10 ou superior)
--   Git
+* Node.js **v18+**
+* Python **v3.10+**
+* Git
 
-### 1. Configuração do Backend
+---
 
-``` bash
+### 1. Backend
+
+```bash
 cd backend
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
-# Linux/Mac
+
+# Linux / Mac
 source venv/bin/activate
 
 pip install -r requirements.txt
 ```
 
-Para iniciar o servidor localmente:
+Inicie o servidor local:
 
-``` bash
-python main.py
+```bash
+python -m backend.app
 ```
 
-Servidor disponível em: `http://localhost:8000`
+Servidor disponível em:
 
-### 2. Configuração do Frontend
+```
+http://localhost:8000
+```
 
-``` bash
+---
+
+### 2. Frontend
+
+```bash
 cd frontend
 npm install
 ```
 
-Crie o arquivo `.env`:
+Crie o arquivo `.env` na raiz da pasta **frontend**:
 
-``` env
-VITE_API_URL=http://localhost:8000
+```env
+VITE_API_URL=http://localhost:8000/api
+VITE_MSAL_CLIENT_ID=seu_client_id
+VITE_MSAL_TENANT_ID=seu_tenant_id
 ```
 
 Inicie a aplicação:
 
-``` bash
+```bash
 npm run dev
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Regras de Negócio e Processamento de Dados
 
-### 1. Regra de Modernização (Classificação Global)
+### 1. Estrutura de Dados (DB Plano)
 
--   **Localização:** `backend/modules/data_processor.py`
--   **Descrição:** Existe uma lista predefinida de ativos
-    (`ATIVOS_MODERNIZACAO`). Durante o processamento dos dados brutos,
-    qualquer registro cujo ativo conste nesta lista terá sua coluna de
-    **Gerência** alterada para **MODERNIZAÇÃO**.
--   **Impacto:** Alteração persistente em todo o sistema (Dashboard e
-    Overview).
+O sistema opera sobre uma **tabela única (`atividades`)**, contendo colunas explícitas para dados programados e realizados:
 
-### 2. Regra de Mecanização (Filtro de Visualização)
+* `inicio_prog`
+* `inicio_real`
+* `tempo_prog`
+* `tempo_real`
 
--   **Localização:** `backend/services/overview_service.py`
--   **Descrição:** Existe uma lista de atividades específicas
-    (`ATIVIDADES_MECANIZACAO`). O sistema gera um cartão adicional no
-    Overview contendo apenas estas atividades.
--   **Impacto:** Não altera os dados do Dashboard, apenas a visualização
-    gerencial.
+Essa abordagem elimina a necessidade de parsing complexo de JSON no Frontend.
 
-------------------------------------------------------------------------
+---
+
+### 2. Tratamento de Dados (ETL em Tempo Real)
+
+Os serviços do Backend (`dashboard_service.py` e `overview_service.py`) aplicam regras de saneamento:
+
+* Registros sem **Gerência válida** são descartados.
+* Horários no formato `HH:MM` são convertidos para valores numéricos (`float`) para cálculo de KPIs.
+
+---
+
+### 3. Regra de Mecanização (Visão Transversal)
+
+**Localização:** `backend/services/overview_service.py`
+
+**Descrição:**
+
+O sistema varre todas as atividades e, ao identificar palavras-chave como:
+
+* `SOCARIA`
+* `REGULADORA`
+* `MECANIZADA`
+
+é criada uma **cópia lógica** dessas atividades para um card específico chamado **MECANIZAÇÃO**.
+
+**Impacto:**
+
+Permite ao gestor de mecanização visualizar a produção consolidada sem remover a responsabilidade da gerência de origem.
+
+---
 
 ## Deploy e Infraestrutura
 
 ### Backend (Render)
 
--   Plano gratuito com hibernação após 15 minutos de inatividade.
--   Primeira requisição pode levar até 60 segundos.
--   CORS liberado (`origins: "*"`) no `main.py`.
+* Serviço Web Python com **Gunicorn**.
+* Variáveis de ambiente:
+
+  * `DATABASE_URL`
+  * `FLASK_ENV`
+* **Health Check:** rota `/api/last-update` para manter o serviço ativo.
 
 ### Frontend (Vercel)
 
--   **Build Command:** `npm run build`
--   **Output Directory:** `dist`
--   **Roteamento:** `vercel.json` redirecionando todas as rotas para
-    `index.html`.
+* Build automático via **Git Push**.
+* Arquivo `vercel.json` configurado para **SPA**, redirecionando rotas para `index.html`.
 
-### Automação e CI/CD
+### Banco de Dados (PostgreSQL)
 
--   GitHub Actions para relatórios diários e migração de dados.
--   Commits automáticos utilizam a tag `[skip ci]` para evitar loop de
-    deploy.
+* Hospedagem externa (Neon, Supabase ou Render Postgres).
+* Tabela `migration_log` controla a data/hora da última carga de dados, exibida no cabeçalho da aplicação.
 
-------------------------------------------------------------------------
+---
 
 ## Solução de Problemas Comuns
 
-### Dados não aparecem no Dashboard
+### Tela branca ou "Carregando..." infinito
 
--   Verifique se o backend está ativo.
--   Aguarde a retomada do serviço no Render (plano gratuito).
--   Confirme a variável `VITE_API_URL`.
+* Verifique se o Backend está em execução.
+* Confirme se `VITE_API_URL` aponta corretamente para a API (incluindo `/api`).
 
-### Filtros vazios ou incompletos
+### Gráfico de "Hoje" vazio
 
--   Filtros são dinâmicos e dependem dos dados recebidos.
--   Verifique o estado inicial dos filtros em `DashboardPage.jsx`.
+* O gráfico diário depende do campo `inicio_real`.
+* Atividades com status `NAO_INICIADO` não aparecem como realizadas.
 
-### Erros de Data (Minified React Error #31)
+### Erro de CORS
 
--   Objetos `Date` não são renderizados diretamente no React.
--   Formate datas como string antes de exibir no JSX.
+* Caso o Frontend (`localhost:5173`) não acesse o Backend (`localhost:8000`), instale e configure o **flask-cors** no `app.py`.
 
-------------------------------------------------------------------------
+---
 
-**Equipe PCM - Planejamento e Controle de Manutenção**
+## Equipe
+
+**PCM – Planejamento e Controle de Manutenção**
+
+**Versão Atual:** `v4.0`

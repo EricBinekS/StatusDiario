@@ -1,5 +1,5 @@
 export const MAINTENANCE_CONFIG = {
     
-    dashboard: true,  
-    overview: true     
+    dashboard: false,  
+    overview: false     
 };

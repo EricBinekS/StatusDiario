@@ -1,49 +1,48 @@
-// Utilitário para manipulação de dados e status
-// Focado em PRODUÇÃO (Quantidade Real vs Programada)
-
-const parseProduction = (value) => {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
-  const cleanValue = String(value).replace(/[^\d.-]/g, '');
-  return parseFloat(cleanValue) || 0;
-};
+/**
+ * src/utils/dataUtils.js
+ */
 
 export const getDerivedStatus = (row) => {
-  const s = row.status;
+  if (!row || !row.status) return 'nao_iniciado';
+  const s = String(row.status).toUpperCase().trim();
 
-  // 1. Status null -> Não Iniciado (Cinza)
-  if (s === null || s === undefined) return 'nao_iniciado';
+  const map = {
+    'CONCLUIDO': 'concluido',
+    'PARCIAL': 'parcial',
+    'ANDAMENTO': 'andamento',
+    'NAO_INICIADO': 'nao_iniciado',
+    'CANCELADO': 'cancelado'
+  };
+  return map[s] || 'nao_iniciado';
+};
 
-  // 2. Status 0 -> Não Executado (Vermelho)
-  if (s === 0) return 'cancelado';
+export const getStatusUI = (statusKey) => {
+  const config = {
+    concluido: { label: 'Concluído', color: 'bg-[#28a745] ring-[#28a745]', dot: 'bg-white' },
+    parcial: { label: 'Parcial', color: 'bg-[#fd7e14] ring-[#fd7e14]', dot: 'bg-white' },
+    andamento: { label: 'Em Andamento', color: 'bg-[#ffc107] ring-[#ffc107]', dot: 'bg-white' },
+    cancelado: { label: 'Não Realizado', color: 'bg-[#ef4444] ring-[#ef4444]', dot: 'bg-white' },
+    nao_iniciado: { label: 'Não Iniciado', color: 'bg-[#6c757d] ring-[#6c757d]', dot: 'bg-white' }
+  };
+  return config[statusKey] || config.nao_iniciado;
+};
 
-  // 3. Status 1 -> Em Andamento (Amarelo)
-  // REGRA: Status 1 é SEMPRE Amarelo, não importa a porcentagem.
-  if (s === 1) return 'andamento';
-
-  // 4. Status 2 -> Avaliação de Desempenho
-  if (s === 2) {
-    const progStr = row.quant?.prog ?? row.producao_prog;
-    const realStr = row.quant?.real ?? row.producao_real;
-    
-    const prodProg = parseProduction(progStr);
-    const prodReal = parseProduction(realStr);
-
-    // Se não tiver meta programada, assume Concluído (Verde) padrão
-    if (prodProg <= 0) return 'concluido';
-
-    const ratio = prodReal / prodProg;
-
-    // < 50% -> Não Executado (Vermelho)
-    if (ratio < 0.5) return 'cancelado';
-
-    // 50% a 90% -> Parcial (Laranja)
-    if (ratio >= 0.5 && ratio < 0.9) return 'parcial';
-    
-    // >= 90% -> Concluído (Verde)
-    return 'concluido';
+// Formatação COMPLETA (dd/MM/yyyy)
+export const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  if (dateString.includes('-')) {
+      const [y, m, d] = dateString.split('-');
+      return `${d}/${m}/${y}`;
   }
+  return dateString;
+};
 
-  // Fallback
-  return 'nao_iniciado';
+// --- NOVO: Formatação CURTA (dd/MM) ---
+export const formatDateShort = (dateString) => {
+  if (!dateString) return '-';
+  if (dateString.includes('-')) {
+      const [y, m, d] = dateString.split('-');
+      return `${d}/${m}`;
+  }
+  return dateString;
 };

@@ -1,182 +1,225 @@
 from sqlalchemy import text
 from backend.db.connection import get_db_engine
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
+import re
 
-# --- CONFIGURAÇÃO ---
-ATIVIDADES_MECANIZACAO = {
-    "MECANIZACAO", "MECANIZAÇÃO", "SOCADORA", "REGULADORA", "ESMERILHADORA", 
-    "DESGUARNECEDORA", "ESTABILIZADORA", "CAPINA QUÍMICA", "CAPINA QUIMICA"
-}
-
-def time_to_hours(t):
-    """Converte datetime.time, timedelta ou string para float horas."""
-    if t is None or t == "":
-        return 0.0
+def parse_time_to_hours(time_str):
+    if not time_str: return 0.0
     try:
-        if isinstance(t, time):
-            return t.hour + t.minute / 60.0
-        if isinstance(t, timedelta):
-            return t.total_seconds() / 3600.0
-        if isinstance(t, str):
-            for fmt in ('%H:%M:%S', '%H:%M'):
-                try:
-                    dt = datetime.strptime(t, fmt)
-                    return dt.hour + dt.minute / 60.0
-                except ValueError:
-                    continue
+        parts = str(time_str).split(':')
+        h = int(parts[0])
+        m = int(parts[1])
+        return h + (m / 60.0)
     except:
-        pass
-    return 0.0
+        return 0.0
+
+def get_status_key(db_status):
+    if not db_status: return 'nao_iniciado'
+    s = str(db_status).upper().strip()
+    mapping = {
+        'CONCLUIDO': 'concluido',
+        'PARCIAL': 'parcial',
+        'ANDAMENTO': 'andamento',
+        'NAO_INICIADO': 'nao_iniciado',
+        'CANCELADO': 'cancelado'
+    }
+    return mapping.get(s, 'nao_iniciado')
+
+def is_valid_entry(value):
+    """ 
+    Valida se o valor é útil. 
+    Retorna False se for None, vazio, ou conter apenas caracteres especiais/traços.
+    """
+    if value is None: return False
+    s = str(value).strip()
+    if not s: return False
+    
+    # Lista de valores "lixo" comuns
+    if s in ['-', '--', '.', '?', 'N/A', 'NULL', '0']: return False
+    
+    # Regex para pegar casos como "---" ou " . " (apenas caracteres não alfanuméricos)
+    if re.match(r'^[\W_]+$', s): return False
+    
+    return True
+
+def process_row_for_target(row, target, day_label):
+    tipo_raw = str(row['tipo'] or '').upper()
+    type_key = 'contrato' if 'CONTRATO' in tipo_raw else 'oportunidade'
+    group = target["types"][type_key]
+
+    h_prog = parse_time_to_hours(row['tempo_prog'])
+    h_real = parse_time_to_hours(row['tempo_real'])
+    status_key = get_status_key(row['status'])
+
+    group["kpis"]["prog_h"] += h_prog
+    group["kpis"]["real_h"] += h_real
+    group["kpis"]["prog_int"] += 1
+    
+    if status_key in ['concluido', 'parcial']: 
+        group["kpis"]["real_int"] += 1
+
+    if status_key in group["kpis"]["breakdown"]:
+        group["kpis"]["breakdown"][status_key] += 1
+
+    day_point = next((p for p in group["chartData"] if p["name"] == day_label), None)
+    if not day_point:
+        day_point = {"name": day_label, "prog": 0, "real": 0}
+        group["chartData"].append(day_point)
+    
+    day_point["prog"] += h_prog
+    day_point["real"] += h_real
+
+    # Aderência
+    IGNORED_ACTIVITIES = [
+        "DESLOCAMENTO", "DETECÇÃO - CARRO CONTROLE", "DETECÇÃO - RONDA 7 DIAS",
+        "DETECÇÃO - ULTRASSOM - SPERRY", "INSPEÇÃO RIV", "INSPEÇÃO AUTO DE LINHA"
+    ]
+    ativ = (row['atividade'] or '').upper()
+    is_ignored = any(ign in ativ for ign in IGNORED_ACTIVITIES)
+    
+    if not is_ignored:
+        if status_key in ['concluido', 'parcial', 'cancelado']:
+            group["meta_calc"]["total_valid"] += 1
+            if status_key == 'concluido':
+                group["meta_calc"]["points"] += 1.0
+            elif status_key == 'parcial':
+                group["meta_calc"]["points"] += 0.5
 
 def get_overview_data(view_mode='semana'):
     engine = get_db_engine()
-    if not engine:
-        return []
+    if not engine: return []
 
     today = datetime.now().date()
-    
-    # 1. Definição do Período
-    if view_mode == 'mes':
-        start_date = today.replace(day=1)
-        next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
-        end_date = next_month - timedelta(days=1)
-    else: 
-        idx = today.weekday() # 0=Seg, 6=Dom
-        start_date = today - timedelta(days=idx)
-        end_date = start_date + timedelta(days=6)
+    start_date = today
+    end_date = today
 
-    # 2. Query Otimizada
-    query = text("""
+    if view_mode == 'hoje':
+        start_date = today
+        end_date = today
+    elif view_mode == 'semana':
+        start_date = today - timedelta(days=today.weekday()) 
+        end_date = start_date + timedelta(days=6)
+    elif view_mode == 'mes':
+        start_date = today.replace(day=1)
+        next_month = today.replace(day=28) + timedelta(days=4)
+        end_date = next_month - timedelta(days=next_month.day)
+
+    # REMOVIDO 'trecho' DA QUERY PARA EVITAR ERRO
+    sql = """
         SELECT 
-            gerencia_da_via, atividade, tipo, data, 
-            tempo_prog, tempo_real, status 
-        FROM atividades 
+            gerencia_da_via, atividade, tipo, data, status,
+            tempo_prog, tempo_real, inicio_real
+        FROM atividades
         WHERE data >= :start AND data <= :end
-    """)
+    """
+    
+    agg = {}
+    
+    ATIVIDADES_MECANIZACAO = [
+        "MECANIZACAO", "MECANIZAÇÃO", "SOCADORA", "REGULADORA", "ESMERILHADORA", 
+        "DESGUARNECEDORA", "ESTABILIZADORA", "CAPINA QUÍMICA", "CAPINA QUIMICA"
+    ]
 
     try:
         with engine.connect() as conn:
-            # --- CORREÇÃO DO TIMEOUT ---
-            conn.execute(text("SET statement_timeout = 60000;"))
-            result = conn.execute(query, {"start": start_date, "end": end_date})
+            result = conn.execute(text(sql), {
+                "start": start_date.strftime('%Y-%m-%d'),
+                "end": end_date.strftime('%Y-%m-%d')
+            })
             rows = result.mappings().all()
-        
-        if not rows:
-            return []
 
-        # 3. Inicializa Estruturas de Agregação
-        ids_order = ['ferronorte', 'sp_norte', 'sp_sul', 'central', 'modernizacao', 'mecanizacao']
-        stats = {gid: {'contrato': _init_stats(), 'oportunidade': _init_stats()} for gid in ids_order}
+            for row in rows:
+                # --- ETAPA DE ETL / LIMPEZA ---
+                # Validando apenas Gerência, pois Trecho não existe na tabela
+                if not is_valid_entry(row['gerencia_da_via']):
+                    continue
+                # ------------------------------
 
-        # 4. Processamento Python Puro (Leve)
-        for row in rows:
-            g_raw = str(row['gerencia_da_via'] or "").upper()
-            ativ_raw = str(row['atividade'] or "").upper()
-            tipo_raw = str(row['tipo'] or "").upper()
-            status_raw = str(row['status'] or "").upper()
-            
-            h_prog = time_to_hours(row['tempo_prog'])
-            h_real = time_to_hours(row['tempo_real'])
-            
-            # Identifica Grupo
-            gid = 'outros'
-            is_mec = any(m in ativ_raw for m in ATIVIDADES_MECANIZACAO)
-            
-            if is_mec: gid = 'mecanizacao'
-            elif 'FERRONORTE' in g_raw: gid = 'ferronorte'
-            elif 'SP NORTE' in g_raw or 'SP_NORTE' in g_raw: gid = 'sp_norte'
-            elif 'SP SUL' in g_raw or 'SP_SUL' in g_raw: gid = 'sp_sul'
-            elif 'CENTRAL' in g_raw or 'MALHA CENTRAL' in g_raw: gid = 'central'
-            elif 'MODERNIZA' in g_raw: gid = 'modernizacao'
-            
-            if gid not in stats: continue
-            
-            cat_key = 'contrato' if 'CONTRATO' in tipo_raw else 'oportunidade'
-            
-            # Soma totais
-            s = stats[gid][cat_key]
-            s['prog_h'] += h_prog
-            s['real_h'] += h_real
-            s['prog_int'] += 1 # Conta linhas (ocorrências)
-            
-            # Lógica de Realizado
-            is_realized = (h_real > 0)
-            if not is_realized and status_raw in ['1', '2', '3', 'CONCLUIDO', 'EM ANDAMENTO', '1.0', '2.0', '3.0']:
-                is_realized = True
-            
-            if is_realized: s['real_int'] += 1
+                gerencia_raw = row['gerencia_da_via'].upper()
+                ger_id = gerencia_raw.replace(' ', '_').lower()
 
-            # Agregação para Gráficos
-            dt = row['data']
-            if dt:
-                key = dt.weekday() if view_mode == 'semana' else dt.isocalendar()[1]
-                if key not in s['chart_agg']: s['chart_agg'][key] = {'p': 0.0, 'r': 0.0}
-                s['chart_agg'][key]['p'] += h_prog
-                s['chart_agg'][key]['r'] += h_real
+                if ger_id not in agg:
+                    agg[ger_id] = init_gerencia_structure(ger_id, gerencia_raw)
+                
+                # Label do Gráfico
+                if view_mode == 'hoje':
+                    time_val = row.get('inicio_real')
+                    if time_val:
+                        time_str = str(time_val)
+                        hour_prefix = time_str.split(':')[0]
+                        day_label = f"{hour_prefix}h"
+                    else:
+                        day_label = "N/I" 
+                else:
+                    row_date_str = str(row['data'])
+                    try:
+                        dt_obj = row['data'] if isinstance(row['data'], datetime) else datetime.strptime(str(row['data'])[:10], '%Y-%m-%d')
+                        day_label = dt_obj.strftime('%d/%m')
+                    except:
+                        day_label = row_date_str
 
-        # 5. Monta Resposta
-        output = []
-        titles = {
-            'ferronorte': 'Ferronorte', 'sp_norte': 'SP Norte', 
-            'sp_sul': 'SP Sul', 'central': 'Malha Central', 
-            'modernizacao': 'Modernização', 'mecanizacao': 'Mecanização'
-        }
+                process_row_for_target(row, agg[ger_id], day_label)
 
-        # Blocos Principais (Corrigido para não mostrar cards vazios)
-        for gid in [i for i in ids_order if i != 'mecanizacao']:
-            g_stats = stats[gid]
-            # Verifica se tem algum dado (programado ou realizado)
-            has_data = (g_stats['contrato']['prog_int'] > 0 or g_stats['oportunidade']['prog_int'] > 0)
+                # Mecanização
+                ativ_upper = (row['atividade'] or '').upper()
+                is_mecanizacao = any(k in ativ_upper for k in ATIVIDADES_MECANIZACAO)
+                
+                if is_mecanizacao:
+                    mec_id = 'mecanizacao_extra'
+                    if mec_id not in agg:
+                        agg[mec_id] = init_gerencia_structure(mec_id, 'MECANIZAÇÃO')
+                    process_row_for_target(row, agg[mec_id], day_label)
             
-            if has_data:
-                output.append(_build_final_object(gid, titles.get(gid, gid.title()), g_stats, view_mode))
+            final_data = []
+            for gid, data in agg.items():
+                for tkey in ['contrato', 'oportunidade']:
+                    tdata = data["types"][tkey]
+                    
+                    tdata["kpis"]["prog_h"] = round(tdata["kpis"]["prog_h"], 1)
+                    tdata["kpis"]["real_h"] = round(tdata["kpis"]["real_h"], 1)
+                    
+                    total = tdata["meta_calc"]["total_valid"]
+                    points = tdata["meta_calc"]["points"]
+                    if total > 0:
+                        tdata["percentual"] = round((points / total) * 100, 1)
+                    else:
+                        tdata["percentual"] = 0 
+                    
+                    tdata["chartData"].sort(key=lambda x: x["name"])
+                    del tdata["meta_calc"]
 
-        # Bloco Mecanização
-        mec_stats = stats['mecanizacao']
-        if (mec_stats['contrato']['prog_int'] > 0 or mec_stats['oportunidade']['prog_int'] > 0):
-             output.append(_build_final_object('mecanizacao', 'Mecanização', mec_stats, view_mode))
-
-        return output
+                final_data.append(data)
+            
+            final_data.sort(key=lambda x: (x["id"] == 'mecanizacao_extra', x["title"]))
+            
+            return final_data
 
     except Exception as e:
         print(f"🔴 Erro no OverviewService: {e}")
         return []
 
-def _init_stats():
-    return {'prog_h': 0.0, 'real_h': 0.0, 'prog_int': 0, 'real_int': 0, 'chart_agg': {}}
-
-def _build_final_object(gid, title, group_stats, view_mode):
+def init_gerencia_structure(gid, title):
     return {
         "id": gid,
         "title": title,
         "types": {
-            "contrato": _finalize_stats(group_stats['contrato'], view_mode),
-            "oportunidade": _finalize_stats(group_stats['oportunidade'], view_mode)
+            "contrato": init_type_structure(),
+            "oportunidade": init_type_structure()
         }
     }
 
-def _finalize_stats(s, view_mode):
-    percent = 0
-    if s['prog_h'] > 0:
-        percent = int((s['real_h'] / s['prog_h']) * 100)
-    
-    chart_data = []
-    if view_mode == 'semana':
-        days_map = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
-        for i in range(7):
-            val = s['chart_agg'].get(i, {'p': 0, 'r': 0})
-            chart_data.append({"name": days_map[i], "prog": round(val['p'], 1), "real": round(val['r'], 1)})
-    else:
-        for w in sorted(s['chart_agg'].keys()):
-            val = s['chart_agg'][w]
-            chart_data.append({"name": f"Sem {w}", "prog": round(val['p'], 1), "real": round(val['r'], 1)})
-
+def init_type_structure():
     return {
-        "kpis": {
-            "prog_h": round(s['prog_h'], 1), "real_h": round(s['real_h'], 1),
-            "prog_int": s['prog_int'], "real_int": s['real_int']
-        },
-        "percentual": percent,
+        "percentual": 0,
         "meta": 85,
-        "chartData": chart_data
+        "kpis": {
+            "prog_h": 0, "real_h": 0,
+            "prog_int": 0, "real_int": 0,
+            "breakdown": {
+                "concluido": 0, "parcial": 0, "andamento": 0, 
+                "nao_iniciado": 0, "cancelado": 0
+            }
+        },
+        "chartData": [],
+        "meta_calc": { "points": 0, "total_valid": 0 }
     }

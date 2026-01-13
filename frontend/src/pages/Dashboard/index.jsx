@@ -1,137 +1,71 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { AlertCircle } from 'lucide-react';
-import { useDashboard } from '../../hooks/useDashboard';
-import { getDerivedStatus } from '../../utils/dataUtils';
-import { MAINTENANCE_CONFIG } from '../../config/maintenanceConfig';
-
-import FiltersSection from '../../components/Dashboard/FiltersSection';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardContent from '../../components/Dashboard/DashboardContent';
-import MaintenanceScreen from '../../components/Common/MaintenanceScreen';
-import { useDashboardExport } from '../../hooks/useDashboardExport';
-
-const STATUS_DISPLAY_MAP = {
-  'concluido': 'Concluído',
-  'parcial': 'Parcial',
-  'andamento': 'Em Andamento',
-  'nao_iniciado': 'Não Iniciado',
-  'cancelado': 'Não Realizado'
-};
+import FiltersSection from '../../components/Dashboard/FiltersSection';
+import { getDashboardData } from '../../services/dashboardService';
+import { toast } from 'react-hot-toast';
 
 const DashboardPage = () => {
-  if (MAINTENANCE_CONFIG.dashboard) {
-    return <MaintenanceScreen moduleName="Operacional (Dashboard)" />;
-  }
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const dashboardRef = useRef(null); 
-  const { isExporting, handleExportImage } = useDashboardExport(dashboardRef);
-
-  const searchParams = new URLSearchParams(window.location.search);
-  const urlDate = searchParams.get('data');
-  const today = new Date().toISOString().split('T')[0];
-
-  // 1. CORREÇÃO: Usar apenas 'data'
   const [filters, setFilters] = useState({
-    data: urlDate || today, 
-    gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: []
+    data: new Date().toISOString().split('T')[0], 
+    gerencia: [],
+    trecho: [],
+    sub: [],
+    ativo: [],
+    atividade: [],
+    tipo: [],
+    status: []
   });
 
-  // 2. CORREÇÃO: Passar apenas filters.data para o hook
-  const { data: apiData = [], loading, error, refetch } = useDashboard(filters.data);
+  const [options, setOptions] = useState({
+    gerencia: ['FERRONORTE', 'SP_NORTE', 'SP_SUL', 'MALHA CENTRAL', 'MODERNIZACAO', 'MECANIZACAO'],
+    trecho: [], sub: [], ativo: [], atividade: [], tipo: ['CONTRATO', 'OPORTUNIDADE']
+  });
 
-  // Lógica de Cascata
-  const options = useMemo(() => {
-    if (!apiData || apiData.length === 0) return {};
-    const getOptionsFor = (targetKey) => {
-        const filteredData = apiData.filter(row => {
-            return Object.keys(filters).every(filterKey => {
-                // 3. CORREÇÃO: Ignorar 'data' na lógica de cascata
-                if (filterKey === targetKey || filterKey === 'data') return true;
-                
-                const selectedValues = filters[filterKey];
-                if (!selectedValues || selectedValues.length === 0) return true;
-                
-                let rowValue = row[filterKey];
-                if (filterKey === 'status') {
-                    const techStatus = getDerivedStatus(row);
-                    rowValue = STATUS_DISPLAY_MAP[techStatus] || "Desconhecido";
-                }
-                return selectedValues.includes(String(rowValue));
-            });
-        });
-        const uniqueValues = new Set(filteredData.map(item => item[targetKey]).filter(Boolean));
-        return [...uniqueValues].sort();
-    };
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    return {
-      gerencia: getOptionsFor('gerencia'), trecho: getOptionsFor('trecho'), sub: getOptionsFor('sub'),
-      ativo: getOptionsFor('ativo'), atividade: getOptionsFor('atividade'), tipo: getOptionsFor('tipo'),
-      status: ["Concluído", "Parcial", "Em Andamento", "Não Iniciado", "Não Realizado"]
-    };
-  }, [apiData, filters]);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getDashboardData(filters.data); 
+      setData(result || []);
+    } catch (error) {
+      console.error("Erro dashboard:", error);
+      toast.error("Erro ao atualizar dados");
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.data]); 
 
-  // Filtragem Final
-  const filteredData = useMemo(() => {
-    if (!apiData) return [];
-    return apiData.filter(row => {
-      const passFilters = Object.keys(filters).every(key => {
-         // 4. CORREÇÃO: Ignorar a chave 'data' aqui, pois a API já trouxe o dia certo
-         if (key === 'data' || !filters[key].length) return true;
-         
-         let rowVal = String(row[key]);
-         if (key === 'status') {
-             const techStatus = getDerivedStatus(row);
-             rowVal = STATUS_DISPLAY_MAP[techStatus] || "Desconhecido";
-         }
-         return filters[key].includes(rowVal);
-      });
-      if (!passFilters) return false;
-
-      if (searchTerm) {
-        const lower = searchTerm.toLowerCase();
-        return String(row.ativo || '').toLowerCase().includes(lower) ||
-               String(row.atividade || '').toLowerCase().includes(lower) ||
-               String(row.detalhe || '').toLowerCase().includes(lower);
-      }
-      return true;
-    });
-  }, [apiData, filters, searchTerm]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleClearFilters = () => {
-    setFilters(prev => ({ ...prev, gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: [] }));
-    setSearchTerm('');
+    setFilters(prev => ({
+      ...prev,
+      gerencia: [], trecho: [], sub: [], ativo: [], atividade: [], tipo: [], status: []
+    }));
   };
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-red-500 bg-white dark:bg-slate-800 rounded-xl shadow-sm m-4 border border-red-100 dark:border-red-900">
-        <AlertCircle size={48} className="mb-2 opacity-50" />
-        <p className="font-bold">Falha ao carregar dados</p>
-        <button onClick={refetch} className="mt-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">Tentar Novamente</button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-3 pb-4">
-      <FiltersSection 
-        filters={filters} 
-        setFilters={setFilters} 
-        options={options} 
-        onClear={handleClearFilters}
-        onExport={handleExportImage} 
-        isExporting={isExporting}    
-      />
-
-      <DashboardContent 
-        ref={dashboardRef}
-        loading={loading}
-        filteredData={filteredData}
-        totalRecords={apiData.length}
-        searchTerm={searchTerm}
-      />
+    // p-2: Padding pequeno nas laterais (não cola na borda, mas usa quase tudo)
+    // gap-3: Cria o espaço entre o Filtro e o DashboardContent
+    <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-900/50 flex flex-col p-2 gap-3">
+        
+        <FiltersSection 
+            filters={filters} 
+            setFilters={setFilters} 
+            options={options} 
+            onClear={handleClearFilters} 
+            onExport={() => {}} 
+            isExporting={false} 
+        />
+        
+        <div className="flex-1 w-full">
+            <DashboardContent data={data} loading={loading} />
+        </div>
     </div>
   );
 };
-
 export default DashboardPage;

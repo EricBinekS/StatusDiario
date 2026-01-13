@@ -7,15 +7,25 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
   const [activeFilter, setActiveFilter] = useState(null);
   
   const handleFilterChange = (key, newValues) => setFilters(prev => ({ ...prev, [key]: newValues }));
-  
-  // Verifica se tem filtros ativos (exceto data)
   const hasFilters = Object.keys(filters).some(k => k !== 'data' && filters[k]?.length > 0);
 
   const filterConfig = [
-    { key: 'gerencia', label: 'Gerência' }, { key: 'trecho', label: 'Trecho' },
-    { key: 'sub', label: 'Sub' }, { key: 'ativo', label: 'Ativo' },
-    { key: 'atividade', label: 'Atividade' }, { key: 'tipo', label: 'Tipo' },
+    { key: 'gerencia', label: 'Gerência' }, 
+    { key: 'trecho', label: 'Trecho' },
+    { key: 'sub', label: 'Sub' }, 
+    { key: 'ativo', label: 'Ativo' },
+    { key: 'atividade', label: 'Atividade' }, 
+    { key: 'tipo', label: 'Tipo' },
     { key: 'status', label: 'Status' },
+  ];
+
+  // Opções fixas para o banco novo
+  const STATUS_OPTS = [
+    { value: 'CONCLUIDO', label: 'Concluído' },
+    { value: 'PARCIAL', label: 'Parcial' },
+    { value: 'ANDAMENTO', label: 'Em Andamento' },
+    { value: 'NAO_INICIADO', label: 'Não Iniciado' },
+    { value: 'CANCELADO', label: 'Não Realizado' }
   ];
 
   return (
@@ -42,19 +52,24 @@ const FiltersSection = ({ filters, setFilters, options, onClear, onExport, isExp
           </div>
 
           {/* Demais Filtros */}
-          {filterConfig.map(({ key, label }) => (
-            <div key={key} className="flex flex-col gap-1 relative group">
-              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">{label}</label>
-              <div onClick={() => setActiveFilter(activeFilter === key ? null : key)}>
-                <MultiSelectFilterPlaceholder label={label} count={filters[key]?.length || 0} active={activeFilter === key} />
-              </div>
-              {activeFilter === key && (
-                <div className="absolute top-full left-0 mt-1 z-[100] w-full min-w-[200px]">
-                  <FilterPortal title={label} options={options[key] || []} selected={filters[key] || []} onChange={(vals) => handleFilterChange(key, vals)} onClose={() => setActiveFilter(null)} />
+          {filterConfig.map(({ key, label }) => {
+            // Usa as opções fixas se for Status, senão usa as opções dinâmicas
+            const currentOptions = key === 'status' ? STATUS_OPTS : (options[key] || []);
+
+            return (
+                <div key={key} className="flex flex-col gap-1 relative group">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide absolute -top-3 left-0 group-hover:text-blue-500 transition-colors">{label}</label>
+                <div onClick={() => setActiveFilter(activeFilter === key ? null : key)}>
+                    <MultiSelectFilterPlaceholder label={label} count={filters[key]?.length || 0} active={activeFilter === key} />
                 </div>
-              )}
-            </div>
-          ))}
+                {activeFilter === key && (
+                    <div className="absolute top-full left-0 mt-1 z-[100] w-full min-w-[200px]">
+                    <FilterPortal title={label} options={currentOptions} selected={filters[key] || []} onChange={(vals) => handleFilterChange(key, vals)} onClose={() => setActiveFilter(null)} />
+                    </div>
+                )}
+                </div>
+            );
+          })}
         </div>
       </div>
       

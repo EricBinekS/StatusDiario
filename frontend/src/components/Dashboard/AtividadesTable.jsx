@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
-import { getDerivedStatus } from '../../utils/dataUtils';
+import { getDerivedStatus, getStatusUI, formatDateShort } from '../../utils/dataUtils';
 import LiveTimer from './LiveTimer';
-import MobileActivityCard from './MobileActivityCard'; // <--- 1. Importar o novo componente
+import MobileActivityCard from './MobileActivityCard';
 
 const AtividadesTable = ({ data, searchTerm }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
 
-  // --- LÓGICA DE ORDENAÇÃO ---
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -22,31 +21,27 @@ const AtividadesTable = ({ data, searchTerm }) => {
   const processedData = useMemo(() => {
     let filtered = [...data];
     
-    // 1. Filtragem por Texto
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter(i => 
-        String(i.ativo).toLowerCase().includes(lower) || 
-        String(i.atividade).toLowerCase().includes(lower) || 
-        String(i.detalhamento).toLowerCase().includes(lower)
+        String(i.ativo || '').toLowerCase().includes(lower) || 
+        String(i.atividade || '').toLowerCase().includes(lower) || 
+        String(i.detalhamento || '').toLowerCase().includes(lower)
       );
     }
     
-    // 2. Ordenação
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         if (sortConfig.key === 'status') {
             const statusOrder = { 'cancelado': 0, 'nao_iniciado': 1, 'andamento': 2, 'parcial': 3, 'concluido': 4 };
-            const statusA = getDerivedStatus(a);
-            const statusB = getDerivedStatus(b);
-            const weightA = statusOrder[statusA] ?? 99;
-            const weightB = statusOrder[statusB] ?? 99;
-            if (weightA < weightB) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (weightA > weightB) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
+            const sA = getDerivedStatus(a);
+            const sB = getDerivedStatus(b);
+            const wA = statusOrder[sA] ?? 99;
+            const wB = statusOrder[sB] ?? 99;
+            return sortConfig.direction === 'asc' ? (wA - wB) : (wB - wA);
         }
-        // Ordenação Genérica
-        const getVal = (o, p) => p.split('.').reduce((x, y) => (x && x[y] !== undefined) ? x[y] : null, o);
+        
+        const getVal = (obj, key) => obj[key] !== undefined ? obj[key] : null;
         let aVal = getVal(a, sortConfig.key);
         let bVal = getVal(b, sortConfig.key);
         
@@ -63,17 +58,17 @@ const AtividadesTable = ({ data, searchTerm }) => {
     return filtered;
   }, [data, sortConfig, searchTerm]);
 
-  // Cores das Bolinhas de Status (Desktop)
-  const getStatusColorClass = (row) => {
-    const status = getDerivedStatus(row);
-    switch (status) {
+  // Cores das bolinhas (Estilo Original)
+  const getDotColor = (row) => {
+      const st = getDerivedStatus(row);
+      switch (st) {
         case 'concluido': return 'bg-[#28a745] ring-[#28a745]'; 
         case 'cancelado': return 'bg-[#ef4444] ring-[#ef4444]'; 
         case 'parcial': return 'bg-[#fd7e14] ring-[#fd7e14]';   
         case 'andamento': return 'bg-[#ffc107] ring-[#ffc107]'; 
         case 'nao_iniciado': return 'bg-[#6c757d] ring-[#6c757d]'; 
         default: return 'bg-[#6c757d] ring-[#6c757d]';
-    }
+      }
   };
 
   const SortableHeader = ({ label, sortKey, width, colorClass, borderRight = true }) => (
@@ -84,15 +79,16 @@ const AtividadesTable = ({ data, searchTerm }) => {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* --- VERSÃO DESKTOP --- */}
+      {/* DESKTOP */}
       <div className="hidden md:block w-full overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-[0_2px_15px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-slate-700">
         <table className="w-full border-collapse table-fixed min-w-[1000px]">
           <thead>
             <tr className="text-[11px] border-b-2 border-[#d1d5db] dark:border-slate-600">
               <SortableHeader label="Data / Status" sortKey="status" width="w-[8%]" colorClass="bg-[#E6E6FA]" />
               <th className="w-[18%] bg-[#9eb0be] dark:bg-slate-500 py-3 px-1 border-r border-[#e5e7eb] dark:border-slate-600 text-[#062e4e] dark:text-white font-bold">Identificador<br/><span className="text-[9px] font-normal opacity-80">Ativo | Atividade</span></th>
-              <SortableHeader label={<span>Início<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="inicio.prog" width="w-[10%]" colorClass="bg-[#8acaba]" />
-              <SortableHeader label={<span>Tempo<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="tempo.real" width="w-[10%]" colorClass="bg-[#a7fa97]" />
+              {/* Note que as chaves de ordenação agora usam underline (_) em vez de ponto (.) */}
+              <SortableHeader label={<span>Início<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="inicio_prog" width="w-[10%]" colorClass="bg-[#8acaba]" />
+              <SortableHeader label={<span>Tempo<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></span>} sortKey="tempo_real" width="w-[10%]" colorClass="bg-[#a7fa97]" />
               <th className="w-[12%] bg-[#a7fa97] dark:bg-emerald-200/80 py-3 px-1 border-r border-[#e5e7eb] dark:border-slate-600 text-[#062e4e] dark:text-slate-900 font-bold">Local<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></th>
               <th className="w-[10%] bg-[#a7fa97] dark:bg-emerald-200/80 py-3 px-1 border-r border-[#e5e7eb] dark:border-slate-600 text-[#062e4e] dark:text-slate-900 font-bold">Quantidade<br/><span className="text-[9px] font-normal opacity-80">Prog | Real</span></th>
               <th className="w-[32%] bg-[#fc9254] dark:bg-orange-300/80 py-3 px-1 text-[#062e4e] dark:text-slate-900 font-bold">Detalhamento</th>
@@ -111,19 +107,34 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </tr>
             ) : (
                 processedData.map((row) => {
-                  const statusAtual = getDerivedStatus(row); 
-                  const temInicio = row.inicio.real && row.inicio.real !== '--:--';
-                  const isAndamento = statusAtual === 'andamento' || row.status === 'Em andamento';
-                  const isBloco = row.tempo.prog === '00:01';
+                  const statusAtual = getDerivedStatus(row);
+                  
+                  // --- CORREÇÃO DO ERRO ---
+                  // Mapeia as chaves planas do backend para variáveis locais
+                  // Isso evita o erro "reading 'real' of undefined"
+                  const inicioReal = row.inicio_real || '--:--';
+                  const inicioProg = row.inicio_prog || '--:--';
+                  const tempoReal = row.tempo_real || '--:--';
+                  const tempoProg = row.tempo_prog || '--:--';
+                  
+                  const localReal = row.local_real || '-';
+                  const localProg = row.local_prog || '-';
+                  
+                  const quantReal = row.producao_real || '-';
+                  const quantProg = row.producao_prog || '-';
+
+                  const temInicio = inicioReal && inicioReal !== '--:--';
+                  const isAndamento = statusAtual === 'andamento';
+                  const isBloco = tempoProg === '00:01';
                   const showTimer = isAndamento && temInicio && !isBloco;
 
                   return (
                   <tr key={row.id} className="border-b border-[#f3f4f6] dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors group">
                     <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{row.data}</span>
+                        <span className="font-bold tabular-nums tracking-tight dark:text-slate-200">{formatDateShort(row.data)}</span>
                         <span className="text-gray-300 dark:text-slate-600">|</span>
-                        <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getStatusColorClass(row)}`}></div>
+                        <div className={`w-3 h-3 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-800 ${getDotColor(row)}`}></div>
                       </div>
                     </td>
                     
@@ -136,10 +147,11 @@ const AtividadesTable = ({ data, searchTerm }) => {
                     
                     <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                       <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
-                        <span className="text-gray-600 dark:text-gray-400">{row.inicio.prog}</span>
+                        {/* Usando a variável corrigida */}
+                        <span className="text-gray-600 dark:text-gray-400">{inicioProg}</span>
                         <span className="text-gray-300 dark:text-slate-600">|</span>
                         <span className={temInicio ? 'text-gray-700 dark:text-gray-200 font-bold' : 'text-gray-400 dark:text-slate-600'}> 
-                          {row.inicio.real}
+                          {inicioReal}
                         </span>
                       </div>
                     </td>
@@ -152,17 +164,17 @@ const AtividadesTable = ({ data, searchTerm }) => {
                             </span>
                         ) : (
                             <div className="flex justify-center gap-1.5 font-mono font-medium tabular-nums">
-                                <span className="text-gray-600 dark:text-gray-400">{row.tempo.prog}</span>
+                                <span className="text-gray-600 dark:text-gray-400">{tempoProg}</span>
                                 <span className="text-gray-300 dark:text-slate-600">|</span>
                                 {showTimer ? (
                                     <LiveTimer 
-                                        startTime={row.inicio.real} 
+                                        startTime={inicioReal} 
                                         dateRef={row.data} 
-                                        scheduledDuration={row.tempo.prog} 
+                                        scheduledDuration={tempoProg} 
                                     />
                                 ) : (
-                                    <span className={`font-bold ${row.tempo.real === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
-                                    {row.tempo.real}
+                                    <span className={`font-bold ${tempoReal === '--:--' ? 'text-gray-400 dark:text-slate-600' : 'text-gray-700 dark:text-gray-200'}`}>
+                                    {tempoReal}
                                     </span>
                                 )}
                             </div>
@@ -172,17 +184,17 @@ const AtividadesTable = ({ data, searchTerm }) => {
                     
                     <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                       <div className="flex justify-center gap-1.5 text-[10px]">
-                        <span className="text-gray-600 dark:text-gray-400">{row.local.prog}</span>
+                        <span className="text-gray-600 dark:text-gray-400">{localProg}</span>
                         <span className="text-gray-300 dark:text-slate-600">|</span>
-                        <span className="font-bold text-gray-700 dark:text-gray-200">{row.local.real}</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">{localReal}</span>
                       </div>
                     </td>
                     
                     <td className="bg-[#fcfcfd] dark:bg-slate-800 group-hover:bg-gray-50 dark:group-hover:bg-slate-700 py-1.5 px-2 border-r border-[#f3f4f6] dark:border-slate-700">
                       <div className="flex justify-center gap-1.5 font-medium tabular-nums">
-                        <span className="text-gray-600 dark:text-gray-400">{row.quant.prog}</span>
+                        <span className="text-gray-600 dark:text-gray-400">{quantProg}</span>
                         <span className="text-gray-300 dark:text-slate-600">|</span>
-                        <span className="font-bold text-gray-700 dark:text-gray-200">{row.quant.real}</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">{quantReal}</span>
                       </div>
                     </td>
                     
@@ -199,7 +211,7 @@ const AtividadesTable = ({ data, searchTerm }) => {
         </table>
       </div>
 
-      {/* --- VERSÃO MOBILE (Modularizada) --- */}
+      {/* MOBILE */}
       <div className="md:hidden flex flex-col gap-3">
         {processedData.length === 0 ? (
              <div className="py-12 text-center text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
@@ -209,7 +221,6 @@ const AtividadesTable = ({ data, searchTerm }) => {
                 </div>
             </div>
         ) : (
-            // 2. Usando o Componente Novo
             processedData.map((row) => (
                 <MobileActivityCard key={row.id} row={row} />
             ))

@@ -10,7 +10,6 @@ const KPICards = ({ data }) => {
 
     const validData = data.filter(r => r);
 
-    // Contadores para os Cards Individuais (Mantém contagem total para exibição)
     let realizados = 0;
     let parcial = 0;
     let andamento = 0;
@@ -18,6 +17,7 @@ const KPICards = ({ data }) => {
     let cancelados = 0;
 
     validData.forEach(row => {
+        // Usa a função utilitária para normalizar o status do banco
         const status = getDerivedStatus(row);
         
         switch(status) {
@@ -30,33 +30,25 @@ const KPICards = ({ data }) => {
         }
     });
 
-    // --- CÁLCULO DE ADERÊNCIA (LÓGICA AJUSTADA) ---
-    
+    // --- CÁLCULO DE ADERÊNCIA ---
     const atividadesIgnoradas = [
       "DESLOCAMENTO", "DETECÇÃO - CARRO CONTROLE", "DETECÇÃO - RONDA 7 DIAS",
       "DETECÇÃO - ULTRASSOM - SPERRY", "INSPEÇÃO RIV", "INSPEÇÃO AUTO DE LINHA"
     ];
 
-    // 1. Filtra atividades ignoradas (Mecanização, Deslocamento, etc)
     const dataConsiderada = validData.filter(r => 
         r.atividade && !atividadesIgnoradas.some(ign => r.atividade.toUpperCase().includes(ign))
     );
     
     let pontos = 0;
-    let totalValido = 0; // Novo denominador que exclui 'Andamento' e 'Não Iniciado'
+    let totalValido = 0;
 
     dataConsiderada.forEach(row => {
         const st = getDerivedStatus(row);
-        
-        // Regra de Ouro: Só conta para o cálculo se já teve um desfecho (Bom ou Ruim)
-        // Ignora 'andamento' e 'nao_iniciado'
         if (['concluido', 'parcial', 'cancelado'].includes(st)) {
-             totalValido++; // Entra para o denominador
-             
-             // Pontuação para o numerador
+             totalValido++;
              if (st === 'concluido') pontos += 1.0;
              else if (st === 'parcial') pontos += 0.5;
-             // 'cancelado' soma 0 pontos, mas contou no totalValido (pune a média)
         }
     });
 
