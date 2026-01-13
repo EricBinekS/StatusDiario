@@ -1,20 +1,18 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
-import { useIsAuthenticated, useMsal } from "@azure/msal-react"; // <--- ADICIONE useMsal
-import { InteractionStatus } from "@azure/msal-browser"; // <--- ADICIONE InteractionStatus
+import { useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { InteractionStatus } from "@azure/msal-browser"; 
 import MainLayout from './layouts/MainLayout';
 import DashboardPage from './pages/Dashboard/index';
 import OverviewPage from './pages/Overview/index';
 import LoginPage from './pages/Login/index';
-import LoadingSpinner from './components/Common/LoadingSpinner'; // Opcional: para ficar bonito
+import LoadingSpinner from './components/Common/LoadingSpinner'; 
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
-  const { inProgress } = useMsal(); // Verifica se o login está rodando
+  const { inProgress } = useMsal();
   const [searchParams] = useSearchParams();
   
-  // 1. SE AINDA ESTIVER PROCESSANDO, ESPERA!
-  // Se não colocar isso, ele redireciona para login antes da hora.
   if (inProgress !== InteractionStatus.None) {
       return <div className="h-screen flex items-center justify-center"><LoadingSpinner message="Validando acesso..." /></div>;
   }
@@ -33,7 +31,6 @@ const PublicRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
   const { inProgress } = useMsal();
 
-  // 2. MESMA COISA AQUI: Não mostre o botão de login se ele já estiver tentando logar sozinho
   if (inProgress !== InteractionStatus.None) {
     return <div className="h-screen flex items-center justify-center"><LoadingSpinner message="Entrando..." /></div>;
   }
