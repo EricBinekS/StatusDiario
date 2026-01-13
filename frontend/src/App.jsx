@@ -1,24 +1,27 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
-import { useIsAuthenticated, useMsal } from "@azure/msal-react"; 
+import { useIsAuthenticated, useMsal } from "@azure/msal-react"; // <--- ADICIONE useMsal
+import { InteractionStatus } from "@azure/msal-browser"; // <--- ADICIONE InteractionStatus
 import MainLayout from './layouts/MainLayout';
 import DashboardPage from './pages/Dashboard/index';
 import OverviewPage from './pages/Overview/index';
 import LoginPage from './pages/Login/index';
-import { InteractionStatus } from "@azure/msal-browser"; 
+import LoadingSpinner from './components/Common/LoadingSpinner'; // Opcional: para ficar bonito
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
-  const { inProgress } = useMsal();
-
+  const { inProgress } = useMsal(); // Verifica se o login está rodando
+  const [searchParams] = useSearchParams();
+  
+  // 1. SE AINDA ESTIVER PROCESSANDO, ESPERA!
+  // Se não colocar isso, ele redireciona para login antes da hora.
   if (inProgress !== InteractionStatus.None) {
-      return <div className="min-h-screen flex items-center justify-center">Carregando autenticação...</div>;
+      return <div className="h-screen flex items-center justify-center"><LoadingSpinner message="Validando acesso..." /></div>;
   }
   
-  const [searchParams] = useSearchParams();
   const botKey = searchParams.get('bot_key');
   const isBotAuthorized = botKey && (botKey === import.meta.env.VITE_BOT_BYPASS_KEY);
-
+  
   if (!isAuthenticated && !isBotAuthorized) {
     return <Navigate to="/login" replace />;
   }
@@ -30,8 +33,9 @@ const PublicRoute = ({ children }) => {
   const isAuthenticated = useIsAuthenticated();
   const { inProgress } = useMsal();
 
+  // 2. MESMA COISA AQUI: Não mostre o botão de login se ele já estiver tentando logar sozinho
   if (inProgress !== InteractionStatus.None) {
-      return <div className="min-h-screen flex items-center justify-center">Verificando acesso...</div>;
+    return <div className="h-screen flex items-center justify-center"><LoadingSpinner message="Entrando..." /></div>;
   }
 
   if (isAuthenticated) {
