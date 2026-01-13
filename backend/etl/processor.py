@@ -143,7 +143,7 @@ def process_dataframe(df):
                     # Cálculo de Percentual de Aderência à Produção
                     percent = p_real / p_prog
                     
-                    if percent <= 0.50: return 'CANCELADO'
+                    if percent <= 0.49: return 'CANCELADO'
                     elif percent <= 0.90: return 'PARCIAL'
                     else: return 'CONCLUIDO'
                 
