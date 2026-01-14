@@ -2,7 +2,13 @@ import pandas as pd
 import numpy as np
 import hashlib
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
+# Importa as regras de negócio
+from backend.business_rules import (
+    COL_MAPPINGS, ATIVIDADES_IGNORADAS, GERENCIAS_IGNORADAS, 
+    ATIVOS_IGNORADOS, ATIVOS_MODERNIZACAO, ATIVIDADES_MODERNIZACAO,
+    calculate_status_from_production
+)
 
 def clean_column_names(header_row):
     """Retorna nomes limpos e únicos para o cabeçalho."""
@@ -46,17 +52,6 @@ def find_column(df, candidates):
                 return col
     return None
 
-def parse_time_to_hours(val):
-    if pd.isna(val) or val == '': return 0.0
-    try:
-        val_str = str(val).strip()
-        if ':' in val_str:
-            parts = val_str.split(':')
-            return float(parts[0]) + float(parts[1])/60.0
-        return float(str(val).replace(',', '.'))
-    except:
-        return 0.0
-
 def process_dataframe(df):
     try:
         # 1. FILTRAR LINHAS VAZIAS E RENOMEAR COLUNA ATIVO
@@ -67,47 +62,21 @@ def process_dataframe(df):
             df = df[df[col_ativo].astype(str).str.strip() != '']
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
         
-        # 2. MAPEAMENTO DE COLUNAS
-        col_mappings = {
-            'status': ['status', 'status_operacional', 'farol'],
-            'status_1': ['status_1', 'previa___1', 'previa_1', 'previa', 'comentario_1'],
-            'status_2': ['status_2', 'previa___2', 'previa_2', 'comentario_2', 'observacao_2'],
-            'inicio_prog': ['inicia', 'inicio_prog', 'inicio_previsto'],
-            'inicio_real': ['inicio', 'inicio_real'],
-            'fim_real': ['fim', 'fim_real', 'termino'],
-            'tempo_prog': ['duracao', 'tempo_prog', 'janela'],
-            'tempo_real': ['total', 'tempo_real', 'tempo_gasto'],
-            'local_prog': ['sb', 'local_prog'],
-            'local_real': ['sb_4', 'local_real'],
-            'sub_trecho': ['sub_5', 'sub_trecho'],
-            'trecho_da_via': ['coordenacao_da_via_14', 'trecho_da_via', 'trecho'],
-            'gerencia_da_via': ['gerencia', 'gerencia_da_via'],
-            'producao_prog': ['quantidade', 'producao_prog'],
-            'producao_real': ['quantidade_11', 'producao_real'],
-            'tipo': ['programar_para_d+1', 'tipo', 'classificacao'],
-            'data': ['data_atividade', 'data']
-        }
-
+        # 2. MAPEAMENTO DE COLUNAS 
         rename_dict = {}
-        for target, candidates in col_mappings.items():
+        for target, candidates in COL_MAPPINGS.items():
             found = find_column(df, candidates)
             if found:
                 rename_dict[found] = target
         
+        for source, target in rename_dict.items():
+            if target in df.columns and source != target:
+                df.drop(columns=[target], inplace=True)
+        # --------------------------------------------
+
         df.rename(columns=rename_dict, inplace=True)
 
         # 3. FILTROS DE NEGÓCIO
-        ATIVIDADES_IGNORADAS = [
-            "MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", 
-            "INSPEÇÃO AUTO DE LINHA", "EXPANSÃO - ALÍVIO DE TENSÃO", "EXPANSÃO - AMV - JACARÉ", 
-            "EXPANSÃO - AMV - MEIA CHAVE", "EXPANSÃO - DESCARGA - TRILHO", "EXPANSÃO - DORMENTE - CARGA", 
-            "EXPANSÃO - DORMENTE - DESCARGA", "EXPANSÃO - OUTRA ATIVIDADE", "EXPANSÃO - TRILHEIRO - DESCARGA", 
-            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA", "EXPANSÃO - SOLDA"
-        ]
-        GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
-        
-        ATIVOS_IGNORADOS = ["V66"] 
-
         if 'atividade' in df.columns:
             pattern = '|'.join([re.escape(x) for x in ATIVIDADES_IGNORADAS])
             df = df[~df['atividade'].astype(str).str.contains(pattern, case=False, na=False)]
@@ -116,53 +85,33 @@ def process_dataframe(df):
             pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
             df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
 
-        # Lógica para ignorar Ativos
         if 'ativo' in df.columns and ATIVOS_IGNORADOS:
             pattern_ativo = '|'.join([re.escape(x) for x in ATIVOS_IGNORADOS])
             if pattern_ativo:
                 df = df[~df['ativo'].astype(str).str.contains(pattern_ativo, case=False, na=False)]
 
-        # 4. TRATAMENTO DE STATUS (REGRA DE PRODUÇÃO APLICADA AQUI)
+        # 4. TRATAMENTO DE STATUS
         if 'status' not in df.columns:
             df['status'] = 'NAO_INICIADO'
         else:
-            def apply_status_rules(row):
-                raw = row.get('status')
-                if pd.isna(raw) or str(raw).strip() == '': return 'NAO_INICIADO'
-                try: st = int(float(raw))
-                except: return 'NAO_INICIADO'
-                
-                if st == 0: return 'CANCELADO'
-                if st == 1: return 'ANDAMENTO'
-                
-                # Regra de Auditoria (Status 2) baseada em PRODUÇÃO
-                if st == 2:
-                    def parse_prod(val):
-                        try:
-                            if pd.isna(val) or str(val).strip() == '': return 0.0
-                            return float(str(val).replace(',', '.'))
-                        except:
-                            return 0.0
+            def _wrapper_status(row):
+                raw_status = row.get('status')
+                if pd.isna(raw_status) or str(raw_status).strip() == '': 
+                    return 'NAO_INICIADO'
 
-                    # Pega Produção Programada vs Real
-                    p_prog = parse_prod(row.get('producao_prog'))
-                    p_real = parse_prod(row.get('producao_real'))
-                    
-                    # Se não tinha meta de produção (0), mas produziu algo -> Concluído
-                    # Se não tinha meta e não produziu nada -> Cancelado
-                    if p_prog == 0: 
-                        return 'CONCLUIDO' if p_real > 0 else 'CANCELADO'
-                    
-                    # Cálculo de Percentual de Aderência à Produção
-                    percent = p_real / p_prog
-                    
-                    if percent <= 0.49: return 'CANCELADO'
-                    elif percent <= 0.90: return 'PARCIAL'
-                    else: return 'CONCLUIDO'
-                
-                return 'NAO_INICIADO'
+                def parse_prod(val):
+                    try:
+                        if pd.isna(val) or str(val).strip() == '': return 0.0
+                        return float(str(val).replace(',', '.'))
+                    except:
+                        return 0.0
 
-            df['status'] = df.apply(apply_status_rules, axis=1)
+                p_prog = parse_prod(row.get('producao_prog'))
+                p_real = parse_prod(row.get('producao_real'))
+                
+                return calculate_status_from_production(raw_status, p_prog, p_real)
+
+            df['status'] = df.apply(_wrapper_status, axis=1)
 
         # 5. CÁLCULO FIM PROGRAMADO
         if 'inicio_prog' in df.columns and 'tempo_prog' in df.columns:
@@ -181,29 +130,14 @@ def process_dataframe(df):
             df['fim_prog'] = None
 
         # 6. REGRA MODERNIZAÇÃO
-        ativos_modernizacao = [
-            "ModernizaçãoTURMA2", "ModernizaçãoLASTRO2", "MOD ZYQ ZWI", "MOD ZWU ZDC",
-            "MODERNIZAÇÃO TURMA 2", "MOD ZDG PAT", "MOD ZRB ZEV", "MOD ZEM",
-            "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN", "MOD SPN",
-        ]
-        
         if 'ativo' not in df.columns: df['ativo'] = ''
         if 'gerencia_da_via' not in df.columns: df['gerencia_da_via'] = None
-
-        mask_mod = df['ativo'].astype(str).str.strip().isin(ativos_modernizacao)
-        df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
-
-        # 6.1 REGRA MODERNIZAÇÃO POR ATIVIDADE
-        atividades_modernizacao = [
-            "MODERNIZAÇÃO - PEDRA - DESCARGA", "MODERNIZAÇÃO - OUTRA ATIVIDADE",
-            "MODERNIZAÇÃO - SOLDA", "MODERNIZAÇÃO - RECOLHIMENTO DE DORMENTE",
-            "MODERNIZAÇÃO - TRILHO - DESCARGA", "MODERNIZAÇÃO - SOCADORA",
-            "MODERNIZAÇÃO - DORMENTE - DESCARGA", "MODERNIZAÇÃO - SUBSTITUIÇÃO DE DORMENTE",
-            "MODERNIZAÇÃO - PEDRA - CARGA", "MODERNIZAÇÃO - DESCARGA - TRILHO"
-        ]
-
         if 'atividade' not in df.columns: df['atividade'] = ''
-        mask_mod_atividade = df['atividade'].astype(str).str.strip().isin(atividades_modernizacao)
+
+        mask_mod_ativo = df['ativo'].astype(str).str.strip().isin(ATIVOS_MODERNIZACAO)
+        df.loc[mask_mod_ativo, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
+
+        mask_mod_atividade = df['atividade'].astype(str).str.strip().isin(ATIVIDADES_MODERNIZACAO)
         df.loc[mask_mod_atividade, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
         # 7. LIMPEZA E PREPARAÇÃO FINAL

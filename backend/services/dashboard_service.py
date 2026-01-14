@@ -2,6 +2,7 @@ from sqlalchemy import text
 from backend.db.connection import get_db_engine
 from datetime import datetime, date
 import re
+from backend.business_rules import select_display_message, is_valid_entry, SQL_CONSTANTS
 
 def get_last_migration_time():
     engine = get_db_engine()
@@ -12,64 +13,12 @@ def get_last_migration_time():
     except:
         return None
 
-def is_valid_entry(value):
-    if value is None: return False
-    s = str(value).strip()
-    if not s: return False
-    if s in ['-', '--', '.', '?', 'N/A', 'NULL', '0']: return False
-    if re.match(r'^[\W_]+$', s): return False
-    return True
-
-def determine_detalhamento(row):
-    """
-    Define qual status mostrar (1 ou 2) com base na data e hora atual.
-    """
-    s1 = row.get('status_1') or ''
-    s2 = row.get('status_2') or ''
-    
-    row_date = row.get('data')
-    
-    # --- CORREÇÃO DO ERRO ---
-    # Se for datetime, pega só a data (.date())
-    if isinstance(row_date, datetime):
-        row_date = row_date.date()
-    # Se for string, tenta converter
-    elif isinstance(row_date, str):
-        try:
-            row_date = datetime.strptime(row_date, '%Y-%m-%d').date()
-        except:
-            pass # Se falhar, vai cair no fallback abaixo
-            
-    today = datetime.now().date()
-    current_hour = datetime.now().hour
-    
-    # Fallback de segurança: se ainda não for date, assume hoje
-    if not isinstance(row_date, date):
-        row_date = today
-
-    # Lógica de Seleção
-    if row_date < today:
-        # Passado: Prioriza o fechamento (2)
-        return s2 if s2 else s1
-        
-    elif row_date > today:
-        # Futuro: Planejamento (1)
-        return s1
-        
-    else:
-        # Hoje: Corte às 13h
-        if current_hour >= 13:
-            return s2 if s2 else s1
-        else:
-            return s1
-
 def get_dashboard_data(filters=None):
     engine = get_db_engine()
     if not engine: return []
 
     filters = filters or {}
     
-    # Query buscando status_1 e status_2 explicitamente
     sql = """
         SELECT 
             id, gerencia_da_via, trecho_da_via, sub_trecho, atividade, tipo, data, status,
@@ -107,8 +56,10 @@ def get_dashboard_data(filters=None):
 
     if filters.get('tipo'):
         tipo_term = filters['tipo'].upper()
-        if tipo_term == 'CONTRATO': sql += " AND tipo LIKE '%CONTRATO%'"
-        elif tipo_term == 'OPORTUNIDADE': sql += " AND tipo NOT LIKE '%CONTRATO%'"
+        if tipo_term == 'CONTRATO': 
+            sql += f" AND tipo LIKE '{SQL_CONSTANTS['contract_pattern']}'"
+        elif tipo_term == 'OPORTUNIDADE': 
+            sql += f" AND tipo NOT LIKE '{SQL_CONSTANTS['contract_pattern']}'"
 
     sql += " ORDER BY data DESC, inicio_prog ASC LIMIT 2000"
 
@@ -125,21 +76,20 @@ def get_dashboard_data(filters=None):
                 if not is_valid_entry(item.get('gerencia_da_via')):
                     continue
                 
-                # Campos auxiliares para filtros do frontend
                 item['trecho'] = item.get('trecho_da_via')
                 item['sub'] = item.get('sub_trecho')
                 
-                # --- APLICA A REGRA DE DETALHAMENTO COM A CORREÇÃO ---
-                item['detalhamento'] = determine_detalhamento(item)
-                # -----------------------------------------------------
-
-                # Formata Data para string antes de enviar pro JSON
+                item['detalhamento'] = select_display_message(
+                    item.get('data'), 
+                    item.get('status_1'), 
+                    item.get('status_2')
+                )
+                
                 if isinstance(item.get('data'), (datetime, date)):
                     item['data'] = item['data'].strftime('%Y-%m-%d')
                 else:
                     item['data'] = str(item['data'])
                 
-                # Formata Horas
                 time_cols = ['inicio_prog', 'inicio_real', 'fim_prog', 'fim_real', 'tempo_prog', 'tempo_real']
                 for col in time_cols:
                     val = item.get(col)
