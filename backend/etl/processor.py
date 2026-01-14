@@ -102,11 +102,10 @@ def process_dataframe(df):
             "INSPEÇÃO AUTO DE LINHA", "EXPANSÃO - ALÍVIO DE TENSÃO", "EXPANSÃO - AMV - JACARÉ", 
             "EXPANSÃO - AMV - MEIA CHAVE", "EXPANSÃO - DESCARGA - TRILHO", "EXPANSÃO - DORMENTE - CARGA", 
             "EXPANSÃO - DORMENTE - DESCARGA", "EXPANSÃO - OUTRA ATIVIDADE", "EXPANSÃO - TRILHEIRO - DESCARGA", 
-            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA"
+            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA", "EXPANSÃO - SOLDA"
         ]
         GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
         
-        # --- NOVO FILTRO: ATIVOS IGNORADOS ---
         ATIVOS_IGNORADOS = ["V66"] 
 
         if 'atividade' in df.columns:
