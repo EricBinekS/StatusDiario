@@ -5,18 +5,23 @@ import { getDashboardData } from '../../services/dashboardService';
 import { toast } from 'react-hot-toast';
 
 const DashboardPage = () => {
-  const [filters, setFilters] = useState({
-    data: new Date().toISOString().split('T')[0], 
-    gerencia: [],
-    trecho: [],
-    sub: [],
-    ativo: [],
-    atividade: [],
-    tipo: [],
-    status: []
+  // CORREÇÃO: Inicialização lazy para capturar a data da URL (enviada pelo Bot)
+  const [filters, setFilters] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlDate = searchParams.get('data');
+    
+    return {
+      data: urlDate || new Date().toISOString().split('T')[0], 
+      gerencia: [],
+      trecho: [],
+      sub: [],
+      ativo: [],
+      atividade: [],
+      tipo: [],
+      status: []
+    };
   });
 
-  // CORREÇÃO: Gerências iniciam vazias para serem preenchidas pelo banco
   const [options, setOptions] = useState({
     gerencia: [],
     trecho: [], sub: [], ativo: [], atividade: [], tipo: ['CONTRATO', 'OPORTUNIDADE']
