@@ -97,8 +97,17 @@ def process_dataframe(df):
         df.rename(columns=rename_dict, inplace=True)
 
         # 3. FILTROS DE NEGÓCIO
-        ATIVIDADES_IGNORADAS = ["MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", "INSPEÇÃO AUTO DE LINHA"]
+        ATIVIDADES_IGNORADAS = [
+            "MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", 
+            "INSPEÇÃO AUTO DE LINHA", "EXPANSÃO - ALÍVIO DE TENSÃO", "EXPANSÃO - AMV - JACARÉ", 
+            "EXPANSÃO - AMV - MEIA CHAVE", "EXPANSÃO - DESCARGA - TRILHO", "EXPANSÃO - DORMENTE - CARGA", 
+            "EXPANSÃO - DORMENTE - DESCARGA", "EXPANSÃO - OUTRA ATIVIDADE", "EXPANSÃO - TRILHEIRO - DESCARGA", 
+            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA"
+        ]
         GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
+        
+        # --- NOVO FILTRO: ATIVOS IGNORADOS ---
+        ATIVOS_IGNORADOS = ["V66"] 
 
         if 'atividade' in df.columns:
             pattern = '|'.join([re.escape(x) for x in ATIVIDADES_IGNORADAS])
@@ -107,6 +116,12 @@ def process_dataframe(df):
         if 'gerencia_da_via' in df.columns:
             pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
             df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
+
+        # Lógica para ignorar Ativos
+        if 'ativo' in df.columns and ATIVOS_IGNORADOS:
+            pattern_ativo = '|'.join([re.escape(x) for x in ATIVOS_IGNORADOS])
+            if pattern_ativo:
+                df = df[~df['ativo'].astype(str).str.contains(pattern_ativo, case=False, na=False)]
 
         # 4. TRATAMENTO DE STATUS (REGRA DE PRODUÇÃO APLICADA AQUI)
         if 'status' not in df.columns:
@@ -135,8 +150,7 @@ def process_dataframe(df):
                     p_real = parse_prod(row.get('producao_real'))
                     
                     # Se não tinha meta de produção (0), mas produziu algo -> Concluído
-                    # Se não tinha meta e não produziu nada -> Cancelado (ou mantemos concluido se for apenas encerramento?)
-                    # Regra anterior adaptada: 
+                    # Se não tinha meta e não produziu nada -> Cancelado
                     if p_prog == 0: 
                         return 'CONCLUIDO' if p_real > 0 else 'CANCELADO'
                     
