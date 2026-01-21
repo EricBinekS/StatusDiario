@@ -96,13 +96,18 @@ def process_dataframe(df):
         
         df.rename(columns=rename_dict, inplace=True)
 
+        if 'data' in df.columns:
+            df = df.dropna(subset=['data'])
+            df = df[df['data'].astype(str).str.strip() != '']
+
         # 3. FILTROS DE NEGÓCIO
         ATIVIDADES_IGNORADAS = [
             "MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", 
             "INSPEÇÃO AUTO DE LINHA", "EXPANSÃO - ALÍVIO DE TENSÃO", "EXPANSÃO - AMV - JACARÉ", 
             "EXPANSÃO - AMV - MEIA CHAVE", "EXPANSÃO - DESCARGA - TRILHO", "EXPANSÃO - DORMENTE - CARGA", 
             "EXPANSÃO - DORMENTE - DESCARGA", "EXPANSÃO - OUTRA ATIVIDADE", "EXPANSÃO - TRILHEIRO - DESCARGA", 
-            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA", "EXPANSÃO - SOLDA"
+            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA", "EXPANSÃO - SOLDA",
+            "EXPANSÃO - SOCADORA"
         ]
         GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
         
@@ -116,13 +121,12 @@ def process_dataframe(df):
             pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
             df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
 
-        # Lógica para ignorar Ativos
         if 'ativo' in df.columns and ATIVOS_IGNORADOS:
             pattern_ativo = '|'.join([re.escape(x) for x in ATIVOS_IGNORADOS])
             if pattern_ativo:
                 df = df[~df['ativo'].astype(str).str.contains(pattern_ativo, case=False, na=False)]
 
-        # 4. TRATAMENTO DE STATUS (REGRA DE PRODUÇÃO APLICADA AQUI)
+        # 4. TRATAMENTO DE STATUS
         if 'status' not in df.columns:
             df['status'] = 'NAO_INICIADO'
         else:
@@ -135,7 +139,6 @@ def process_dataframe(df):
                 if st == 0: return 'CANCELADO'
                 if st == 1: return 'ANDAMENTO'
                 
-                # Regra de Auditoria (Status 2) baseada em PRODUÇÃO
                 if st == 2:
                     def parse_prod(val):
                         try:
@@ -144,16 +147,12 @@ def process_dataframe(df):
                         except:
                             return 0.0
 
-                    # Pega Produção Programada vs Real
                     p_prog = parse_prod(row.get('producao_prog'))
                     p_real = parse_prod(row.get('producao_real'))
                     
-                    # Se não tinha meta de produção (0), mas produziu algo -> Concluído
-                    # Se não tinha meta e não produziu nada -> Cancelado
                     if p_prog == 0: 
                         return 'CONCLUIDO' if p_real > 0 else 'CANCELADO'
                     
-                    # Cálculo de Percentual de Aderência à Produção
                     percent = p_real / p_prog
                     
                     if percent <= 0.49: return 'CANCELADO'
@@ -234,7 +233,7 @@ def process_dataframe(df):
             df['data'].astype(str) + "-" + 
             df['ativo'].astype(str)
         )
-        df['row_hash'] = df['hash_source'].apply(lambda x: hashlib.md5(x.encode()).hexdigest())
+        df['row_hash'] = df['hash_source'].apply(lambda x: hashlib.md5(str(x).encode()).hexdigest())
 
         return df[required_columns]
 
