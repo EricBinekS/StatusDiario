@@ -101,17 +101,9 @@ def process_dataframe(df):
             df = df[df['data'].astype(str).str.strip() != '']
 
         # 3. FILTROS DE NEGÓCIO
-        ATIVIDADES_IGNORADAS = [
-            "MECANIZAÇÃO - ESMERILHADORA", "DESLOCAMENTO", "DETECÇÃO - RONDA 7 DIAS", 
-            "INSPEÇÃO AUTO DE LINHA", "INSPEÇÃO", "EXPANSÃO - ALÍVIO DE TENSÃO", "EXPANSÃO - AMV - JACARÉ", 
-            "EXPANSÃO - AMV - MEIA CHAVE", "EXPANSÃO - DESCARGA - TRILHO", "EXPANSÃO - DORMENTE - CARGA", 
-            "EXPANSÃO - DORMENTE - DESCARGA", "EXPANSÃO - OUTRA ATIVIDADE", "EXPANSÃO - TRILHEIRO - DESCARGA", 
-            "EXPANSÃO - PEDRA - CARGA", "EXPANSÃO - PEDRA - DESCARGA", "EXPANSÃO - SOLDA",
-            "EXPANSÃO - SOCADORA"
-        ]
-        GERENCIAS_IGNORADAS = ["MALHA CENTRAL"]
-        
-        ATIVOS_IGNORADOS = ["V66"] 
+        ATIVIDADES_IGNORADAS = []
+        GERENCIAS_IGNORADAS = []
+        ATIVOS_IGNORADOS = [] 
 
         if 'atividade' in df.columns:
             pattern = '|'.join([re.escape(x) for x in ATIVIDADES_IGNORADAS])
