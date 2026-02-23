@@ -59,6 +59,8 @@ def parse_time_to_hours(val):
 
 def process_dataframe(df):
     try:
+        print(f"DEBUG: Iniciando process_dataframe com {len(df)} linhas brutas.")
+        
         # 1. FILTRAR LINHAS VAZIAS E RENOMEAR COLUNA ATIVO
         col_ativo = find_column(df, ['ativo', 'prefixo', 'locomotiva'])
         
@@ -66,6 +68,9 @@ def process_dataframe(df):
             df = df.dropna(subset=[col_ativo])
             df = df[df[col_ativo].astype(str).str.strip() != '']
             df.rename(columns={col_ativo: 'ativo'}, inplace=True)
+            print(f"DEBUG: Após filtrar '{col_ativo}' vazio: {len(df)} linhas.")
+        else:
+            print("⚠️ AVISO: Coluna de identificação do Ativo não encontrada.")
         
         # 2. MAPEAMENTO DE COLUNAS
         col_mappings = {
@@ -99,24 +104,14 @@ def process_dataframe(df):
         if 'data' in df.columns:
             df = df.dropna(subset=['data'])
             df = df[df['data'].astype(str).str.strip() != '']
+            print(f"DEBUG: Após filtrar 'data' vazia: {len(df)} linhas.")
+        else:
+            print("⚠️ AVISO: Coluna 'data' não identificada após mapeamento.")
 
         # 3. FILTROS DE NEGÓCIO
-        ATIVIDADES_IGNORADAS = []
-        GERENCIAS_IGNORADAS = []
-        ATIVOS_IGNORADOS = [] 
-
         if 'atividade' in df.columns:
-            pattern = '|'.join([re.escape(x) for x in ATIVIDADES_IGNORADAS])
-            df = df[~df['atividade'].astype(str).str.contains(pattern, case=False, na=False)]
-
-        if 'gerencia_da_via' in df.columns:
-            pattern_ger = '|'.join([re.escape(x) for x in GERENCIAS_IGNORADAS])
-            df = df[~df['gerencia_da_via'].astype(str).str.contains(pattern_ger, case=False, na=False)]
-
-        if 'ativo' in df.columns and ATIVOS_IGNORADOS:
-            pattern_ativo = '|'.join([re.escape(x) for x in ATIVOS_IGNORADOS])
-            if pattern_ativo:
-                df = df[~df['ativo'].astype(str).str.contains(pattern_ativo, case=False, na=False)]
+            # Espaço para ATIVIDADES_IGNORADAS se necessário
+            pass
 
         # 4. TRATAMENTO DE STATUS
         if 'status' not in df.columns:
@@ -146,7 +141,6 @@ def process_dataframe(df):
                         return 'CONCLUIDO' if p_real > 0 else 'CANCELADO'
                     
                     percent = p_real / p_prog
-                    
                     if percent <= 0.49: return 'CANCELADO'
                     elif percent <= 0.90: return 'PARCIAL'
                     else: return 'CONCLUIDO'
@@ -171,20 +165,12 @@ def process_dataframe(df):
         else:
             df['fim_prog'] = None
 
-        # 6. REGRA MODERNIZAÇÃO
+        # 6. REGRAS DE MODERNIZAÇÃO
         ativos_modernizacao = [
             "ModernizaçãoTURMA2", "ModernizaçãoLASTRO2", "MOD ZYQ ZWI", "MOD ZWU ZDC",
             "MODERNIZAÇÃO TURMA 2", "MOD ZDG PAT", "MOD ZRB ZEV", "MOD ZEM",
             "MOD SPN", "MODERNIZAÇÃO ZGP", "MODERNIZAÇÃO SERRA", "MOD ZGP", "MOD FN", "MOD SPN",
         ]
-        
-        if 'ativo' not in df.columns: df['ativo'] = ''
-        if 'gerencia_da_via' not in df.columns: df['gerencia_da_via'] = None
-
-        mask_mod = df['ativo'].astype(str).str.strip().isin(ativos_modernizacao)
-        df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
-
-        # 6.1 REGRA MODERNIZAÇÃO POR ATIVIDADE
         atividades_modernizacao = [
             "MODERNIZAÇÃO - PEDRA - DESCARGA", "MODERNIZAÇÃO - OUTRA ATIVIDADE",
             "MODERNIZAÇÃO - SOLDA", "MODERNIZAÇÃO - RECOLHIMENTO DE DORMENTE",
@@ -192,10 +178,14 @@ def process_dataframe(df):
             "MODERNIZAÇÃO - DORMENTE - DESCARGA", "MODERNIZAÇÃO - SUBSTITUIÇÃO DE DORMENTE",
             "MODERNIZAÇÃO - PEDRA - CARGA", "MODERNIZAÇÃO - DESCARGA - TRILHO"
         ]
-
+        
+        if 'ativo' not in df.columns: df['ativo'] = ''
+        if 'gerencia_da_via' not in df.columns: df['gerencia_da_via'] = None
         if 'atividade' not in df.columns: df['atividade'] = ''
-        mask_mod_atividade = df['atividade'].astype(str).str.strip().isin(atividades_modernizacao)
-        df.loc[mask_mod_atividade, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
+
+        mask_mod = (df['ativo'].astype(str).str.strip().isin(ativos_modernizacao)) | \
+                   (df['atividade'].astype(str).str.strip().isin(atividades_modernizacao))
+        df.loc[mask_mod, 'gerencia_da_via'] = 'MODERNIZAÇÃO'
 
         # 7. LIMPEZA E PREPARAÇÃO FINAL
         df['updated_at'] = datetime.now()
@@ -219,16 +209,18 @@ def process_dataframe(df):
                 df[col] = temp.replace({np.nan: None})
 
         # 8. HASHING
-        df = df.reset_index(drop=True)
-        df['hash_source'] = (
-            df.index.astype(str) + "-" + 
-            df['data'].astype(str) + "-" + 
-            df['ativo'].astype(str)
-        )
-        df['row_hash'] = df['hash_source'].apply(lambda x: hashlib.md5(str(x).encode()).hexdigest())
+        if not df.empty:
+            df = df.reset_index(drop=True)
+            df['hash_source'] = (
+                df.index.astype(str) + "-" + 
+                df['data'].astype(str) + "-" + 
+                df['ativo'].astype(str)
+            )
+            df['row_hash'] = df['hash_source'].apply(lambda x: hashlib.md5(str(x).encode()).hexdigest())
 
+        print(f"DEBUG: Finalizando process_dataframe com {len(df)} registros válidos.")
         return df[required_columns]
 
     except Exception as e:
-        print(f"❌ Erro no process_dataframe: {e}")
+        print(f"❌ Erro crítico no process_dataframe: {e}")
         raise e
