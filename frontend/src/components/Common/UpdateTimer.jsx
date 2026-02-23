@@ -2,14 +2,26 @@ import React from 'react';
 import { Clock, AlertCircle } from 'lucide-react';
 
 const UpdateTimer = ({ seconds }) => {
-  const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-  // 600 segundos = 10 minutos (100%)
-  const percentage = (seconds / 600) * 100;
+  // Formata o tempo para HH:MM:SS se passar de 1 hora, ou MM:SS caso contrário
+  const formatTime = (s) => {
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 3600 segundos = 1 hora (100%)
+  const TOTAL_SECONDS = 3600;
+  const percentage = (seconds / TOTAL_SECONDS) * 100;
   const isExpired = seconds === 0;
 
   return (
     <div className="flex items-center gap-3">
-      <div>
+      <div className="text-right">
         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
           {isExpired ? "Aguardando Atualização" : "Próxima Atualização"}
         </p>
@@ -24,13 +36,23 @@ const UpdateTimer = ({ seconds }) => {
       </div>
       <div className="relative w-8 h-8 flex items-center justify-center">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-          <path className="text-gray-200 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+          {/* Círculo de Fundo (Trilho) */}
+          <path 
+            className="text-gray-200 dark:text-slate-700" 
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="3" 
+          />
+          {/* Círculo de Progresso */}
           <path 
             className={`${isExpired ? 'text-red-500' : 'text-blue-600 dark:text-blue-500'} transition-all duration-1000 ease-linear`}
             strokeDasharray={`${percentage}, 100`} 
             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
             fill="none" 
-            stroke="currentColor" strokeWidth="3" strokeLinecap="round" 
+            stroke="currentColor" 
+            strokeWidth="3" 
+            strokeLinecap="round" 
           />
         </svg>
       </div>
