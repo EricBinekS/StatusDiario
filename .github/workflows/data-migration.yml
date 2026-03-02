@@ -2,9 +2,9 @@ name: Executar ETL na Atualização de Dados
 
 on:
   workflow_dispatch: 
-  # push:          
-  #   paths:
-  #     - 'backend/raw_data/**'
+  push:          
+    paths:
+     - 'backend/raw_data/**'
 
   schedule:
     - cron: '0 * * * *'
