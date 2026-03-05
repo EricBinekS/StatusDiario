@@ -6,8 +6,8 @@ on:
     paths:
      - 'backend/raw_data/**'
 
-  schedule:
-    - cron: '0 * * * *'
+ # schedule:
+  #  - cron: '0 * * * *'
 
 jobs:
   run-migration:
